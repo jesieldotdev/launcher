@@ -136,7 +136,7 @@ fun KdeLauncher(state: LauncherUiState, controller: LauncherController) {
                         leading = {
                             MenuBarButton(state, controller, palette, "Lançador de aplicativos", Icons.Default.Apps, palette.onAccent, { openDrawer(search = false) }, size = 44.dp, background = palette.accent)
                         },
-                        trailing = { Tray(palette) { controller.controlCenterOpen = !controller.controlCenterOpen } },
+                        trailing = { if (state.layout.showTray) Tray(palette) { controller.controlCenterOpen = !controller.controlCenterOpen } },
                     )
                 }
             }

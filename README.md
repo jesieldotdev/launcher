@@ -7,7 +7,7 @@ preservados ao trocar de tema.
 
 O conceito completo está em [`docs/conceito.md`](docs/conceito.md).
 
-**Baixar APK:** [`releases/launcher-debug.apk`](releases/launcher-debug.apk)
+**Baixar APK:** [`releases/launcher.apk`](releases/launcher.apk)
 
 ## Temas
 
@@ -96,7 +96,8 @@ e a moldura (barras, dock, menus), e reaproveita `DesktopCanvas`, `AppDrawer` e 
 Requer JDK 17+ e Android SDK 35.
 
 ```sh
-./gradlew assembleDebug          # app/build/outputs/apk/debug/app-debug.apk
+./gradlew assembleRelease        # APK otimizado: app/build/outputs/apk/release/app-release.apk
+./gradlew assembleDebug          # APK de depuração (mais lento)
 ./gradlew testDebugUnitTest      # testes
 ./gradlew recordRoborazziDebug   # regenera docs/screenshots
 ```

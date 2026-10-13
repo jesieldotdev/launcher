@@ -31,6 +31,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -71,7 +72,11 @@ fun AppTile(
 ) {
     var menuOpen by remember { mutableStateOf(false) }
     var folderPickerOpen by remember { mutableStateOf(false) }
-    var bounds by remember { mutableStateOf<Rect?>(null) }
+    // Guardado fora do estado do Compose: atualizar a cada quadro de rolagem recompunha o ícone.
+    val coordinates = remember { arrayOfNulls<LayoutCoordinates>(1) }
+    fun bounds(): Rect? = coordinates[0]?.takeIf { it.isAttached }?.boundsInWindow()?.let {
+        Rect(it.left.toInt(), it.top.toInt(), it.right.toInt(), it.bottom.toInt())
+    }
     val haptics = LocalHapticFeedback.current
     val interaction = remember { MutableInteractionSource() }
 
@@ -86,7 +91,7 @@ fun AppTile(
                     interactionSource = interaction,
                     indication = null,
                     onClick = {
-                        controller.launch(app, bounds)
+                        controller.launch(app, bounds())
                         onLaunched()
                     },
                     onLongClick = {
@@ -98,10 +103,7 @@ fun AppTile(
         ) {
             val iconModifier = Modifier
                 .size(iconSize)
-                .onGloballyPositioned {
-                    val r = it.boundsInWindow()
-                    bounds = Rect(r.left.toInt(), r.top.toInt(), r.right.toInt(), r.bottom.toInt())
-                }
+                .onGloballyPositioned { coordinates[0] = it }
             if (iconBackground != null) {
                 Box(
                     iconModifier.clip(RoundedCornerShape(iconSize * 0.24f)).background(iconBackground).padding(iconSize * 0.14f),

@@ -238,6 +238,9 @@ fun SettingsScreen(state: LauncherUiState, controller: LauncherController, onClo
                             vm.updateLayout { it.copy(dockBackground = on) }
                         }
                     }
+                    if (layout.showDock && (state.themeId == "windows" || state.themeId == "kde")) {
+                        SwitchRow("Mostrar hora e data na barra", layout.showTray) { on -> vm.updateLayout { it.copy(showTray = on) } }
+                    }
                     if (state.themeId == "ubuntu" || state.themeId == "macos") {
                         SwitchRow("Mostrar barra superior", layout.showTopBar) { on -> vm.updateLayout { it.copy(showTopBar = on) } }
                     }

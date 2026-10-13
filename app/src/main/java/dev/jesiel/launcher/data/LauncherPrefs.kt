@@ -24,6 +24,8 @@ data class ThemeLayout(
     val showDock: Boolean = true,
     /** Fundo (painel translúcido) atrás dos ícones da dock / barra de tarefas. */
     val dockBackground: Boolean = true,
+    /** Bandeja com hora, data, Wi-Fi e bateria na barra (Windows e KDE). */
+    val showTray: Boolean = true,
     /** O menu de apps abre direto na lista completa (como no KDE) em vez dos fixados. */
     val menuOpensAllApps: Boolean = false,
     /** Barra superior (Ubuntu e macOS) visível. */
@@ -138,6 +140,7 @@ class LauncherPrefs(context: Context) {
                     menuIcon = enumOr(l.optString("menuIcon"), MenuIcon.DEFAULT),
                     showDock = l.optBoolean("dock", true),
                     dockBackground = l.optBoolean("dockBackground", true),
+                    showTray = l.optBoolean("tray", true),
                     menuOpensAllApps = l.optBoolean("menuAllApps", false),
                     showTopBar = l.optBoolean("topBar", true),
                 )
@@ -198,6 +201,7 @@ class LauncherPrefs(context: Context) {
                         .put("menuIcon", l.menuIcon.name)
                         .put("dock", l.showDock)
                         .put("dockBackground", l.dockBackground)
+                        .put("tray", l.showTray)
                         .put("menuAllApps", l.menuOpensAllApps)
                         .put("topBar", l.showTopBar),
                 )

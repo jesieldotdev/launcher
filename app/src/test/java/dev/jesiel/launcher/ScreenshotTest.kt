@@ -260,6 +260,22 @@ class ScreenshotTest {
     }
 
     @Test
+    fun trayLongPressHidesIt() {
+        val controller = controller()
+        compose.setContent { WindowsLauncher(sampleState(), controller) }
+        compose.onNodeWithContentDescription("Configurações rápidas").performTouchInput { longClick() }
+        compose.waitForIdle()
+        compose.onNodeWithText("Ocultar hora e data").assertExists()
+    }
+
+    @Test
+    fun noTray() {
+        val controller = controller()
+        compose.setContent { WindowsLauncher(sampleState().copy(layout = ThemeLayout(showTray = false)), controller) }
+        compose.onRoot().captureRoboImage(shot("windows-no-tray"))
+    }
+
+    @Test
     fun noDockBackground() {
         val controller = controller()
         compose.setContent { WindowsLauncher(sampleState().copy(layout = ThemeLayout(dockBackground = false)), controller) }

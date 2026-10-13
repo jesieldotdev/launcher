@@ -13,12 +13,27 @@ android {
         applicationId = "dev.jesiel.launcher"
         minSdk = 26
         targetSdk = 35
-        versionCode = 6
-        versionName = "0.6.0"
+        versionCode = 7
+        versionName = "0.6.1"
+    }
+
+    // Mesma chave para debug e release, para que um APK instale por cima do outro.
+    // Chave de uso pessoal; para publicar na Play Store, use uma chave própria e privada.
+    signingConfigs {
+        create("shared") {
+            storeFile = rootProject.file("signing/launcher.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
     }
 
     buildTypes {
+        debug {
+            signingConfig = signingConfigs.getByName("shared")
+        }
         release {
+            signingConfig = signingConfigs.getByName("shared")
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")

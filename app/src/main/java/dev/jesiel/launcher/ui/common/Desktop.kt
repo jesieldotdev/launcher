@@ -349,15 +349,15 @@ private const val SWIPE_VELOCITY = 1200f
 @Composable
 private fun DesktopBackground(controller: LauncherController, edit: Boolean, onTap: () -> Unit, onAddScreen: () -> Unit, modifier: Modifier) {
     var menuAt by remember { mutableStateOf<DpOffset?>(null) }
-    var origin by remember { mutableStateOf(Offset.Zero) }
+    val origin = remember { arrayOf(Offset.Zero) }
     val density = LocalDensity.current
     Box(
-        modifier.onGloballyPositioned { origin = it.positionInWindow() }.pointerInput(edit) {
+        modifier.onGloballyPositioned { origin[0] = it.positionInWindow() }.pointerInput(edit) {
             detectTapGestures(
                 onTap = { pos ->
                     onTap()
                     // Toques em área vazia vão para o papel de parede animado.
-                    if (!edit) controller.sendWallpaperTap(origin.x + pos.x, origin.y + pos.y)
+                    if (!edit) controller.sendWallpaperTap(origin[0].x + pos.x, origin[0].y + pos.y)
                 },
                 onLongPress = { pos -> if (!edit) menuAt = with(density) { DpOffset(pos.x.toDp(), pos.y.toDp()) } },
             )

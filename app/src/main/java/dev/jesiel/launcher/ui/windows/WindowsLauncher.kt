@@ -13,6 +13,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -323,13 +324,22 @@ private fun Taskbar(
                 )
             }
         }
-        Tray(palette, active = controller.controlCenterOpen, onClick = onTray)
+        if (state.layout.showTray) {
+            Tray(
+                palette,
+                active = controller.controlCenterOpen,
+                onClick = onTray,
+                onHide = { controller.viewModel.updateLayout { it.copy(showTray = false) } },
+            )
+        }
     }
 }
 
 /** Bandeja do sistema: Wi-Fi, bateria e hora. Abre as configurações rápidas. */
 @Composable
-private fun Tray(palette: LauncherPalette, active: Boolean, onClick: () -> Unit) {
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+private fun Tray(palette: LauncherPalette, active: Boolean, onClick: () -> Unit, onHide: () -> Unit) {
+    var menu by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val now = rememberNow()
     val battery = rememberBatteryState()
@@ -338,13 +348,14 @@ private fun Tray(palette: LauncherPalette, active: Boolean, onClick: () -> Unit)
         SimpleDateFormat(if (android.text.format.DateFormat.is24HourFormat(context)) "HH:mm" else "h:mm", locale).format(Date(now))
     }
     val date = remember(now) { SimpleDateFormat("dd/MM", locale).format(Date(now)) }
+    Box {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .semantics { contentDescription = "Configurações rápidas" }
             .clip(RoundedCornerShape(10.dp))
             .background(if (active) palette.tile else Color.Transparent)
-            .clickable(onClick = onClick)
+            .combinedClickable(onClick = onClick, onLongClick = { menu = true })
             .padding(horizontal = 8.dp, vertical = 6.dp),
     ) {
         Icon(Icons.Default.Wifi, contentDescription = null, tint = palette.panelText, modifier = Modifier.size(16.dp))
@@ -355,6 +366,10 @@ private fun Tray(palette: LauncherPalette, active: Boolean, onClick: () -> Unit)
             Text(time, color = palette.panelText, fontSize = 12.sp, maxLines = 1)
             Text(date, color = palette.panelTextSecondary, fontSize = 10.sp, maxLines = 1)
         }
+    }
+    androidx.compose.material3.DropdownMenu(expanded = menu, onDismissRequest = { menu = false }, shape = RoundedCornerShape(12.dp)) {
+        androidx.compose.material3.DropdownMenuItem(text = { Text("Ocultar hora e data") }, onClick = { menu = false; onHide() })
+    }
     }
 }
 
