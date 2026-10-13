@@ -43,7 +43,7 @@ import dev.jesiel.launcher.data.CellSize
 import dev.jesiel.launcher.ui.common.AppDock
 import dev.jesiel.launcher.ui.common.AppDrawer
 import dev.jesiel.launcher.ui.common.AppMenuLabels
-import dev.jesiel.launcher.ui.common.BarButton
+import dev.jesiel.launcher.ui.common.MenuBarButton
 import dev.jesiel.launcher.ui.common.BatteryGlyph
 import dev.jesiel.launcher.ui.common.BuiltinSpec
 import dev.jesiel.launcher.ui.common.ClockCard
@@ -54,6 +54,8 @@ import dev.jesiel.launcher.ui.common.DrawerStyle
 import dev.jesiel.launcher.ui.common.LauncherPalette
 import dev.jesiel.launcher.ui.common.SystemMonitorCard
 import dev.jesiel.launcher.ui.common.ThemeRoot
+import dev.jesiel.launcher.ui.common.backdrop
+import dev.jesiel.launcher.ui.common.withTransparency
 import dev.jesiel.launcher.ui.common.isDark
 import dev.jesiel.launcher.ui.common.rememberBatteryState
 import dev.jesiel.launcher.ui.common.rememberTimeText
@@ -89,7 +91,7 @@ private val KdeLabels = AppMenuLabels(pinToDock = "Fixar no painel", unpinFromDo
 @Composable
 fun KdeLauncher(state: LauncherUiState, controller: LauncherController) {
     val dark = isDark(state.colorMode)
-    val palette = remember(dark) { kdePalette(dark) }
+    val palette = remember(dark, state.transparency) { kdePalette(dark).withTransparency(state.transparency) }
     var drawerOpen by rememberSaveable { mutableStateOf(false) }
     var focusSearch by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(controller.homePresses) { drawerOpen = false }
@@ -109,34 +111,33 @@ fun KdeLauncher(state: LauncherUiState, controller: LauncherController) {
     }
 
     ThemeRoot(controller, palette) {
-        if (state.layout.useThemeWallpaper) KdeWallpaper(dark, Modifier.fillMaxSize())
-        Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
-            DesktopCanvas(
-                state = state,
-                controller = controller,
-                palette = palette,
-                builtins = builtins,
-                labels = KdeLabels,
-                onSwipeUp = { openDrawer(search = false) },
-                onSearch = { openDrawer(search = true) },
-                modifier = Modifier.weight(1f).fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp),
-            )
-            AppDock(
-                state = state,
-                controller = controller,
-                palette = palette,
-                iconSize = 40.dp,
-                shape = RoundedCornerShape(20.dp),
-                labels = KdeLabels,
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp).fillMaxWidth(),
-                leading = {
-                    BarButton(
-                        Icons.Default.Apps, "Lançador de aplicativos", palette.onAccent, { openDrawer(search = false) },
-                        size = 44.dp, background = palette.accent,
-                    )
-                },
-                trailing = { Tray(palette) { controller.controlCenterOpen = !controller.controlCenterOpen } },
-            )
+        Box(Modifier.fillMaxSize().backdrop(controller, drawerOpen || controller.controlCenterOpen, state.transparency)) {
+            if (state.layout.useThemeWallpaper) KdeWallpaper(dark, Modifier.fillMaxSize())
+            Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
+                DesktopCanvas(
+                    state = state,
+                    controller = controller,
+                    palette = palette,
+                    builtins = builtins,
+                    labels = KdeLabels,
+                    onSwipeUp = { openDrawer(search = false) },
+                    onSearch = { openDrawer(search = true) },
+                    modifier = Modifier.weight(1f).fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp),
+                )
+                AppDock(
+                    state = state,
+                    controller = controller,
+                    palette = palette,
+                    iconSize = 40.dp,
+                    shape = RoundedCornerShape(20.dp),
+                    labels = KdeLabels,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp).fillMaxWidth(),
+                    leading = {
+                        MenuBarButton(state, controller, palette, "Lançador de aplicativos", Icons.Default.Apps, palette.onAccent, { openDrawer(search = false) }, size = 44.dp, background = palette.accent)
+                    },
+                    trailing = { Tray(palette) { controller.controlCenterOpen = !controller.controlCenterOpen } },
+                )
+            }
         }
         AppDrawer(
             visible = drawerOpen,

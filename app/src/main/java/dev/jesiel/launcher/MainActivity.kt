@@ -5,7 +5,15 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.runtime.getValue
@@ -20,6 +28,9 @@ class MainActivity : ComponentActivity() {
     private val viewModel: LauncherViewModel by viewModels()
     private lateinit var widgets: WidgetHost
     private lateinit var controller: LauncherController
+    private val pickImage = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) viewModel.setCustomMenuIcon(uri)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge(
@@ -29,6 +40,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         widgets = WidgetHost(this)
         controller = LauncherController(this, viewModel, widgets)
+        controller.pickImage = { pickImage.launch(arrayOf("image/*")) }
 
         setContent {
             val state by viewModel.state.collectAsStateWithLifecycle()
@@ -36,10 +48,15 @@ class MainActivity : ComponentActivity() {
 
             // Sendo a tela inicial, o botão Voltar nunca fecha o launcher.
             BackHandler { }
-            theme.Content(state, controller)
+            // Troca de tema com transição suave.
+            Crossfade(targetState = theme, animationSpec = tween(450), label = "tema") { it.Content(state, controller) }
 
-            if (controller.settingsOpen) {
-                BackHandler { controller.settingsOpen = false }
+            BackHandler(enabled = controller.settingsOpen) { controller.settingsOpen = false }
+            AnimatedVisibility(
+                visible = controller.settingsOpen,
+                enter = slideInHorizontally(tween(280)) { it } + fadeIn(tween(200)),
+                exit = slideOutHorizontally(tween(240)) { it } + fadeOut(tween(200)),
+            ) {
                 SettingsScreen(state, controller, onClose = { controller.settingsOpen = false })
             }
             if (controller.widgetPickerOpen) {

@@ -47,7 +47,7 @@ import dev.jesiel.launcher.LauncherUiState
 import dev.jesiel.launcher.data.CellSize
 import dev.jesiel.launcher.ui.common.AppDock
 import dev.jesiel.launcher.ui.common.AppDrawer
-import dev.jesiel.launcher.ui.common.BarButton
+import dev.jesiel.launcher.ui.common.MenuBarButton
 import dev.jesiel.launcher.ui.common.BatteryCard
 import dev.jesiel.launcher.ui.common.BatteryGlyph
 import dev.jesiel.launcher.ui.common.BuiltinSpec
@@ -59,6 +59,8 @@ import dev.jesiel.launcher.ui.common.DockDivider
 import dev.jesiel.launcher.ui.common.DrawerStyle
 import dev.jesiel.launcher.ui.common.LauncherPalette
 import dev.jesiel.launcher.ui.common.ThemeRoot
+import dev.jesiel.launcher.ui.common.backdrop
+import dev.jesiel.launcher.ui.common.withTransparency
 import dev.jesiel.launcher.ui.common.isDark
 import dev.jesiel.launcher.ui.common.rememberBatteryState
 import dev.jesiel.launcher.ui.common.rememberTimeText
@@ -90,7 +92,7 @@ fun macPalette(dark: Boolean) = if (dark) {
 @Composable
 fun MacLauncher(state: LauncherUiState, controller: LauncherController) {
     val dark = isDark(state.colorMode)
-    val palette = remember(dark) { macPalette(dark) }
+    val palette = remember(dark, state.transparency) { macPalette(dark).withTransparency(state.transparency) }
     var launchpadOpen by rememberSaveable { mutableStateOf(false) }
     var focusSearch by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(controller.homePresses) { launchpadOpen = false }
@@ -110,38 +112,37 @@ fun MacLauncher(state: LauncherUiState, controller: LauncherController) {
     }
 
     ThemeRoot(controller, palette) {
-        if (state.layout.useThemeWallpaper) MacWallpaper(dark, Modifier.fillMaxSize())
-        Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
-            MenuBar(
-                palette = palette,
-                onSpotlight = { openLaunchpad(search = true) },
-                onControlCenter = { controller.controlCenterOpen = !controller.controlCenterOpen },
-            )
-            DesktopCanvas(
-                state = state,
-                controller = controller,
-                palette = palette,
-                builtins = builtins,
-                onSwipeUp = { openLaunchpad(search = false) },
-                onSearch = { openLaunchpad(search = true) },
-                modifier = Modifier.weight(1f).fillMaxWidth().padding(horizontal = 10.dp, vertical = 6.dp),
-            )
-            Box(Modifier.fillMaxWidth().padding(bottom = 8.dp), contentAlignment = Alignment.Center) {
-                AppDock(
+        Box(Modifier.fillMaxSize().backdrop(controller, launchpadOpen || controller.controlCenterOpen, state.transparency)) {
+            if (state.layout.useThemeWallpaper) MacWallpaper(dark, Modifier.fillMaxSize())
+            Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
+                MenuBar(
+                    palette = palette,
+                    onSpotlight = { openLaunchpad(search = true) },
+                    onControlCenter = { controller.controlCenterOpen = !controller.controlCenterOpen },
+                )
+                DesktopCanvas(
                     state = state,
                     controller = controller,
                     palette = palette,
-                    iconSize = 48.dp,
-                    shape = RoundedCornerShape(26.dp),
-                    modifier = Modifier.padding(horizontal = 12.dp),
-                    trailing = {
-                        DockDivider(palette.dockStroke, vertical = false)
-                        BarButton(
-                            Icons.Default.Apps, "Launchpad", Color.White, { openLaunchpad(search = false) },
-                            size = 48.dp, background = Color(0x4D8E8E93), shape = RoundedCornerShape(12.dp),
-                        )
-                    },
+                    builtins = builtins,
+                    onSwipeUp = { openLaunchpad(search = false) },
+                    onSearch = { openLaunchpad(search = true) },
+                    modifier = Modifier.weight(1f).fillMaxWidth().padding(horizontal = 10.dp, vertical = 6.dp),
                 )
+                Box(Modifier.fillMaxWidth().padding(bottom = 8.dp), contentAlignment = Alignment.Center) {
+                    AppDock(
+                        state = state,
+                        controller = controller,
+                        palette = palette,
+                        iconSize = 48.dp,
+                        shape = RoundedCornerShape(26.dp),
+                        modifier = Modifier.padding(horizontal = 12.dp),
+                        trailing = {
+                            DockDivider(palette.dockStroke, vertical = false)
+                            MenuBarButton(state, controller, palette, "Launchpad", Icons.Default.Apps, Color.White, { openLaunchpad(search = false) }, size = 48.dp, background = Color(0x4D8E8E93))
+                        },
+                    )
+                }
             }
         }
         AppDrawer(

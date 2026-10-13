@@ -1,5 +1,16 @@
 package dev.jesiel.launcher.ui.common
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.StartOffset
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -35,9 +46,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -47,6 +60,8 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
@@ -157,6 +172,10 @@ fun DesktopCanvas(
 
         val pages = if (layout.multiPage) maxOf(layout.pageCount, (resolved.values.maxOfOrNull { it.page } ?: 0) + 1) else 1
         val pager = rememberPagerState { pages }
+        LaunchedEffect(pager, pages) {
+            snapshotFlow { pager.currentPage + pager.currentPageOffsetFraction }
+                .collect { controller.setWallpaperScroll(it, pages) }
+        }
         val scope = rememberCoroutineScope()
 
         fun move(id: String, target: Placement) {
@@ -248,11 +267,16 @@ private const val SWIPE_VELOCITY = 1200f
 @Composable
 private fun DesktopBackground(controller: LauncherController, edit: Boolean, onTap: () -> Unit, modifier: Modifier) {
     var menuAt by remember { mutableStateOf<DpOffset?>(null) }
+    var origin by remember { mutableStateOf(Offset.Zero) }
     val density = LocalDensity.current
     Box(
-        modifier.pointerInput(edit) {
+        modifier.onGloballyPositioned { origin = it.positionInWindow() }.pointerInput(edit) {
             detectTapGestures(
-                onTap = { onTap() },
+                onTap = { pos ->
+                    onTap()
+                    // Toques em área vazia vão para o papel de parede animado.
+                    if (!edit) controller.sendWallpaperTap(origin.x + pos.x, origin.y + pos.y)
+                },
                 onLongPress = { pos -> if (!edit) menuAt = with(density) { DpOffset(pos.x.toDp(), pos.y.toDp()) } },
             )
         },
@@ -311,14 +335,41 @@ private fun PlacedItem(
     var drag by remember { mutableStateOf(Offset.Zero) }
     var resize by remember { mutableStateOf(Offset.Zero) }
     val current by rememberUpdatedState(placement)
+    val scope = rememberCoroutineScope()
+
+    // Ao soltar, o item desliza da posição solta até a posição final.
+    val ax = remember { Animatable(placement.x) }
+    val ay = remember { Animatable(placement.y) }
+    LaunchedEffect(placement.x, placement.y) {
+        launch { ax.animateTo(placement.x, spring(dampingRatio = 0.75f, stiffness = 400f)) }
+        launch { ay.animateTo(placement.y, spring(dampingRatio = 0.75f, stiffness = 400f)) }
+    }
+
+    // No modo de edição os itens "tremem" levemente, como no iOS.
+    val wiggle = if (edit && drag == Offset.Zero && resize == Offset.Zero) {
+        val transition = rememberInfiniteTransition(label = "tremor")
+        val phase = remember { (0..140).random() }
+        transition.animateFloat(
+            initialValue = -1.1f,
+            targetValue = 1.1f,
+            animationSpec = infiniteRepeatable(tween(150, delayMillis = 0, easing = LinearEasing), RepeatMode.Reverse, StartOffset(phase)),
+            label = "tremor",
+        ).value
+    } else 0f
+    val lift by animateFloatAsState(if (drag != Offset.Zero) 1.06f else 1f, label = "erguer")
 
     val widthPx = (placement.w * cellWpx + resize.x).coerceAtLeast(cellWpx * 0.5f)
     val heightPx = (placement.h * cellHpx + resize.y).coerceAtLeast(cellHpx * 0.5f)
 
     Box(
         Modifier
-            .offset { IntOffset((placement.x * cellWpx + drag.x).roundToInt(), (placement.y * cellHpx + drag.y).roundToInt()) }
-            .size(with(density) { widthPx.toDp() }, with(density) { heightPx.toDp() }),
+            .offset { IntOffset((ax.value * cellWpx + drag.x).roundToInt(), (ay.value * cellHpx + drag.y).roundToInt()) }
+            .size(with(density) { widthPx.toDp() }, with(density) { heightPx.toDp() })
+            .graphicsLayer {
+                rotationZ = wiggle
+                scaleX = lift
+                scaleY = lift
+            },
     ) {
         content()
         if (edit) {
@@ -334,8 +385,14 @@ private fun PlacedItem(
                             onDragStart = { onSelect() },
                             onDragEnd = {
                                 val p = current
-                                onMove(p.copy(x = p.x + drag.x / cellWpx, y = p.y + drag.y / cellHpx))
-                                drag = Offset.Zero
+                                val dropX = ax.value + drag.x / cellWpx
+                                val dropY = ay.value + drag.y / cellHpx
+                                scope.launch {
+                                    ax.snapTo(dropX)
+                                    ay.snapTo(dropY)
+                                    drag = Offset.Zero
+                                    onMove(p.copy(x = dropX, y = dropY))
+                                }
                             },
                             onDragCancel = { drag = Offset.Zero },
                         ) { change, amount ->
@@ -422,9 +479,9 @@ private fun PageDots(count: Int, current: Int, color: Color, modifier: Modifier)
             Box(
                 Modifier
                     .padding(horizontal = 3.dp)
-                    .size(if (i == current) 8.dp else 6.dp)
+                        .size(animateDpAsState(if (i == current) 8.dp else 6.dp, label = "ponto").value)
                     .clip(CircleShape)
-                    .background(color.copy(alpha = if (i == current) 0.95f else 0.45f)),
+                    .background(color.copy(alpha = animateFloatAsState(if (i == current) 0.95f else 0.45f, label = "ponto").value)),
             )
         }
     }

@@ -47,7 +47,7 @@ import dev.jesiel.launcher.data.CellSize
 import dev.jesiel.launcher.ui.common.AppDock
 import dev.jesiel.launcher.ui.common.AppDrawer
 import dev.jesiel.launcher.ui.common.AppMenuLabels
-import dev.jesiel.launcher.ui.common.BarButton
+import dev.jesiel.launcher.ui.common.MenuBarButton
 import dev.jesiel.launcher.ui.common.BatteryCard
 import dev.jesiel.launcher.ui.common.BatteryGlyph
 import dev.jesiel.launcher.ui.common.BuiltinSpec
@@ -58,6 +58,8 @@ import dev.jesiel.launcher.ui.common.DockDivider
 import dev.jesiel.launcher.ui.common.DrawerStyle
 import dev.jesiel.launcher.ui.common.LauncherPalette
 import dev.jesiel.launcher.ui.common.ThemeRoot
+import dev.jesiel.launcher.ui.common.backdrop
+import dev.jesiel.launcher.ui.common.withTransparency
 import dev.jesiel.launcher.ui.common.isDark
 import dev.jesiel.launcher.ui.common.rememberBatteryState
 import dev.jesiel.launcher.ui.common.rememberTimeText
@@ -91,7 +93,7 @@ private val UbuntuLabels = AppMenuLabels(pinToDock = "Adicionar aos favoritos", 
 @Composable
 fun UbuntuLauncher(state: LauncherUiState, controller: LauncherController) {
     val dark = isDark(state.colorMode)
-    val palette = remember(dark) { ubuntuPalette(dark) }
+    val palette = remember(dark, state.transparency) { ubuntuPalette(dark).withTransparency(state.transparency) }
     var drawerOpen by rememberSaveable { mutableStateOf(false) }
     var focusSearch by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(controller.homePresses) { drawerOpen = false }
@@ -110,43 +112,44 @@ fun UbuntuLauncher(state: LauncherUiState, controller: LauncherController) {
     }
 
     ThemeRoot(controller, palette) {
-        if (state.layout.useThemeWallpaper) UbuntuWallpaper(dark, Modifier.fillMaxSize())
+        Box(Modifier.fillMaxSize().backdrop(controller, drawerOpen || controller.controlCenterOpen, state.transparency)) {
+            if (state.layout.useThemeWallpaper) UbuntuWallpaper(dark, Modifier.fillMaxSize())
 
-        Box(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
-            TopBar(
-                palette = palette,
-                onActivities = { openDrawer(search = false) },
-                onSystem = { controller.controlCenterOpen = !controller.controlCenterOpen },
-                modifier = Modifier.fillMaxWidth().height(32.dp),
-            )
-            Row(Modifier.fillMaxSize().padding(top = 36.dp, bottom = 8.dp)) {
-                AppDock(
-                    state = state,
-                    controller = controller,
+            Box(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
+                TopBar(
                     palette = palette,
-                    vertical = true,
-                    iconSize = 40.dp,
-                    shape = RoundedCornerShape(topEnd = 22.dp, bottomEnd = 22.dp),
-                    labels = UbuntuLabels,
-                    modifier = Modifier.fillMaxHeight(0.82f).align(Alignment.CenterVertically),
-                    trailing = {
-                        DockDivider(palette.cardTextSecondary.copy(alpha = 0.4f), vertical = true)
-                        BarButton(Icons.Default.Apps, "Mostrar aplicativos", palette.panelText, { openDrawer(search = false) }, size = 44.dp)
-                    },
+                    onActivities = { openDrawer(search = false) },
+                    onSystem = { controller.controlCenterOpen = !controller.controlCenterOpen },
+                    modifier = Modifier.fillMaxWidth().height(32.dp),
                 )
-                DesktopCanvas(
-                    state = state,
-                    controller = controller,
-                    palette = palette,
-                    builtins = builtins,
-                    labels = UbuntuLabels,
-                    onSwipeUp = { openDrawer(search = false) },
-                    onSearch = { openDrawer(search = true) },
-                    modifier = Modifier.weight(1f).fillMaxHeight().padding(horizontal = 6.dp),
-                )
+                Row(Modifier.fillMaxSize().padding(top = 36.dp, bottom = 8.dp)) {
+                    AppDock(
+                        state = state,
+                        controller = controller,
+                        palette = palette,
+                        vertical = true,
+                        iconSize = 40.dp,
+                        shape = RoundedCornerShape(topEnd = 22.dp, bottomEnd = 22.dp),
+                        labels = UbuntuLabels,
+                        modifier = Modifier.fillMaxHeight(0.82f).align(Alignment.CenterVertically),
+                        trailing = {
+                            DockDivider(palette.cardTextSecondary.copy(alpha = 0.4f), vertical = true)
+                            MenuBarButton(state, controller, palette, "Mostrar aplicativos", Icons.Default.Apps, palette.panelText, { openDrawer(search = false) }, size = 44.dp)
+                        },
+                    )
+                    DesktopCanvas(
+                        state = state,
+                        controller = controller,
+                        palette = palette,
+                        builtins = builtins,
+                        labels = UbuntuLabels,
+                        onSwipeUp = { openDrawer(search = false) },
+                        onSearch = { openDrawer(search = true) },
+                        modifier = Modifier.weight(1f).fillMaxHeight().padding(horizontal = 6.dp),
+                    )
+                }
             }
         }
-
         AppDrawer(
             visible = drawerOpen,
             state = state,

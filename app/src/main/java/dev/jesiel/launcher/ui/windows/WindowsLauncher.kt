@@ -7,6 +7,10 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -45,6 +49,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
@@ -66,6 +71,10 @@ import dev.jesiel.launcher.ui.common.ControlCenter
 import dev.jesiel.launcher.ui.common.DesktopCanvas
 import dev.jesiel.launcher.ui.common.LauncherPalette
 import dev.jesiel.launcher.ui.common.LocalPalette
+import dev.jesiel.launcher.ui.common.MenuButtonIcon
+import dev.jesiel.launcher.ui.common.backdrop
+import dev.jesiel.launcher.ui.common.pressScale
+import dev.jesiel.launcher.ui.common.withTransparency
 import dev.jesiel.launcher.ui.common.PanelPosition
 import dev.jesiel.launcher.ui.common.SearchBar
 import dev.jesiel.launcher.ui.common.glass
@@ -86,7 +95,7 @@ private val TaskbarHeight = 60.dp
 @Composable
 fun WindowsLauncher(state: LauncherUiState, controller: LauncherController) {
     val dark = isDark(state.colorMode)
-    val palette = remember(dark) { windowsPalette(dark) }
+    val palette = remember(dark, state.transparency) { windowsPalette(dark).withTransparency(state.transparency) }
     var startOpen by rememberSaveable { mutableStateOf(false) }
     var searchFocused by rememberSaveable { mutableStateOf(false) }
 
@@ -122,6 +131,8 @@ fun WindowsLauncher(state: LauncherUiState, controller: LauncherController) {
     CompositionLocalProvider(LocalPalette provides palette) {
         MaterialTheme(colorScheme = palette.colorScheme) {
             Box(Modifier.fillMaxSize()) {
+                // Fundo (papel de parede + área de trabalho) desfocado quando um painel abre.
+                Box(Modifier.fillMaxSize().backdrop(controller, startOpen || controller.controlCenterOpen, state.transparency)) {
                 if (state.layout.useThemeWallpaper) WindowsBloomWallpaper(dark, Modifier.fillMaxSize())
 
                 DesktopCanvas(
@@ -138,6 +149,7 @@ fun WindowsLauncher(state: LauncherUiState, controller: LauncherController) {
                         .navigationBarsPadding()
                         .padding(start = 8.dp, end = 8.dp, top = 8.dp, bottom = TaskbarHeight + 12.dp),
                 )
+                }
 
                 AnimatedVisibility(visible = startOpen, enter = fadeIn(), exit = fadeOut()) {
                     Box(
@@ -270,7 +282,13 @@ private fun Taskbar(
             .glass(palette.dock, WindowsShape, palette.dockStroke)
             .padding(horizontal = 6.dp),
     ) {
-        TaskbarButton(active = startOpen, description = "Iniciar", palette = palette, onClick = onStart) { WindowsLogo(26.dp) }
+        TaskbarButton(active = startOpen, description = "Iniciar", palette = palette, onClick = onStart) {
+            // O logotipo "afunda" de leve enquanto o Iniciar está aberto.
+            val scale by animateFloatAsState(if (startOpen) 0.9f else 1f, spring(dampingRatio = 0.4f), label = "iniciar")
+            Box(Modifier.graphicsLayer { scaleX = scale; scaleY = scale }) {
+                MenuButtonIcon(state, controller, palette, 28.dp) { WindowsLogo(26.dp) }
+            }
+        }
         TaskbarButton(active = false, description = "Pesquisar", palette = palette, onClick = onSearch) {
             Icon(Icons.Default.Search, contentDescription = null, tint = palette.panelText, modifier = Modifier.size(26.dp))
         }
@@ -337,22 +355,26 @@ private fun TaskbarButton(
     onClick: () -> Unit,
     content: @Composable () -> Unit,
 ) {
+    val interaction = remember { MutableInteractionSource() }
+    val background by animateColorAsState(if (active) palette.tile else Color.Transparent, label = "botão")
     Box(
         contentAlignment = Alignment.Center,
         modifier = Modifier
             .semantics { contentDescription = description }
+            .pressScale(interaction, 0.85f)
             .size(44.dp)
             .clip(RoundedCornerShape(10.dp))
-            .background(if (active) palette.tile else Color.Transparent)
-            .clickable(onClick = onClick),
+            .background(background)
+            .clickable(interaction, indication = null, onClick = onClick),
     ) {
         content()
-        if (active) {
+        val indicator by animateDpAsState(if (active) 16.dp else 0.dp, spring(dampingRatio = 0.55f), label = "indicador")
+        if (indicator > 0.dp) {
             Box(
                 Modifier
                     .align(Alignment.BottomCenter)
                     .padding(bottom = 3.dp)
-                    .size(width = 16.dp, height = 3.dp)
+                    .size(width = indicator, height = 3.dp)
                     .clip(CircleShape)
                     .background(palette.accent),
             )

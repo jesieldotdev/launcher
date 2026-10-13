@@ -21,7 +21,11 @@ import androidx.compose.ui.test.swipeDown
 import androidx.compose.ui.test.hasSetTextAction
 import com.github.takahirom.roborazzi.captureRoboImage
 import com.github.takahirom.roborazzi.roborazziSystemPropertyOutputDirectory
+import dev.jesiel.launcher.data.AppCategory
 import dev.jesiel.launcher.data.AppInfo
+import dev.jesiel.launcher.data.AppsView
+import dev.jesiel.launcher.data.MenuIcon
+import dev.jesiel.launcher.data.ThemeLayout
 import dev.jesiel.launcher.data.ColorMode
 import dev.jesiel.launcher.data.FolderData
 import dev.jesiel.launcher.data.HomeItem
@@ -74,6 +78,12 @@ class ScreenshotTest {
             component = ComponentName("fake.${label.lowercase()}", "Main"),
             user = Process.myUserHandle(),
             icon = bitmap.asImageBitmap(),
+            category = when (label) {
+                "WhatsApp", "Gmail", "Contatos", "Telefone", "Mensagens" -> AppCategory.COMMUNICATION
+                "Spotify", "Câmera", "Música", "Fotos" -> AppCategory.MEDIA
+                "Calendário", "Notas", "Arquivos" -> AppCategory.PRODUCTIVITY
+                else -> AppCategory.TOOLS
+            },
         )
     }
 
@@ -171,6 +181,31 @@ class ScreenshotTest {
         compose.mainClock.advanceTimeBy(1_000)
         compose.waitForIdle()
         compose.onRoot().captureRoboImage(shot("windows-all-apps"))
+    }
+
+    private fun allAppsShot(name: String, view: AppsView, dark: Boolean = false) {
+        val controller = controller()
+        compose.setContent { WindowsLauncher(sampleState(dark).copy(appsView = view), controller) }
+        compose.onNodeWithContentDescription("Iniciar").performClick()
+        compose.onNodeWithText("Todos os apps").performClick()
+        compose.mainClock.advanceTimeBy(1_500)
+        compose.waitForIdle()
+        compose.onRoot().captureRoboImage(shot(name))
+    }
+
+    @Test fun allAppsCategory() = allAppsShot("windows-all-apps-category", AppsView.CATEGORY, dark = true)
+    @Test fun allAppsGrid() = allAppsShot("windows-all-apps-grid", AppsView.GRID)
+
+    @Test
+    fun startDarkMenuIcon() {
+        val controller = controller()
+        compose.setContent {
+            WindowsLauncher(sampleState(dark = true).copy(layout = ThemeLayout(menuIcon = MenuIcon.ORB)), controller)
+        }
+        compose.onNodeWithContentDescription("Iniciar").performClick()
+        compose.mainClock.advanceTimeBy(1_500)
+        compose.waitForIdle()
+        compose.onRoot().captureRoboImage(shot("windows-start-dark"))
     }
 
     @Test

@@ -68,6 +68,7 @@ import androidx.compose.ui.unit.sp
 import dev.jesiel.launcher.LauncherController
 import dev.jesiel.launcher.LauncherUiState
 import dev.jesiel.launcher.data.AppCategory
+import dev.jesiel.launcher.data.AppsView
 import kotlinx.coroutines.launch
 
 /** Variações de gaveta de apps entre os temas. */
@@ -119,7 +120,6 @@ private fun DrawerContent(
     var category by rememberSaveable { mutableStateOf<AppCategory?>(null) }
     val keyboard = LocalSoftwareKeyboardController.current
     val grid = rememberLazyGridState()
-    val scope = rememberCoroutineScope()
 
     fun close() {
         keyboard?.hide()
@@ -139,7 +139,7 @@ private fun DrawerContent(
     Column(
         Modifier
             .fillMaxSize()
-            .background(style.background ?: palette.panel)
+            .background((style.background ?: palette.panel).let { if (palette.panel.alpha < 1f) it.copy(alpha = minOf(it.alpha, palette.panel.alpha)) else it })
             .clickable(remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, indication = null) {}
             .statusBarsPadding()
             .navigationBarsPadding(),
@@ -150,9 +150,12 @@ private fun DrawerContent(
             if (best != null) controller.launch(best) else controller.webSearch(query)
             close()
         }
+        if (query.isBlank()) {
+            Row(Modifier.padding(start = 16.dp, top = 10.dp, end = 16.dp)) { AppsViewSelector(state, controller, palette) }
+        }
         if (style.categories && query.isBlank()) {
             LazyRow(
-                Modifier.padding(top = 12.dp),
+                Modifier.padding(top = 10.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp),
             ) {
@@ -161,14 +164,27 @@ private fun DrawerContent(
             }
         }
         Row(Modifier.weight(1f).padding(top = 8.dp)) {
-            LazyVerticalGrid(
+            if (query.isBlank()) {
+                AllAppsContent(
+                    apps = apps,
+                    view = state.appsView,
+                    state = state,
+                    controller = controller,
+                    palette = palette,
+                    labels = labels,
+                    onLaunched = ::close,
+                    columns = style.columns,
+                    gridState = grid,
+                    modifier = Modifier.weight(1f).fillMaxHeight(),
+                )
+            } else LazyVerticalGrid(
                 columns = GridCells.Fixed(style.columns),
                 state = grid,
                 modifier = Modifier.weight(1f).fillMaxHeight(),
                 contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 8.dp),
             ) {
                 items(apps, key = { it.key }) { app ->
-                    Box(contentAlignment = Alignment.TopCenter) {
+                    Box(Modifier.animateItem(), contentAlignment = Alignment.TopCenter) {
                         AppTile(
                             app = app,
                             state = state,
@@ -181,39 +197,35 @@ private fun DrawerContent(
                         )
                     }
                 }
-                if (query.isNotBlank()) {
-                    item(span = { GridItemSpan(maxLineSpan) }) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier
-                                .padding(8.dp)
-                                .clip(RoundedCornerShape(12.dp))
-                                .clickable { controller.webSearch(query); close() }
-                                .padding(12.dp),
-                        ) {
-                            Icon(Icons.Default.Search, null, tint = palette.accent)
-                            Spacer(Modifier.width(12.dp))
-                            Text("Pesquisar \"$query\" na Web", color = palette.panelText)
-                        }
+                item(span = { GridItemSpan(maxLineSpan) }) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .padding(8.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .clickable { controller.webSearch(query); close() }
+                            .padding(12.dp),
+                    ) {
+                        Icon(Icons.Default.Search, null, tint = palette.accent)
+                        Spacer(Modifier.width(12.dp))
+                        Text("Pesquisar \"$query\" na Web", color = palette.panelText)
                     }
                 }
             }
-            if (style.alphabetIndex && query.isBlank() && category == null) {
-                val letters = remember(apps) {
-                    apps.mapIndexed { i, a -> (a.label.firstOrNull()?.uppercaseChar()?.takeIf(Char::isLetter) ?: '#') to i }
-                        .distinctBy { it.first }
-                }
+            if (style.alphabetIndex && query.isBlank() && category == null && state.appsView != AppsView.CATEGORY) {
+                val letters = remember(apps) { letterPositions(apps) }
+                val scope = rememberCoroutineScope()
                 Column(
                     Modifier.fillMaxHeight().padding(end = 4.dp),
                     verticalArrangement = Arrangement.SpaceEvenly,
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    letters.forEach { (letter, index) ->
+                    letters.forEach { (letter, position) ->
                         Text(
                             letter.toString(),
                             color = palette.accent,
                             fontSize = 11.sp,
-                            modifier = Modifier.clickable { scope.launch { grid.scrollToItem(index) } }.padding(horizontal = 4.dp),
+                            modifier = Modifier.clickable { scope.launch { grid.animateScrollToItem(position) } }.padding(horizontal = 4.dp),
                         )
                     }
                 }

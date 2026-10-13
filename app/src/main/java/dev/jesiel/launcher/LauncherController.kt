@@ -75,7 +75,11 @@ class LauncherController(
 
     fun launch(app: AppInfo, bounds: Rect? = null) {
         try {
-            launcherApps.startMainActivity(app.component, app.user, bounds, null)
+            // Animação de abertura que cresce a partir do ícone tocado.
+            val options = bounds?.let {
+                android.app.ActivityOptions.makeScaleUpAnimation(activity.window.decorView, it.left, it.top, it.width(), it.height()).toBundle()
+            }
+            launcherApps.startMainActivity(app.component, app.user, bounds, options)
             viewModel.onAppLaunched(app)
         } catch (e: Exception) {
             toast("Não foi possível abrir ${app.label}")
@@ -121,6 +125,48 @@ class LauncherController(
         }
         start(Intent(Settings.ACTION_HOME_SETTINGS))
     }
+
+    // --- Papel de parede --------------------------------------------------------------------
+
+    private val wallpaperManager = WallpaperManager.getInstance(activity)
+
+    /** Nome do papel de parede animado do sistema, se houver. */
+    fun liveWallpaperName(): String? = runCatching {
+        wallpaperManager.wallpaperInfo?.loadLabel(activity.packageManager)?.toString()
+    }.getOrNull()
+
+    /**
+     * Repassa um toque no fundo da área de trabalho ao papel de parede animado, como fazem os
+     * launchers do sistema. É o que permite interagir com papéis de parede que reagem ao toque.
+     */
+    fun sendWallpaperTap(x: Float, y: Float) {
+        val token = activity.window.decorView.windowToken ?: return
+        runCatching { wallpaperManager.sendWallpaperCommand(token, WallpaperManager.COMMAND_TAP, x.toInt(), y.toInt(), 0, null) }
+    }
+
+    /** Informa ao papel de parede a posição entre as telas, para o efeito de rolagem. */
+    fun setWallpaperScroll(position: Float, pages: Int) {
+        val token = activity.window.decorView.windowToken ?: return
+        runCatching {
+            val step = if (pages > 1) 1f / (pages - 1) else 0f
+            wallpaperManager.setWallpaperOffsetSteps(step, 0f)
+            wallpaperManager.setWallpaperOffsets(token, if (pages > 1) (position / (pages - 1)).coerceIn(0f, 1f) else 0.5f, 0.5f)
+        }
+    }
+
+    /** Desfoca o papel de parede do sistema atrás do launcher (Android 12+), para painéis translúcidos. */
+    fun setWindowBlur(radius: Int) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
+        runCatching {
+            val window = activity.window
+            if (radius > 0) window.addFlags(android.view.WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
+            else window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
+            window.attributes = window.attributes.apply { blurBehindRadius = radius }
+        }
+    }
+
+    /** Definido pela Activity: abre o seletor de imagens para o ícone do menu. */
+    var pickImage: (() -> Unit)? = null
 
     // --- Widgets -------------------------------------------------------------------------------
 

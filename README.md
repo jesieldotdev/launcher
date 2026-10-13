@@ -17,9 +17,9 @@ O conceito completo está em [`docs/conceito.md`](docs/conceito.md).
 | ![](docs/screenshots/windows-home-dark.png) | ![](docs/screenshots/ubuntu-home-light.png) | ![](docs/screenshots/kde-home-light.png) | ![](docs/screenshots/macos-home-dark.png) | ![](docs/screenshots/ios-home-dark.png) |
 | ![](docs/screenshots/windows-start.png) | ![](docs/screenshots/ubuntu-apps.png) | ![](docs/screenshots/kde-apps.png) | ![](docs/screenshots/macos-launchpad.png) | ![](docs/screenshots/ios-library.png) |
 
-| Organizar área de trabalho | Painel de controle | Personalizar |
-| --- | --- | --- |
-| ![](docs/screenshots/windows-edit.png) | ![](docs/screenshots/windows-control-center.png) | ![](docs/screenshots/settings-dark.png) |
+| Iniciar translúcido | Todos os apps: categoria | Todos os apps: grade | Organizar | Painel de controle |
+| --- | --- | --- | --- | --- |
+| ![](docs/screenshots/windows-start-dark.png) | ![](docs/screenshots/windows-all-apps-category.png) | ![](docs/screenshots/windows-all-apps-grid.png) | ![](docs/screenshots/windows-edit.png) | ![](docs/screenshots/windows-control-center.png) |
 
 _Capturas geradas pelos testes de screenshot com apps de exemplo._
 
@@ -44,6 +44,14 @@ _Capturas geradas pelos testes de screenshot com apps de exemplo._
   avião, dados, brilho, volume e atalho para as notificações do sistema.
 - **Gestos do launcher:** deslizar para cima abre o menu de apps; deslizar para baixo abre o
   painel de controle, as notificações ou a busca (configurável).
+- **Papel de parede animado:** toques em áreas vazias são repassados a ele, e a troca de telas
+  envia o deslocamento, como nos launchers do sistema. Desative o papel de parede do tema para vê-lo.
+- **Ícone do menu de apps** configurável: padrão do tema, plano, orbe, grade ou uma imagem da galeria.
+- **Todos os apps** em Categoria, Grade ou Lista (Iniciar e gavetas).
+- **Efeitos de transparência:** menus e painéis translúcidos com o fundo desfocado (Android 12+).
+- **Animações:** toque nos ícones, abertura de apps a partir do ícone, entrada escalonada nos
+  menus, páginas do Iniciar deslizando, itens que tremem e deslizam no modo de edição, troca de
+  tema com transição e tela de ajustes deslizando.
 - Widgets Android, pastas, dock configurável, busca sem acentos, launcher padrão.
 
 O Android não permite que apps liguem Wi-Fi ou Bluetooth diretamente; esses botões abrem o

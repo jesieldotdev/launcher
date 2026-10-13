@@ -18,7 +18,20 @@ data class ThemeLayout(
     /** Várias telas, alternadas deslizando para o lado. */
     val multiPage: Boolean = false,
     val pageCount: Int = 1,
+    /** Ícone do botão que abre o menu de apps (Iniciar, Launchpad…). */
+    val menuIcon: MenuIcon = MenuIcon.DEFAULT,
 )
+
+enum class MenuIcon(val label: String) {
+    DEFAULT("Padrão do tema"),
+    FLAT("Plano"),
+    ORB("Orbe"),
+    GRID("Grade de apps"),
+    CUSTOM("Imagem da galeria"),
+}
+
+/** Como "Todos os apps" é exibido. */
+enum class AppsView(val label: String) { CATEGORY("Categoria"), GRID("Grade"), LIST("Lista") }
 
 data class FolderData(val id: String, val name: String, val appKeys: List<String>)
 
@@ -53,6 +66,9 @@ data class LauncherData(
     val placements: Map<String, Map<String, Placement>>,
     /** Tema → componentes próprios do tema que o usuário removeu da área de trabalho. */
     val hiddenBuiltins: Map<String, Set<String>>,
+    /** Painéis translúcidos com o fundo desfocado, como os efeitos de transparência do Windows. */
+    val transparency: Boolean,
+    val appsView: AppsView,
 ) {
     fun layoutFor(themeId: String) = layouts[themeId] ?: defaultLayout(themeId)
 
@@ -103,6 +119,7 @@ class LauncherPrefs(context: Context) {
                     freePlacement = l.optBoolean("free", false),
                     multiPage = l.optBoolean("multiPage", false),
                     pageCount = l.optInt("pages", 1),
+                    menuIcon = enumOr(l.optString("menuIcon"), MenuIcon.DEFAULT),
                 )
             }
         }
@@ -131,6 +148,8 @@ class LauncherPrefs(context: Context) {
             swipeDown = enumOr(prefs.getString(KEY_SWIPE_DOWN, null), SwipeAction.CONTROL_CENTER),
             placements = placements,
             hiddenBuiltins = hidden,
+            transparency = prefs.getBoolean(KEY_TRANSPARENCY, true),
+            appsView = enumOr(prefs.getString(KEY_APPS_VIEW, null), AppsView.GRID),
         )
     }
 
@@ -154,7 +173,8 @@ class LauncherPrefs(context: Context) {
                         .put("themeWallpaper", l.useThemeWallpaper)
                         .put("free", l.freePlacement)
                         .put("multiPage", l.multiPage)
-                        .put("pages", l.pageCount),
+                        .put("pages", l.pageCount)
+                        .put("menuIcon", l.menuIcon.name),
                 )
             }
         }
@@ -181,6 +201,8 @@ class LauncherPrefs(context: Context) {
             .putString(KEY_SWIPE_DOWN, d.swipeDown.name)
             .putString(KEY_PLACEMENTS, placements.toString())
             .putString(KEY_HIDDEN, hidden.toString())
+            .putBoolean(KEY_TRANSPARENCY, d.transparency)
+            .putString(KEY_APPS_VIEW, d.appsView.name)
             .apply()
     }
 
@@ -204,5 +226,7 @@ class LauncherPrefs(context: Context) {
         const val KEY_SWIPE_DOWN = "swipeDown"
         const val KEY_PLACEMENTS = "placements"
         const val KEY_HIDDEN = "hiddenBuiltins"
+        const val KEY_TRANSPARENCY = "transparency"
+        const val KEY_APPS_VIEW = "appsView"
     }
 }

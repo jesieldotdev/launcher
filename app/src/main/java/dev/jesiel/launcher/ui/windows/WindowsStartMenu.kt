@@ -1,5 +1,12 @@
 package dev.jesiel.launcher.ui.windows
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -56,7 +63,10 @@ import dev.jesiel.launcher.LauncherController
 import dev.jesiel.launcher.LauncherUiState
 import dev.jesiel.launcher.data.AppInfo
 import dev.jesiel.launcher.data.HomeItem
+import dev.jesiel.launcher.ui.common.AllAppsContent
 import dev.jesiel.launcher.ui.common.AppListRow
+import dev.jesiel.launcher.ui.common.AppsViewSelector
+import dev.jesiel.launcher.ui.common.entrance
 import dev.jesiel.launcher.ui.common.AppTile
 import dev.jesiel.launcher.ui.common.FolderTile
 import dev.jesiel.launcher.ui.common.LocalPalette
@@ -107,10 +117,26 @@ fun StartMenu(
         Spacer(Modifier.height(14.dp))
 
         Box(Modifier.weight(1f)) {
-            when {
-                query.isNotBlank() -> SearchResults(query, state, controller, ::closeAll)
-                page == StartPage.AllApps -> AllApps(state, controller, onBack = { page = StartPage.Pinned }, onLaunched = ::closeAll)
-                else -> PinnedPage(state, controller, onAllApps = { page = StartPage.AllApps }, onLaunched = ::closeAll)
+            val mode = when {
+                query.isNotBlank() -> 2
+                page == StartPage.AllApps -> 1
+                else -> 0
+            }
+            // Páginas do Iniciar deslizam para os lados, como no Windows 11.
+            AnimatedContent(
+                targetState = mode,
+                transitionSpec = {
+                    val forward = targetState > initialState
+                    (slideInHorizontally(tween(260)) { if (forward) it / 3 else -it / 3 } + fadeIn(tween(220))) togetherWith
+                        (slideOutHorizontally(tween(200)) { if (forward) -it / 3 else it / 3 } + fadeOut(tween(160)))
+                },
+                label = "páginas do Iniciar",
+            ) { m ->
+                when (m) {
+                    2 -> SearchResults(query, state, controller, ::closeAll)
+                    1 -> AllApps(state, controller, onBack = { page = StartPage.Pinned }, onLaunched = ::closeAll)
+                    else -> PinnedPage(state, controller, onAllApps = { page = StartPage.AllApps }, onLaunched = ::closeAll)
+                }
             }
         }
 
@@ -211,10 +237,10 @@ private fun PinnedPage(state: LauncherUiState, controller: LauncherController, o
         SectionHeader("Fixados", "Todos os apps", Icons.AutoMirrored.Filled.KeyboardArrowRight, onAction = onAllApps)
         Spacer(Modifier.height(6.dp))
         Column(Modifier.padding(horizontal = 10.dp)) {
-            pinned.chunked(4).forEach { row ->
+            pinned.chunked(4).forEachIndexed { r, row ->
                 Row(Modifier.fillMaxWidth()) {
-                    row.forEach { item ->
-                        Box(Modifier.weight(1f), contentAlignment = Alignment.TopCenter) {
+                    row.forEachIndexed { c, item ->
+                        Box(Modifier.weight(1f).entrance(r * 4 + c), contentAlignment = Alignment.TopCenter) {
                             when (item) {
                                 is HomeItem.App -> AppTile(
                                     app = item.app,
@@ -258,8 +284,10 @@ private fun PinnedPage(state: LauncherUiState, controller: LauncherController, o
                     modifier = Modifier.padding(10.dp),
                 )
             }
-            state.recents.take(4).forEach { recent ->
-                RecentRow(recent.app, relativeTime(recent.launchedAt, now), state, controller, onLaunched)
+            state.recents.take(4).forEachIndexed { i, recent ->
+                Box(Modifier.entrance(pinned.size + i)) {
+                    RecentRow(recent.app, relativeTime(recent.launchedAt, now), state, controller, onLaunched)
+                }
             }
         }
     }
@@ -267,23 +295,21 @@ private fun PinnedPage(state: LauncherUiState, controller: LauncherController, o
 
 @Composable
 private fun AllApps(state: LauncherUiState, controller: LauncherController, onBack: () -> Unit, onLaunched: () -> Unit) {
+    val palette = LocalPalette.current
     Column {
         SectionHeader("Todos os apps", "Voltar", Icons.AutoMirrored.Filled.KeyboardArrowLeft, leading = true, onAction = onBack)
-        Spacer(Modifier.height(6.dp))
-        val grouped = remember(state.apps) { state.apps.groupBy { it.label.firstOrNull()?.uppercaseChar()?.takeIf(Char::isLetter) ?: '#' } }
-        LazyColumn(Modifier.padding(horizontal = 12.dp)) {
-            grouped.forEach { (letter, apps) ->
-                item(key = "header-$letter") {
-                    Text(
-                        letter.toString(),
-                        color = LocalPalette.current.accent,
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.padding(start = 10.dp, top = 10.dp, bottom = 2.dp),
-                    )
-                }
-                items(apps, key = { it.key }) { app -> AppRow(app, state, controller, onLaunched) }
-            }
+        Row(Modifier.padding(horizontal = 22.dp, vertical = 4.dp)) {
+            AppsViewSelector(state, controller, palette)
         }
+        AllAppsContent(
+            apps = state.apps,
+            view = state.appsView,
+            state = state,
+            controller = controller,
+            palette = palette,
+            labels = WindowsMenuLabels,
+            onLaunched = onLaunched,
+        )
     }
 }
 

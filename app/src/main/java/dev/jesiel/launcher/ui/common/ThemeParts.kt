@@ -4,6 +4,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -21,6 +22,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -106,16 +108,50 @@ fun BarButton(
     background: Color = Color.Transparent,
     shape: Shape = RoundedCornerShape(12.dp),
 ) {
+    val interaction = remember { MutableInteractionSource() }
     Box(
         modifier
             .semantics { contentDescription = description }
             .padding(4.dp)
+            .pressScale(interaction, 0.85f)
             .size(size)
             .clip(shape)
             .background(background)
-            .clickable(onClick = onClick),
+            .clickable(interaction, indication = null, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) { Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(size * 0.55f)) }
+}
+
+/** Botão do menu de apps com o ícone escolhido pelo usuário (ou o do tema). */
+@Composable
+fun MenuBarButton(
+    state: LauncherUiState,
+    controller: LauncherController,
+    palette: LauncherPalette,
+    description: String,
+    defaultIcon: ImageVector,
+    tint: Color,
+    onClick: () -> Unit,
+    size: Dp = 46.dp,
+    background: Color = Color.Transparent,
+    shape: Shape = RoundedCornerShape(12.dp),
+) {
+    val interaction = remember { MutableInteractionSource() }
+    Box(
+        Modifier
+            .semantics { contentDescription = description }
+            .padding(4.dp)
+            .pressScale(interaction, 0.85f)
+            .size(size)
+            .clip(shape)
+            .background(if (state.layout.menuIcon == dev.jesiel.launcher.data.MenuIcon.DEFAULT) background else Color.Transparent)
+            .clickable(interaction, indication = null, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        MenuButtonIcon(state, controller, palette, size * 0.8f, tint) {
+            Icon(defaultIcon, contentDescription = null, tint = tint, modifier = Modifier.size(size * 0.55f))
+        }
+    }
 }
 
 /** Separador fino para docks. */

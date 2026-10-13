@@ -9,6 +9,8 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import dev.jesiel.launcher.data.AppInfo
 import dev.jesiel.launcher.data.AppRepository
+import dev.jesiel.launcher.data.AppsView
+import dev.jesiel.launcher.data.MenuIcon
 import dev.jesiel.launcher.data.ColorMode
 import dev.jesiel.launcher.data.Placement
 import dev.jesiel.launcher.data.SwipeAction
@@ -18,7 +20,9 @@ import dev.jesiel.launcher.data.LauncherData
 import dev.jesiel.launcher.data.LauncherPrefs
 import dev.jesiel.launcher.data.RecentApp
 import dev.jesiel.launcher.data.ThemeLayout
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
@@ -42,14 +46,19 @@ data class LauncherUiState(
     /** Posições salvas na área de trabalho do tema atual. */
     val placements: Map<String, Placement> = emptyMap(),
     val hiddenBuiltins: Set<String> = emptySet(),
+    val transparency: Boolean = true,
+    val appsView: AppsView = AppsView.GRID,
+    /** Muda quando a imagem personalizada do ícone do menu é trocada. */
+    val menuIconVersion: Long = 0,
 )
 
 class LauncherViewModel(application: Application) : AndroidViewModel(application) {
 
     private val prefs = LauncherPrefs(application)
     private val repository = AppRepository(application, viewModelScope)
+    private val menuIconVersion = MutableStateFlow(0L)
 
-    val state: StateFlow<LauncherUiState> = combine(repository.apps, prefs.data) { apps, data ->
+    val state: StateFlow<LauncherUiState> = combine(repository.apps, prefs.data, menuIconVersion) { apps, data, _ ->
         if (apps.isNotEmpty() && !data.initialized) seedDefaults(apps)
         buildState(apps, data)
     }.stateIn(viewModelScope, SharingStarted.Eagerly, LauncherUiState())
@@ -81,6 +90,9 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
             swipeDown = data.swipeDown,
             placements = data.placements[data.themeId].orEmpty(),
             hiddenBuiltins = data.hiddenBuiltins[data.themeId].orEmpty(),
+            transparency = data.transparency,
+            appsView = data.appsView,
+            menuIconVersion = menuIconVersion.value,
         )
     }
 
@@ -189,6 +201,33 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
 
     fun updateLayout(transform: (ThemeLayout) -> ThemeLayout) = prefs.update { d ->
         d.copy(layouts = d.layouts + (d.themeId to transform(d.layoutFor(d.themeId))))
+    }
+
+    fun setTransparency(on: Boolean) = prefs.update { it.copy(transparency = on) }
+
+    fun setAppsView(view: AppsView) = prefs.update { it.copy(appsView = view) }
+
+    /** Arquivo com a imagem escolhida para o ícone do menu do tema [themeId]. */
+    fun menuIconFile(themeId: String) = java.io.File(getApplication<Application>().filesDir, "menu_icon_$themeId.png")
+
+    /** Copia a imagem escolhida (reduzida) e passa a usá-la como ícone do menu. */
+    fun setCustomMenuIcon(uri: android.net.Uri) {
+        val app = getApplication<Application>()
+        val themeId = prefs.data.value.themeId
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            val ok = runCatching {
+                val source = app.contentResolver.openInputStream(uri)!!.use { android.graphics.BitmapFactory.decodeStream(it) }
+                val size = 192
+                val side = minOf(source.width, source.height)
+                val square = android.graphics.Bitmap.createBitmap(source, (source.width - side) / 2, (source.height - side) / 2, side, side)
+                val scaled = android.graphics.Bitmap.createScaledBitmap(square, size, size, true)
+                menuIconFile(themeId).outputStream().use { scaled.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
+            }.isSuccess
+            if (ok) {
+                updateLayout { it.copy(menuIcon = MenuIcon.CUSTOM) }
+                menuIconVersion.value = System.currentTimeMillis()
+            }
+        }
     }
 
     fun setColorMode(mode: ColorMode) = prefs.update { it.copy(colorMode = mode) }

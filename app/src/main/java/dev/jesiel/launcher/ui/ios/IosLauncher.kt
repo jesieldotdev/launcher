@@ -38,6 +38,8 @@ import dev.jesiel.launcher.ui.common.DrawerStyle
 import dev.jesiel.launcher.ui.common.LauncherPalette
 import dev.jesiel.launcher.ui.common.SearchBar
 import dev.jesiel.launcher.ui.common.ThemeRoot
+import dev.jesiel.launcher.ui.common.backdrop
+import dev.jesiel.launcher.ui.common.withTransparency
 import dev.jesiel.launcher.ui.common.isDark
 
 fun iosPalette(dark: Boolean) = if (dark) {
@@ -67,7 +69,7 @@ fun iosPalette(dark: Boolean) = if (dark) {
 @Composable
 fun IosLauncher(state: LauncherUiState, controller: LauncherController) {
     val dark = isDark(state.colorMode)
-    val palette = remember(dark) { iosPalette(dark) }
+    val palette = remember(dark, state.transparency) { iosPalette(dark).withTransparency(state.transparency) }
     var libraryOpen by rememberSaveable { mutableStateOf(false) }
     var focusSearch by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(controller.homePresses) { libraryOpen = false }
@@ -86,34 +88,36 @@ fun IosLauncher(state: LauncherUiState, controller: LauncherController) {
     }
 
     ThemeRoot(controller, palette) {
-        if (state.layout.useThemeWallpaper) IosWallpaper(dark, Modifier.fillMaxSize())
-        Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
-            DesktopCanvas(
-                state = state,
-                controller = controller,
-                palette = palette,
-                builtins = builtins,
-                onSwipeUp = { openLibrary(search = false) },
-                onSearch = { openLibrary(search = true) },
-                modifier = Modifier.weight(1f).fillMaxWidth().padding(horizontal = 10.dp, vertical = 10.dp),
-            )
-            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                SearchBar(
+        Box(Modifier.fillMaxSize().backdrop(controller, libraryOpen || controller.controlCenterOpen, state.transparency)) {
+            if (state.layout.useThemeWallpaper) IosWallpaper(dark, Modifier.fillMaxSize())
+            Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
+                DesktopCanvas(
+                    state = state,
+                    controller = controller,
                     palette = palette,
-                    placeholder = "Buscar",
-                    onClick = { openLibrary(search = true) },
-                    background = palette.dock,
-                    modifier = Modifier.width(140.dp).height(36.dp),
+                    builtins = builtins,
+                    onSwipeUp = { openLibrary(search = false) },
+                    onSearch = { openLibrary(search = true) },
+                    modifier = Modifier.weight(1f).fillMaxWidth().padding(horizontal = 10.dp, vertical = 10.dp),
+                )
+                Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    SearchBar(
+                        palette = palette,
+                        placeholder = "Buscar",
+                        onClick = { openLibrary(search = true) },
+                        background = palette.dock,
+                        modifier = Modifier.width(140.dp).height(36.dp),
+                    )
+                }
+                AppDock(
+                    state = state,
+                    controller = controller,
+                    palette = palette,
+                    iconSize = 54.dp,
+                    shape = RoundedCornerShape(32.dp),
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp).fillMaxWidth(),
                 )
             }
-            AppDock(
-                state = state,
-                controller = controller,
-                palette = palette,
-                iconSize = 54.dp,
-                shape = RoundedCornerShape(32.dp),
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp).fillMaxWidth(),
-            )
         }
         AppDrawer(
             visible = libraryOpen,

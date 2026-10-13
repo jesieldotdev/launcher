@@ -51,7 +51,9 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import dev.jesiel.launcher.LauncherController
 import dev.jesiel.launcher.LauncherUiState
+import dev.jesiel.launcher.data.AppsView
 import dev.jesiel.launcher.data.ColorMode
+import dev.jesiel.launcher.data.MenuIcon
 import dev.jesiel.launcher.data.SwipeAction
 import dev.jesiel.launcher.theme.LauncherThemeSpec
 import dev.jesiel.launcher.theme.ThemeRegistry
@@ -133,6 +135,13 @@ fun SettingsScreen(state: LauncherUiState, controller: LauncherController, onClo
                     Spacer(Modifier.height(6.dp))
                     Choices(ColorMode.entries, state.colorMode, { it.label }) { vm.setColorMode(it) }
                     Spacer(Modifier.height(16.dp))
+                    SwitchRow("Efeitos de transparência", state.transparency) { vm.setTransparency(it) }
+                    Text(
+                        "Menus e painéis translúcidos com o fundo desfocado (desfoque a partir do Android 12).",
+                        fontSize = 12.sp,
+                        color = Color.Gray,
+                    )
+                    Spacer(Modifier.height(12.dp))
                     SwitchRow("Papel de parede do tema", layout.useThemeWallpaper) { on ->
                         vm.updateLayout { it.copy(useThemeWallpaper = on) }
                     }
@@ -142,8 +151,31 @@ fun SettingsScreen(state: LauncherUiState, controller: LauncherController, onClo
                         fontSize = 12.sp,
                         color = Color.Gray,
                     )
+                    val live = remember { controller.liveWallpaperName() }
+                    if (live != null) {
+                        Text(
+                            "Papel de parede animado: $live. " + if (layout.useThemeWallpaper) "Desative o papel de parede do tema para vê-lo e tocar nele."
+                            else "Toques em áreas vazias da tela são repassados a ele.",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(top = 4.dp),
+                        )
+                    }
                     Spacer(Modifier.height(8.dp))
                     OutlinedButton(onClick = controller::openWallpaperPicker) { Text("Escolher papel de parede do sistema") }
+
+                    Spacer(Modifier.height(16.dp))
+                    Text("Ícone do menu de apps", fontWeight = FontWeight.SemiBold)
+                    Spacer(Modifier.height(6.dp))
+                    Choices(MenuIcon.entries, layout.menuIcon, { it.label }) { icon ->
+                        if (icon == MenuIcon.CUSTOM) controller.pickImage?.invoke()
+                        else vm.updateLayout { it.copy(menuIcon = icon) }
+                    }
+
+                    Spacer(Modifier.height(16.dp))
+                    Text("Exibição de \"Todos os apps\"", fontWeight = FontWeight.SemiBold)
+                    Spacer(Modifier.height(6.dp))
+                    Choices(AppsView.entries, state.appsView, { it.label }) { vm.setAppsView(it) }
 
                     Spacer(Modifier.height(16.dp))
                     SliderRow("Tamanho dos ícones", "${layout.iconSizeDp} dp", layout.iconSizeDp.toFloat(), 40f..72f, 7) { v ->

@@ -15,6 +15,8 @@ import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
@@ -293,9 +295,9 @@ private fun ControlPanelContent(controls: SystemControls, controller: LauncherCo
             Tile(Icons.Default.AirplanemodeActive, "Modo avião", false, controls::openAirplane),
             Tile(Icons.Default.SignalCellularAlt, "Dados", false, controls::openMobileData),
         )
-        tiles.chunked(4).forEach { row ->
+        tiles.chunked(4).forEachIndexed { r, row ->
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                row.forEach { TileButton(it, palette, Modifier.weight(1f)) }
+                row.forEachIndexed { c, tile -> TileButton(tile, palette, Modifier.weight(1f).entrance(r * 4 + c)) }
             }
             Spacer(Modifier.height(10.dp))
         }
@@ -308,17 +310,21 @@ private class Tile(val icon: ImageVector, val label: String, val on: Boolean, va
 
 @Composable
 private fun TileButton(tile: Tile, palette: LauncherPalette, modifier: Modifier) {
+    val background by animateColorAsState(if (tile.on) palette.accent else palette.tile, tween(220), label = "botão")
+    val iconTint by animateColorAsState(if (tile.on) palette.onAccent else palette.panelText, tween(220), label = "ícone")
+    val interaction = remember { MutableInteractionSource() }
     Column(modifier.padding(horizontal = 4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         Box(
             Modifier
+                .pressScale(interaction, 0.9f)
                 .fillMaxWidth()
                 .height(52.dp)
                 .clip(RoundedCornerShape(16.dp))
-                .background(if (tile.on) palette.accent else palette.tile)
-                .clickable(onClick = tile.onClick),
+                .background(background)
+                .clickable(interaction, indication = null, onClick = tile.onClick),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(tile.icon, contentDescription = tile.label, tint = if (tile.on) palette.onAccent else palette.panelText)
+            Icon(tile.icon, contentDescription = tile.label, tint = iconTint)
         }
         Spacer(Modifier.height(4.dp))
         Text(tile.label, color = palette.panelText, fontSize = 11.sp, maxLines = 1, textAlign = TextAlign.Center)

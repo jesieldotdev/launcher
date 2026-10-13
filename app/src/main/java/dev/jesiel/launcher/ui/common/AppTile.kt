@@ -5,6 +5,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -72,14 +73,18 @@ fun AppTile(
     var folderPickerOpen by remember { mutableStateOf(false) }
     var bounds by remember { mutableStateOf<Rect?>(null) }
     val haptics = LocalHapticFeedback.current
+    val interaction = remember { MutableInteractionSource() }
 
     Box(modifier) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Top,
             modifier = Modifier
+                .pressScale(interaction)
                 .clip(RoundedCornerShape(12.dp))
                 .combinedClickable(
+                    interactionSource = interaction,
+                    indication = null,
                     onClick = {
                         controller.launch(app, bounds)
                         onLaunched()
