@@ -347,6 +347,9 @@ fun SettingsScreen(state: LauncherUiState, controller: LauncherController, onClo
                     importResult?.let { Text(it, fontSize = 13.sp, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 6.dp)) }
                 }
 
+                SectionTitle("Backup")
+                Card { BackupSettings(controller) }
+
                 SectionTitle("Widgets")
                 Card {
                     if (state.widgetIds.isEmpty()) {
@@ -377,6 +380,70 @@ fun SettingsScreen(state: LauncherUiState, controller: LauncherController, onClo
                 }
             }
         }
+    }
+}
+
+/**
+ * Backups da organização: automáticos (antes de trocar de tema, importar, remover telas ou
+ * desfazer pastas, e uma vez por dia) e manuais, para arquivo.
+ */
+@Composable
+private fun BackupSettings(controller: LauncherController) {
+    val backups = controller.viewModel.backups
+    var entries by remember { mutableStateOf(backups.list()) }
+    var confirm by remember { mutableStateOf<dev.jesiel.launcher.data.BackupEntry?>(null) }
+    var showAll by remember { mutableStateOf(false) }
+    val format = remember { java.text.SimpleDateFormat("dd/MM/yyyy HH:mm", java.util.Locale.getDefault()) }
+
+    Text(
+        "Guarda apps, pastas, posições, dock, telas, temas e ajustes. Um backup automático é feito antes de mudanças grandes e uma vez por dia.",
+        fontSize = 12.sp,
+        color = Color.Gray,
+    )
+    Spacer(Modifier.height(8.dp))
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Button(onClick = {
+            backups.snapshot("Backup manual")
+            entries = backups.list()
+            controller.toast("Backup feito")
+        }) { Text("Fazer backup agora") }
+    }
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        OutlinedButton(onClick = { controller.exportBackupFile?.invoke() }) { Text("Exportar arquivo") }
+        OutlinedButton(onClick = { controller.importBackupFile?.invoke() }) { Text("Importar arquivo") }
+    }
+    if (entries.isNotEmpty()) {
+        Spacer(Modifier.height(10.dp))
+        Text("Backups no aparelho", fontWeight = FontWeight.SemiBold)
+        (if (showAll) entries else entries.take(4)).forEach { entry ->
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                Column(Modifier.weight(1f)) {
+                    Text(format.format(java.util.Date(entry.createdAt)), fontSize = 14.sp)
+                    Text(entry.reason, fontSize = 12.sp, color = Color.Gray)
+                }
+                androidx.compose.material3.TextButton(onClick = { confirm = entry }) { Text("Restaurar") }
+            }
+        }
+        if (entries.size > 4 && !showAll) {
+            androidx.compose.material3.TextButton(onClick = { showAll = true }) { Text("Ver todos (${entries.size})") }
+        }
+    }
+    confirm?.let { entry ->
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { confirm = null },
+            title = { Text("Restaurar backup?") },
+            text = { Text("A organização atual será substituída pela de ${format.format(java.util.Date(entry.createdAt))}. Antes, um backup do estado atual é feito automaticamente.") },
+            confirmButton = {
+                androidx.compose.material3.TextButton(onClick = {
+                    confirm = null
+                    runCatching { backups.restore(entry) }
+                        .onSuccess { controller.afterRestore() }
+                        .onFailure { controller.toast("Não foi possível restaurar") }
+                    entries = backups.list()
+                }) { Text("Restaurar") }
+            },
+            dismissButton = { androidx.compose.material3.TextButton(onClick = { confirm = null }) { Text("Cancelar") } },
+        )
     }
 }
 

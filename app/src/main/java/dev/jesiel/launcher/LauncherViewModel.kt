@@ -10,6 +10,7 @@ import androidx.lifecycle.viewModelScope
 import dev.jesiel.launcher.data.AppInfo
 import dev.jesiel.launcher.data.AppRepository
 import dev.jesiel.launcher.data.AppsView
+import dev.jesiel.launcher.data.Backups
 import dev.jesiel.launcher.data.MenuIcon
 import dev.jesiel.launcher.data.ColorMode
 import dev.jesiel.launcher.data.Placement
@@ -66,6 +67,17 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     private val prefs = LauncherPrefs(application)
     private val repository = AppRepository(application, viewModelScope)
     private val menuIconVersion = MutableStateFlow(0L)
+    val backups = Backups(application, prefs)
+
+    init {
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) { backups.dailySnapshot() }
+    }
+
+    /** Remove widgets que não existem mais neste aparelho (ex.: depois de restaurar um backup). */
+    fun pruneWidgets(exists: (Int) -> Boolean) = prefs.update { d ->
+        val valid = d.widgetIds.filter(exists)
+        if (valid.size == d.widgetIds.size) d else d.copy(widgetIds = valid)
+    }
 
     val state: StateFlow<LauncherUiState> = combine(repository.apps, prefs.data, menuIconVersion) { apps, data, _ ->
         if (apps.isNotEmpty() && !data.initialized) seedDefaults(apps)
@@ -196,7 +208,12 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     }
 
     /** Desfaz a pasta, devolvendo os apps para a tela inicial no lugar dela. */
-    fun deleteFolder(folderId: String) = prefs.update { d ->
+    fun deleteFolder(folderId: String) {
+        backups.snapshot("Antes de desfazer uma pasta")
+        applyDeleteFolder(folderId)
+    }
+
+    private fun applyDeleteFolder(folderId: String) = prefs.update { d ->
         val folder = d.folders[folderId] ?: return@update d
         val order = d.homeOrder.flatMap { if (it == FOLDER_PREFIX + folderId) folder.appKeys else listOf(it) }
         d.copy(homeOrder = order.distinct(), folders = d.folders - folderId)
@@ -209,7 +226,12 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         d.copy(homeOrder = d.homeOrder.toMutableList().apply { add(target, removeAt(index)) })
     }
 
-    fun setTheme(themeId: String) = prefs.update { d ->
+    fun setTheme(themeId: String) {
+        if (themeId != prefs.data.value.themeId) backups.snapshot("Antes de trocar para o tema $themeId")
+        applyTheme(themeId)
+    }
+
+    private fun applyTheme(themeId: String) = prefs.update { d ->
         if (!d.sharedLayout || themeId == d.themeId) return@update d.copy(themeId = themeId)
         // Com a organização compartilhada, grade e telas acompanham, para as posições baterem.
         val from = d.layoutFor(d.themeId)
@@ -255,6 +277,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
      * Devolve uma descrição do resultado para mostrar ao usuário.
      */
     fun importHome(mostUsed: Boolean): String {
+        backups.snapshot("Antes de importar a tela inicial")
         val apps = repository.apps.value
         val imported = (if (mostUsed) importer.importMostUsed(apps) else importer.importFromSystemLauncher(apps))
             ?: return if (mostUsed) "Permita o acesso ao uso de apps para importar os mais usados."
@@ -344,7 +367,12 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         d.copy(placements = d.placements + (themeId to themeMap) + (LauncherData.SHARED_PLACEMENTS to sharedMap))
     }
 
-    fun setSharedLayout(on: Boolean) = prefs.update { d ->
+    fun setSharedLayout(on: Boolean) {
+        backups.snapshot("Antes de mudar a organização compartilhada")
+        applySharedLayout(on)
+    }
+
+    private fun applySharedLayout(on: Boolean) = prefs.update { d ->
         // Ao ligar, a organização do tema atual passa a valer para todos.
         val sharedMap = d.placements[d.themeId].orEmpty().filterKeys { !LauncherData.isBuiltin(it) }
         if (on) d.copy(sharedLayout = true, placements = d.placements + (LauncherData.SHARED_PLACEMENTS to sharedMap))
@@ -358,7 +386,12 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
 
     fun addPage() = updateLayout { it.copy(pageCount = it.pageCount + 1) }
 
-    fun removePage(page: Int) = prefs.update { d ->
+    fun removePage(page: Int) {
+        backups.snapshot("Antes de remover uma tela")
+        applyRemovePage(page)
+    }
+
+    private fun applyRemovePage(page: Int) = prefs.update { d ->
         val layout = d.layoutFor(d.themeId)
         if (layout.pageCount <= 1) return@update d
         // Itens das páginas seguintes sobem uma página; os da removida voltam a ser encaixados.

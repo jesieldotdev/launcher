@@ -36,6 +36,16 @@ class MainActivity : ComponentActivity() {
     private val viewModel: LauncherViewModel by viewModels()
     private lateinit var widgets: WidgetHost
     private lateinit var controller: LauncherController
+    private val exportBackup = registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+        if (uri != null) runCatching { viewModel.backups.exportTo(uri) }
+            .onSuccess { controller.toast("Backup exportado") }
+            .onFailure { controller.toast("Não foi possível exportar") }
+    }
+    private val importBackup = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) runCatching { viewModel.backups.importFrom(uri) }
+            .onSuccess { controller.afterRestore() }
+            .onFailure { controller.toast(it.message ?: "Arquivo inválido") }
+    }
     private val pickImage = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) viewModel.setCustomMenuIcon(uri)
     }
@@ -49,6 +59,11 @@ class MainActivity : ComponentActivity() {
         widgets = WidgetHost(this)
         controller = LauncherController(this, viewModel, widgets)
         controller.pickImage = { pickImage.launch(arrayOf("image/*")) }
+        controller.exportBackupFile = {
+            val date = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())
+            exportBackup.launch("launcher-backup-$date.json")
+        }
+        controller.importBackupFile = { importBackup.launch(arrayOf("application/json", "text/plain", "*/*")) }
 
         setContent {
             val state by viewModel.state.collectAsStateWithLifecycle()

@@ -146,6 +146,37 @@ class LauncherPrefs(context: Context) {
         write(_data.value)
     }
 
+    /** Todas as preferências como JSON, para backup. */
+    fun exportJson(): JSONObject {
+        val values = JSONObject()
+        prefs.all.forEach { (key, value) ->
+            when (value) {
+                is Boolean -> values.put(key, value)
+                null -> Unit
+                else -> values.put(key, value.toString())
+            }
+        }
+        return JSONObject()
+            .put("app", "dev.jesiel.launcher")
+            .put("format", 1)
+            .put("createdAt", System.currentTimeMillis())
+            .put("prefs", values)
+    }
+
+    /** Substitui todas as preferências pelas do backup e recarrega o estado. */
+    fun importJson(backup: JSONObject) {
+        val values = backup.getJSONObject("prefs")
+        val editor = prefs.edit().clear()
+        values.keys().forEach { key ->
+            when (val value = values.get(key)) {
+                is Boolean -> editor.putBoolean(key, value)
+                else -> editor.putString(key, value.toString())
+            }
+        }
+        editor.commit()
+        _data.value = read()
+    }
+
     private fun read(): LauncherData {
         val folders = obj(KEY_FOLDERS).let { json ->
             json.keys().asSequence().associateWith { id ->

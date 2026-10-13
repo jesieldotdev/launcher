@@ -256,6 +256,17 @@ class LauncherController(
 
     fun openUsageAccessSettings() = start(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
 
+    // --- Backup ---------------------------------------------------------------------------
+
+    /** Definidos pela Activity: escolher onde salvar / qual arquivo importar. */
+    var exportBackupFile: (() -> Unit)? = null
+    var importBackupFile: (() -> Unit)? = null
+
+    fun afterRestore() {
+        viewModel.pruneWidgets { widgets.info(it) != null }
+        toast("Organização restaurada")
+    }
+
     /** Definido pela Activity: abre o seletor de imagens para o ícone do menu. */
     var pickImage: (() -> Unit)? = null
 

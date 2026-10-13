@@ -68,6 +68,8 @@ _Capturas geradas pelos testes de screenshot com apps de exemplo._
 - **Modo janela (experimental):** os apps abertos pelo Launcher ficam numa janela livre acima da
   barra, para ela não cobrir a navegação do app. Requer o modo de janelas do sistema
   (`enable_freeform_support` e `force_resizable_activities`, nas Opções do desenvolvedor ou pelo ADB).
+- **Backup:** automático antes de trocar de tema, importar, remover telas ou desfazer pastas (e
+  diário), com restauração em Personalizar → Backup; exportar/importar arquivo JSON.
 - Widgets Android, pastas, dock configurável, busca sem acentos, launcher padrão.
 
 O Android não permite que apps liguem Wi-Fi ou Bluetooth diretamente; esses botões abrem o
