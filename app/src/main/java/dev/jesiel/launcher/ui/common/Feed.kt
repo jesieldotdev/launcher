@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -15,42 +16,51 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Newspaper
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.TravelExplore
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import coil.compose.AsyncImage
 import dev.jesiel.launcher.LauncherController
+import dev.jesiel.launcher.data.NewsItem
 import dev.jesiel.launcher.data.NewsState
+import dev.jesiel.launcher.data.NewsTopic
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
 /**
- * Tela à esquerda: saudação, busca, atalho para o Discover do Google e as principais notícias
- * do Google Notícias.
+ * Tela à esquerda no estilo do Discover: saudação, busca, abas de assunto e cartões de notícia
+ * com imagem. As matérias abrem no leitor interno do launcher.
  */
 @Composable
 fun FeedScreen(controller: LauncherController, palette: LauncherPalette, modifier: Modifier = Modifier) {
-    val news by controller.viewModel.news.collectAsStateWithLifecycle()
-    LaunchedEffect(Unit) { controller.viewModel.refreshNews() }
+    val allNews by controller.viewModel.news.collectAsStateWithLifecycle()
+    var topic by rememberSaveable { mutableStateOf(NewsTopic.FOR_YOU) }
+    LaunchedEffect(topic) { controller.viewModel.refreshNews(topic) }
+    val news = allNews[topic] ?: NewsState.Loading
+
     val now = rememberNow()
     val locale = remember { Locale.getDefault() }
     val greeting = remember(now) {
@@ -68,12 +78,20 @@ fun FeedScreen(controller: LauncherController, palette: LauncherPalette, modifie
     LazyColumn(
         modifier.fillMaxSize(),
         contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         item {
-            Column(Modifier.padding(horizontal = 6.dp, vertical = 8.dp)) {
-                Text(greeting, color = palette.onWallpaper, fontSize = 28.sp, fontWeight = FontWeight.SemiBold, style = palette.wallpaperLabel)
-                Text(date, color = palette.onWallpaper, fontSize = 15.sp, style = palette.wallpaperLabel)
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 6.dp, vertical = 8.dp)) {
+                Column(Modifier.weight(1f)) {
+                    Text(greeting, fontSize = 28.sp, fontWeight = FontWeight.SemiBold, style = palette.wallpaperLabel)
+                    Text(date, fontSize = 15.sp, style = palette.wallpaperLabel)
+                }
+                Icon(
+                    Icons.Default.Refresh,
+                    contentDescription = "Atualizar notícias",
+                    tint = palette.onWallpaper,
+                    modifier = Modifier.size(40.dp).clip(RoundedCornerShape(20.dp)).clickable { controller.viewModel.refreshNews(topic, force = true) }.padding(8.dp),
+                )
             }
         }
         item {
@@ -85,25 +103,26 @@ fun FeedScreen(controller: LauncherController, palette: LauncherPalette, modifie
             )
         }
         item {
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                FeedButton(Icons.Default.TravelExplore, "Discover", palette, Modifier.weight(1f)) { controller.openGoogleApp() }
-                FeedButton(Icons.Default.Newspaper, "Google Notícias", palette, Modifier.weight(1f)) { controller.openUrl("https://news.google.com") }
-            }
-        }
-        item {
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 6.dp, top = 6.dp)) {
-                Text("Principais notícias", color = palette.onWallpaper, fontWeight = FontWeight.SemiBold, fontSize = 17.sp, style = palette.wallpaperLabel, modifier = Modifier.weight(1f))
-                Icon(
-                    Icons.Default.Refresh,
-                    contentDescription = "Atualizar notícias",
-                    tint = palette.onWallpaper,
-                    modifier = Modifier.size(34.dp).clip(RoundedCornerShape(17.dp)).clickable { controller.viewModel.refreshNews(force = true) }.padding(6.dp),
-                )
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(NewsTopic.entries) { t ->
+                    val on = t == topic
+                    Text(
+                        t.label,
+                        color = if (on) palette.onAccent else palette.cardText,
+                        fontSize = 13.sp,
+                        fontWeight = if (on) FontWeight.SemiBold else FontWeight.Normal,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(if (on) palette.accent else palette.card)
+                            .clickable { topic = t }
+                            .padding(horizontal = 14.dp, vertical = 8.dp),
+                    )
+                }
             }
         }
         when (val state = news) {
             NewsState.Loading -> item {
-                Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
+                Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(color = palette.accent)
                 }
             }
@@ -115,42 +134,49 @@ fun FeedScreen(controller: LauncherController, palette: LauncherPalette, modifie
                     modifier = Modifier.fillMaxWidth().glass(palette.card, palette.cardShape, palette.cardStroke).padding(16.dp),
                 )
             }
-            is NewsState.Loaded -> items(state.items.take(30), key = { it.link }) { item ->
-                Column(
-                    Modifier
-                        .fillMaxWidth()
-                        .glass(palette.card, palette.cardShape, palette.cardStroke)
-                        .clickable { controller.openUrl(item.link) }
-                        .padding(14.dp),
-                ) {
-                    Text(item.title, color = palette.cardText, fontSize = 15.sp, fontWeight = FontWeight.Medium, maxLines = 3, overflow = TextOverflow.Ellipsis)
-                    Spacer(Modifier.height(6.dp))
-                    Text(
-                        listOfNotNull(item.source.ifBlank { null }, item.publishedAt?.let { relativeTime(it, now) }).joinToString(" · "),
-                        color = palette.cardTextSecondary,
-                        fontSize = 12.sp,
-                    )
-                }
+            is NewsState.Loaded -> items(state.items.take(40), key = { it.link }) { item ->
+                NewsCard(item, now, palette) { controller.openArticle(item.link) }
             }
         }
     }
 }
 
 @Composable
-private fun FeedButton(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, palette: LauncherPalette, modifier: Modifier, onClick: () -> Unit) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = modifier
-            .glass(palette.card, RoundedCornerShape(16.dp), palette.cardStroke)
-            .clickable(onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 12.dp),
+private fun NewsCard(item: NewsItem, now: Long, palette: LauncherPalette, onClick: () -> Unit) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .glass(palette.card.copy(alpha = maxOf(palette.card.alpha, 0.85f)), RoundedCornerShape(20.dp), palette.cardStroke)
+            .clickable(onClick = onClick),
     ) {
-        Icon(icon, null, tint = palette.accent)
-        Spacer(Modifier.width(10.dp))
-        Text(label, color = palette.cardText, fontSize = 14.sp, maxLines = 1)
+        if (item.imageUrl != null) {
+            AsyncImage(
+                model = item.imageUrl,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f).background(palette.tile),
+            )
+        }
+        Column(Modifier.padding(14.dp)) {
+            Text(
+                item.title,
+                color = palette.cardText,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Medium,
+                maxLines = 3,
+                overflow = TextOverflow.Ellipsis,
+                lineHeight = 21.sp,
+            )
+            Spacer(Modifier.height(8.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(6.dp).clip(RoundedCornerShape(3.dp)).background(palette.accent))
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    listOfNotNull(item.source, item.publishedAt?.let { relativeTime(it, now) }).joinToString(" · "),
+                    color = palette.cardTextSecondary,
+                    fontSize = 12.sp,
+                )
+            }
+        }
     }
 }
-
-/** Fundo atrás do feed, para dar contraste sobre o papel de parede. */
-fun Modifier.feedScrim(palette: LauncherPalette): Modifier =
-    background(if (palette.dark) androidx.compose.ui.graphics.Color(0x66000000) else androidx.compose.ui.graphics.Color(0x33000000))

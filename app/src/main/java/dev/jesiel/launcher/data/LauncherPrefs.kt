@@ -22,6 +22,10 @@ data class ThemeLayout(
     val menuIcon: MenuIcon = MenuIcon.DEFAULT,
     /** Barra de tarefas / dock / painel inferior visível. */
     val showDock: Boolean = true,
+    /** Fundo (painel translúcido) atrás dos ícones da dock / barra de tarefas. */
+    val dockBackground: Boolean = true,
+    /** O menu de apps abre direto na lista completa (como no KDE) em vez dos fixados. */
+    val menuOpensAllApps: Boolean = false,
     /** Barra superior (Ubuntu e macOS) visível. */
     val showTopBar: Boolean = true,
 )
@@ -38,7 +42,7 @@ enum class MenuIcon(val label: String) {
 enum class LeftScreen(val label: String) {
     NONE("Nenhuma"),
     FEED("Feed de notícias"),
-    GOOGLE("App do Google (Discover)"),
+    GOOGLE("Abrir app do Google (externo)"),
 }
 
 /** Como "Todos os apps" é exibido. */
@@ -133,6 +137,8 @@ class LauncherPrefs(context: Context) {
                     pageCount = l.optInt("pages", 1),
                     menuIcon = enumOr(l.optString("menuIcon"), MenuIcon.DEFAULT),
                     showDock = l.optBoolean("dock", true),
+                    dockBackground = l.optBoolean("dockBackground", true),
+                    menuOpensAllApps = l.optBoolean("menuAllApps", false),
                     showTopBar = l.optBoolean("topBar", true),
                 )
             }
@@ -191,6 +197,8 @@ class LauncherPrefs(context: Context) {
                         .put("pages", l.pageCount)
                         .put("menuIcon", l.menuIcon.name)
                         .put("dock", l.showDock)
+                        .put("dockBackground", l.dockBackground)
+                        .put("menuAllApps", l.menuOpensAllApps)
                         .put("topBar", l.showTopBar),
                 )
             }

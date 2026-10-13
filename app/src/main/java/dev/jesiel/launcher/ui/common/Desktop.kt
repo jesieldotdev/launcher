@@ -355,7 +355,14 @@ private fun DesktopMenu(at: DpOffset?, onDismiss: () -> Unit, controller: Launch
             DropdownMenuItem(text = { Text("Organizar área de trabalho") }, onClick = { onDismiss(); controller.editMode = true })
             DropdownMenuItem(text = { Text("Adicionar widget") }, onClick = { onDismiss(); controller.widgetPickerOpen = true })
             DropdownMenuItem(text = { Text("Adicionar tela") }, onClick = { onDismiss(); onAddScreen() })
-            val showDock = controller.viewModel.state.value.layout.showDock
+            val dockLayout = controller.viewModel.state.value.layout
+            val showDock = dockLayout.showDock
+            if (showDock) {
+                DropdownMenuItem(
+                    text = { Text(if (dockLayout.dockBackground) "Ocultar fundo da dock" else "Mostrar fundo da dock") },
+                    onClick = { onDismiss(); controller.viewModel.updateLayout { it.copy(dockBackground = !dockLayout.dockBackground) } },
+                )
+            }
             DropdownMenuItem(
                 text = { Text(if (showDock) "Ocultar barra / dock" else "Mostrar barra / dock") },
                 onClick = { onDismiss(); controller.viewModel.updateLayout { it.copy(showDock = !showDock) } },

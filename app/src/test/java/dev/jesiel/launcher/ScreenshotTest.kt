@@ -215,7 +215,13 @@ class ScreenshotTest {
         val controller = controller()
         compose.setContent { WindowsLauncher(sampleState(dark = true), controller) }
         compose.onRoot().performTouchInput { swipeRight() }
-        compose.mainClock.advanceTimeBy(2_000)
+        // Espera as notícias reais (se houver rede); sem rede, a captura mostra o carregamento.
+        runCatching {
+            compose.waitUntil(20_000) {
+                controller.viewModel.news.value[dev.jesiel.launcher.data.NewsTopic.FOR_YOU] .let { it != null && it !is dev.jesiel.launcher.data.NewsState.Loading }
+            }
+        }
+        compose.mainClock.advanceTimeBy(3_000)
         compose.waitForIdle()
         compose.onRoot().captureRoboImage(shot("windows-feed"))
     }
@@ -242,6 +248,28 @@ class ScreenshotTest {
         }
         compose.onRoot().captureRoboImage(shot("windows-edit-free"))
     }
+
+    @Test
+    fun startOpensAllApps() {
+        val controller = controller()
+        compose.setContent { WindowsLauncher(sampleState(dark = true).copy(layout = ThemeLayout(menuOpensAllApps = true)), controller) }
+        compose.onNodeWithContentDescription("Iniciar").performClick()
+        compose.mainClock.advanceTimeBy(1_500)
+        compose.waitForIdle()
+        compose.onRoot().captureRoboImage(shot("windows-start-all-apps"))
+    }
+
+    @Test
+    fun noDockBackground() {
+        val controller = controller()
+        compose.setContent { WindowsLauncher(sampleState().copy(layout = ThemeLayout(dockBackground = false)), controller) }
+        compose.onRoot().captureRoboImage(shot("windows-no-dock-background"))
+    }
+
+    @Test fun macNoDockBackground() = themeShotWith("macos-no-dock-background") { s, c -> MacLauncher(s.copy(layout = s.layout.copy(dockBackground = false)), c) }
+
+    private fun themeShotWith(name: String, content: @androidx.compose.runtime.Composable (LauncherUiState, LauncherController) -> Unit) =
+        themeShot(name, dark = false, content = content)
 
     @Test
     fun search() {

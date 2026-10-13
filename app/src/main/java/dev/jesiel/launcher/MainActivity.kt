@@ -12,6 +12,14 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
+import androidx.compose.runtime.remember
+import dev.jesiel.launcher.ui.common.ArticleViewer
+import dev.jesiel.launcher.ui.common.isDark
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.enableEdgeToEdge
@@ -50,6 +58,18 @@ class MainActivity : ComponentActivity() {
             BackHandler { }
             // Troca de tema com transição suave.
             Crossfade(targetState = theme, animationSpec = tween(450), label = "tema") { it.Content(state, controller) }
+
+            // Leitor de notícias do feed, por cima do tema.
+            AnimatedVisibility(
+                visible = controller.articleUrl != null,
+                enter = slideInVertically(tween(280)) { it / 3 } + fadeIn(tween(200)),
+                exit = slideOutVertically(tween(220)) { it / 3 } + fadeOut(tween(180)),
+            ) {
+                val url = remember { controller.articleUrl }
+                MaterialTheme(colorScheme = if (isDark(state.colorMode)) darkColorScheme() else lightColorScheme()) {
+                    url?.let { ArticleViewer(it, onClose = { controller.articleUrl = null }, onOpenExternal = controller::openUrl) }
+                }
+            }
 
             BackHandler(enabled = controller.settingsOpen) { controller.settingsOpen = false }
             AnimatedVisibility(

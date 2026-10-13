@@ -20,7 +20,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -61,6 +63,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.jesiel.launcher.LauncherController
 import dev.jesiel.launcher.LauncherUiState
+import dev.jesiel.launcher.data.AppCategory
 import dev.jesiel.launcher.data.AppInfo
 import dev.jesiel.launcher.data.HomeItem
 import dev.jesiel.launcher.ui.common.AllAppsContent
@@ -69,6 +72,7 @@ import dev.jesiel.launcher.ui.common.AppsViewSelector
 import dev.jesiel.launcher.ui.common.entrance
 import dev.jesiel.launcher.ui.common.AppTile
 import dev.jesiel.launcher.ui.common.FolderTile
+import dev.jesiel.launcher.ui.common.LauncherPalette
 import dev.jesiel.launcher.ui.common.LocalPalette
 import dev.jesiel.launcher.ui.common.acrylicPanel
 import dev.jesiel.launcher.ui.common.rememberNow
@@ -86,13 +90,14 @@ fun StartMenu(
     modifier: Modifier = Modifier,
 ) {
     var query by rememberSaveable { mutableStateOf("") }
-    var page by rememberSaveable { mutableStateOf(StartPage.Pinned) }
+    val home = if (state.layout.menuOpensAllApps) StartPage.AllApps else StartPage.Pinned
+    var page by rememberSaveable(home) { mutableStateOf(home) }
     val keyboard = LocalSoftwareKeyboardController.current
 
     fun closeAll() {
         keyboard?.hide()
         query = ""
-        page = StartPage.Pinned
+        page = home
         onClose()
     }
 
@@ -134,7 +139,7 @@ fun StartMenu(
             ) { m ->
                 when (m) {
                     2 -> SearchResults(query, state, controller, ::closeAll)
-                    1 -> AllApps(state, controller, onBack = { page = StartPage.Pinned }, onLaunched = ::closeAll)
+                    1 -> AllApps(state, controller, onBack = { page = StartPage.Pinned }, onLaunched = ::closeAll, showBack = !state.layout.menuOpensAllApps)
                     else -> PinnedPage(state, controller, onAllApps = { page = StartPage.AllApps }, onLaunched = ::closeAll)
                 }
             }
@@ -294,15 +299,30 @@ private fun PinnedPage(state: LauncherUiState, controller: LauncherController, o
 }
 
 @Composable
-private fun AllApps(state: LauncherUiState, controller: LauncherController, onBack: () -> Unit, onLaunched: () -> Unit) {
+private fun AllApps(state: LauncherUiState, controller: LauncherController, onBack: () -> Unit, onLaunched: () -> Unit, showBack: Boolean = true) {
     val palette = LocalPalette.current
+    var category by rememberSaveable { mutableStateOf<AppCategory?>(null) }
+    val categories = remember(state.apps) { AppCategory.entries.filter { c -> state.apps.any { it.category == c } } }
+    val apps = remember(state.apps, category) { category?.let { c -> state.apps.filter { it.category == c } } ?: state.apps }
     Column {
-        SectionHeader("Todos os apps", "Voltar", Icons.AutoMirrored.Filled.KeyboardArrowLeft, leading = true, onAction = onBack)
+        if (showBack) {
+            SectionHeader("Todos os apps", "Voltar", Icons.AutoMirrored.Filled.KeyboardArrowLeft, leading = true, onAction = onBack)
+        } else {
+            SectionHeader("Todos os apps", "Fixados", Icons.AutoMirrored.Filled.KeyboardArrowRight, onAction = onBack)
+        }
         Row(Modifier.padding(horizontal = 22.dp, vertical = 4.dp)) {
             AppsViewSelector(state, controller, palette)
         }
+        // Filtros por categoria, como no menu do KDE.
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            contentPadding = PaddingValues(horizontal = 18.dp, vertical = 4.dp),
+        ) {
+            item { CategoryChip("Todos", category == null, palette) { category = null } }
+            items(categories) { c -> CategoryChip(c.label, category == c, palette) { category = c } }
+        }
         AllAppsContent(
-            apps = state.apps,
+            apps = apps,
             view = state.appsView,
             state = state,
             controller = controller,
@@ -311,6 +331,20 @@ private fun AllApps(state: LauncherUiState, controller: LauncherController, onBa
             onLaunched = onLaunched,
         )
     }
+}
+
+@Composable
+private fun CategoryChip(text: String, selected: Boolean, palette: LauncherPalette, onClick: () -> Unit) {
+    Text(
+        text,
+        color = if (selected) palette.onAccent else palette.panelText,
+        fontSize = 12.sp,
+        modifier = Modifier
+            .clip(RoundedCornerShape(14.dp))
+            .background(if (selected) palette.accent else palette.tile)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 6.dp),
+    )
 }
 
 @Composable

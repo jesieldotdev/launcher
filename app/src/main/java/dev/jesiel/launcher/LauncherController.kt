@@ -51,6 +51,7 @@ class LauncherController(
         widgetPickerOpen = false
         controlCenterOpen = false
         editMode = false
+        articleUrl = null
     }
 
     /** Executa o gesto de deslizar para baixo configurado; [openSearch] é a busca do tema. */
@@ -99,6 +100,13 @@ class LauncherController(
         if (!start(search, silent = true)) {
             start(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.google.com/search?q=" + Uri.encode(query))))
         }
+    }
+
+    /** Matéria aberta no leitor interno do launcher (sem sair para outro app). */
+    var articleUrl by mutableStateOf<String?>(null)
+
+    fun openArticle(url: String) {
+        articleUrl = url
     }
 
     fun openUrl(url: String) {

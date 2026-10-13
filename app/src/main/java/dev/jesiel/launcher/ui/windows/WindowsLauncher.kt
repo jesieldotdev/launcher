@@ -73,6 +73,8 @@ import dev.jesiel.launcher.ui.common.LauncherPalette
 import dev.jesiel.launcher.ui.common.LocalPalette
 import dev.jesiel.launcher.ui.common.MenuButtonIcon
 import dev.jesiel.launcher.ui.common.backdrop
+import dev.jesiel.launcher.ui.common.dockPanel
+import dev.jesiel.launcher.ui.common.forDock
 import dev.jesiel.launcher.ui.common.pressScale
 import dev.jesiel.launcher.ui.common.withTransparency
 import dev.jesiel.launcher.ui.common.PanelPosition
@@ -192,7 +194,7 @@ fun WindowsLauncher(state: LauncherUiState, controller: LauncherController) {
                     Taskbar(
                         state = state,
                         controller = controller,
-                        palette = palette,
+                        palette = palette.forDock(state.layout.dockBackground),
                         startOpen = startOpen,
                         onStart = { if (startOpen) startOpen = false else openStart(search = false) },
                         onSearch = { openStart(search = true) },
@@ -288,7 +290,7 @@ private fun Taskbar(
         modifier = modifier
             .fillMaxWidth()
             .height(TaskbarHeight)
-            .glass(palette.dock, WindowsShape, palette.dockStroke)
+            .dockPanel(state.layout.dockBackground, palette, WindowsShape)
             .padding(horizontal = 6.dp),
     ) {
         TaskbarButton(active = startOpen, description = "Iniciar", palette = palette, onClick = onStart) {

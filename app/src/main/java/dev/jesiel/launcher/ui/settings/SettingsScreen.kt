@@ -173,6 +173,16 @@ fun SettingsScreen(state: LauncherUiState, controller: LauncherController, onClo
                         else vm.updateLayout { it.copy(menuIcon = icon) }
                     }
 
+                    // Os outros temas já abrem a gaveta com a lista completa.
+                    if (state.themeId == "windows") {
+                        Spacer(Modifier.height(16.dp))
+                        Text("Iniciar abre em", fontWeight = FontWeight.SemiBold)
+                        Spacer(Modifier.height(6.dp))
+                        Choices(listOf(false, true), layout.menuOpensAllApps, { if (it) "Todos os apps (como no KDE)" else "Fixados" }) { all ->
+                            vm.updateLayout { it.copy(menuOpensAllApps = all) }
+                        }
+                    }
+
                     Spacer(Modifier.height(16.dp))
                     Text("Exibição de \"Todos os apps\"", fontWeight = FontWeight.SemiBold)
                     Spacer(Modifier.height(6.dp))
@@ -223,6 +233,11 @@ fun SettingsScreen(state: LauncherUiState, controller: LauncherController, onClo
                     SwitchRow(if (state.themeId == "windows") "Mostrar barra de tarefas" else "Mostrar dock / painel", layout.showDock) { on ->
                         vm.updateLayout { it.copy(showDock = on) }
                     }
+                    if (layout.showDock) {
+                        SwitchRow(if (state.themeId == "windows") "Fundo da barra de tarefas" else "Fundo da dock / painel", layout.dockBackground) { on ->
+                            vm.updateLayout { it.copy(dockBackground = on) }
+                        }
+                    }
                     if (state.themeId == "ubuntu" || state.themeId == "macos") {
                         SwitchRow("Mostrar barra superior", layout.showTopBar) { on -> vm.updateLayout { it.copy(showTopBar = on) } }
                     }
@@ -236,8 +251,8 @@ fun SettingsScreen(state: LauncherUiState, controller: LauncherController, onClo
                     Spacer(Modifier.height(6.dp))
                     Choices(LeftScreen.entries, state.leftScreen, { it.label }) { vm.setLeftScreen(it) }
                     Text(
-                        "Deslize para a direita na primeira tela. O feed mostra as principais notícias do Google Notícias; " +
-                            "\"App do Google\" abre o Discover.",
+                        "Deslize para a direita na primeira tela. O feed mostra notícias com imagens por assunto e abre as matérias " +
+                            "dentro do launcher. O Discover do Google não pode ser embutido em outros launchers; a última opção abre o app do Google.",
                         fontSize = 12.sp,
                         color = Color.Gray,
                         modifier = Modifier.padding(top = 6.dp),

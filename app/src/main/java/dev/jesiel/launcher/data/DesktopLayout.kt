@@ -72,7 +72,8 @@ class DesktopGrid(
             }
         }
         for ((id, size) in missing) {
-            val s = if (free) size else CellSize(max(1, size.w.roundToInt()).toFloat(), max(1, size.h.roundToInt()).toFloat())
+            // Na grade, componentes com tamanho fracionário ocupam a célula inteira seguinte.
+            val s = if (free) size else CellSize(max(1, ceil(size.w - 0.1f).toInt()).toFloat(), max(1, ceil(size.h - 0.1f).toInt()).toFloat())
             result[id] = firstFree(s, result.values)
         }
         return result

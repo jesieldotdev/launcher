@@ -21,6 +21,7 @@ import dev.jesiel.launcher.data.LauncherPrefs
 import dev.jesiel.launcher.data.LeftScreen
 import dev.jesiel.launcher.data.NewsRepository
 import dev.jesiel.launcher.data.NewsState
+import dev.jesiel.launcher.data.NewsTopic
 import dev.jesiel.launcher.data.RecentApp
 import dev.jesiel.launcher.data.ThemeLayout
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -209,20 +210,21 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     }
 
     private val newsRepository = NewsRepository()
-    private val _news = MutableStateFlow<NewsState>(NewsState.Loading)
-    val news: StateFlow<NewsState> = _news
+    private val _news = MutableStateFlow<Map<NewsTopic, NewsState>>(emptyMap())
+    val news: StateFlow<Map<NewsTopic, NewsState>> = _news
 
-    /** Atualiza o feed; sem [force], só se as notícias tiverem mais de 30 minutos. */
-    fun refreshNews(force: Boolean = false) {
-        val current = _news.value
+    /** Atualiza um assunto do feed; sem [force], só se tiver mais de 30 minutos. */
+    fun refreshNews(topic: NewsTopic, force: Boolean = false) {
+        val current = _news.value[topic]
         if (!force && current is NewsState.Loaded && System.currentTimeMillis() - current.fetchedAt < 30 * 60_000) return
-        if (current !is NewsState.Loaded) _news.value = NewsState.Loading
+        if (!force && current is NewsState.Loading) return
+        if (current !is NewsState.Loaded) _news.value += topic to NewsState.Loading
         viewModelScope.launch {
-            _news.value = runCatching { newsRepository.fetch() }
-                .fold(
-                    onSuccess = { NewsState.Loaded(it, System.currentTimeMillis()) },
-                    onFailure = { if (current is NewsState.Loaded) current else NewsState.Failed("Não foi possível carregar as notícias.") },
-                )
+            val next = runCatching { newsRepository.fetch(topic) }.fold(
+                onSuccess = { NewsState.Loaded(it, System.currentTimeMillis()) },
+                onFailure = { if (current is NewsState.Loaded) current else NewsState.Failed("Não foi possível carregar as notícias.") },
+            )
+            _news.value += topic to next
         }
     }
 

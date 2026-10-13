@@ -1,6 +1,8 @@
 package dev.jesiel.launcher.ui.common
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -22,6 +24,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -77,7 +80,7 @@ fun AppDock(
             )
         }
     }
-    val base = modifier.glass(palette.dock, shape, palette.dockStroke).padding(6.dp)
+    val base = modifier.dockPanel(state.layout.dockBackground, palette, shape).padding(6.dp)
     if (vertical) {
         Column(base, horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(2.dp)) {
             leading()
@@ -95,6 +98,18 @@ fun AppDock(
         }
     }
 }
+
+/** Fundo da dock/barra, que pode ser ocultado (some com uma transição suave). */
+@Composable
+fun Modifier.dockPanel(visible: Boolean, palette: LauncherPalette, shape: Shape): Modifier {
+    val color by animateColorAsState(if (visible) palette.dock else Color.Transparent, tween(250), label = "fundo da dock")
+    val stroke by animateColorAsState(if (visible) palette.dockStroke else Color.Transparent, tween(250), label = "borda da dock")
+    return glass(color, shape, stroke)
+}
+
+/** Sem o fundo da barra, textos e ícones dela passam a usar a cor sobre o papel de parede. */
+fun LauncherPalette.forDock(background: Boolean): LauncherPalette =
+    if (background) this else copy(panelText = onWallpaper, panelTextSecondary = onWallpaper.copy(alpha = 0.8f))
 
 /** Botão de ícone usado em docks e barras (gaveta de apps, painel…). */
 @Composable
