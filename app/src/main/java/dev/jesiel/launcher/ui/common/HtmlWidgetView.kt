@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.app.AlarmManager
 import android.graphics.Color as AndroidColor
 import android.view.View
+import android.view.ViewGroup
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -88,6 +89,8 @@ fun HtmlWidgetView(widget: HtmlWidget, controller: LauncherController, palette: 
         remember(widget.html, values) { HtmlVariables.render(widget.html, values, interactive = false) }
     }
     var webView by remember { mutableStateOf<WebView?>(null) }
+    // Último documento carregado (para só recarregar quando algo mudou).
+    val loaded = remember { arrayOfNulls<String>(1) }
 
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     DisposableEffect(lifecycle, webView) {
@@ -110,6 +113,9 @@ fun HtmlWidgetView(widget: HtmlWidget, controller: LauncherController, palette: 
     AndroidView(
         factory = { ctx ->
             WebView(ctx).apply {
+                // Sem isso o WebView é medido pelo conteúdo; como o widget usa height:100%, a
+                // página ficava com altura zero e nada aparecia.
+                layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
                 setBackgroundColor(AndroidColor.TRANSPARENT)
                 isVerticalScrollBarEnabled = false
                 isHorizontalScrollBarEnabled = false
@@ -126,9 +132,15 @@ fun HtmlWidgetView(widget: HtmlWidget, controller: LauncherController, palette: 
         update = { view ->
             view.settings.javaScriptEnabled = widget.interactive
             view.settings.blockNetworkLoads = !widget.network
-            if (view.tag != document) {
-                view.tag = document
-                view.loadDataWithBaseURL("https://widget.launcher/", document, "text/html", "utf-8", null)
+            if (loaded[0] != document) {
+                loaded[0] = document
+                if (widget.network) {
+                    view.loadDataWithBaseURL("https://widget.launcher/", document, "text/html", "utf-8", null)
+                } else {
+                    // Sem internet: documento embutido em base64, sem origem de rede.
+                    val encoded = android.util.Base64.encodeToString(document.toByteArray(), android.util.Base64.NO_PADDING)
+                    view.loadData(encoded, "text/html; charset=utf-8", "base64")
+                }
             }
         },
         onRelease = { it.destroy() },
