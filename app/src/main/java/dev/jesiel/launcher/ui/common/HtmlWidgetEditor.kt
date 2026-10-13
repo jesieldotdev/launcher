@@ -67,13 +67,15 @@ fun HtmlWidgetEditor(
     var html by remember { mutableStateOf(initial.html) }
     var interactive by remember { mutableStateOf(initial.interactive) }
     var network by remember { mutableStateOf(initial.network) }
+    var software by remember { mutableStateOf(initial.software) }
+    var status by remember { mutableStateOf("Carregando a prévia…") }
     androidx.compose.runtime.LaunchedEffect(importedHtml) {
         if (importedHtml != null) {
             html = importedHtml
             onImportedConsumed()
         }
     }
-    val draft = initial.copy(name = name.ifBlank { "Widget HTML" }, html = html, interactive = interactive, network = network)
+    val draft = initial.copy(name = name.ifBlank { "Widget HTML" }, html = html, interactive = interactive, network = network, software = software)
     val colors = MaterialTheme.colorScheme
 
     Column(
@@ -104,8 +106,17 @@ fun HtmlWidgetEditor(
                 .background(Brush.linearGradient(listOf(Color(0xFF1B2A4A), Color(0xFF3A5BA0))))
                 .padding(8.dp),
         ) {
-            HtmlWidgetView(draft, controller, palette, Modifier.fillMaxSize())
+            HtmlWidgetView(draft, controller, palette, Modifier.fillMaxSize(), onStatus = { status = it })
         }
+        val webViewVersion = remember {
+            if (android.os.Build.VERSION.SDK_INT >= 26) android.webkit.WebView.getCurrentWebViewPackage()?.let { "${it.packageName} ${it.versionName}" } else null
+        }
+        Text(
+            listOfNotNull(status, webViewVersion?.let { "WebView: $it" }).joinToString("\n"),
+            fontSize = 11.sp,
+            color = Color.Gray,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+        )
 
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(14.dp)) {
             OutlinedTextField(name, { name = it }, label = { Text("Nome") }, singleLine = true, modifier = Modifier.fillMaxWidth())
@@ -164,6 +175,13 @@ fun HtmlWidgetEditor(
                     Text("Para imagens ou fontes online. Desligado economiza dados e bateria.", fontSize = 12.sp, color = Color.Gray)
                 }
                 Switch(network, { network = it })
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Modo de compatibilidade", color = colors.onBackground)
+                    Text("Desenha por software. Use se o widget aparecer em branco no seu aparelho.", fontSize = 12.sp, color = Color.Gray)
+                }
+                Switch(software, { software = it })
             }
             Text(
                 "O widget fica pausado sempre que a tela inicial não está visível, então não gasta bateria enquanto você usa outros apps.",

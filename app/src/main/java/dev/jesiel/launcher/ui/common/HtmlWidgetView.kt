@@ -79,7 +79,14 @@ fun rememberHtmlValues(palette: LauncherPalette, used: Set<String>): Map<String,
  */
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
-fun HtmlWidgetView(widget: HtmlWidget, controller: LauncherController, palette: LauncherPalette, modifier: Modifier = Modifier) {
+fun HtmlWidgetView(
+    widget: HtmlWidget,
+    controller: LauncherController,
+    palette: LauncherPalette,
+    modifier: Modifier = Modifier,
+    /** Recebe mensagens de diagnóstico (carregamento, tamanho, erros), para o editor. */
+    onStatus: ((String) -> Unit)? = null,
+) {
     val used = remember(widget.html) { HtmlVariables.used(widget.html) }
     val values = rememberHtmlValues(palette, used)
     // No modo interativo a página é montada uma vez; depois só os dados são enviados.
@@ -125,11 +132,32 @@ fun HtmlWidgetView(widget: HtmlWidget, controller: LauncherController, palette: 
                 webViewClient = object : WebViewClient() {
                     override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean =
                         controller.handleWidgetLink(request.url.toString())
+
+                    override fun onPageFinished(view: WebView, url: String?) {
+                        onStatus?.invoke("Página carregada · ${view.width}×${view.height}px")
+                    }
+
+                    override fun onReceivedError(view: WebView, request: WebResourceRequest, error: android.webkit.WebResourceError) {
+                        if (request.isForMainFrame) onStatus?.invoke("Erro ao carregar: ${error.description}")
+                    }
+                }
+                webChromeClient = object : android.webkit.WebChromeClient() {
+                    override fun onConsoleMessage(message: android.webkit.ConsoleMessage): Boolean {
+                        if (message.messageLevel() == android.webkit.ConsoleMessage.MessageLevel.ERROR) {
+                            onStatus?.invoke("Erro no script (linha ${message.lineNumber()}): ${message.message()}")
+                        }
+                        return true
+                    }
+                }
+                addOnLayoutChangeListener { v, l, t, r, b, _, _, _, _ ->
+                    if (r - l == 0 || b - t == 0) onStatus?.invoke("O widget está com tamanho zero")
                 }
                 webView = this
             }
         },
         update = { view ->
+            val layer = if (widget.software) View.LAYER_TYPE_SOFTWARE else View.LAYER_TYPE_HARDWARE
+            if (view.layerType != layer) view.setLayerType(layer, null)
             view.settings.javaScriptEnabled = widget.interactive
             view.settings.blockNetworkLoads = !widget.network
             if (loaded[0] != document) {

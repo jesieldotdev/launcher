@@ -18,10 +18,12 @@ data class HtmlWidget(
     val html: String,
     val interactive: Boolean = false,
     val network: Boolean = false,
+    /** Desenho por software: mais compatível em aparelhos onde o WebView fica em branco. */
+    val software: Boolean = false,
 ) {
     fun toJson(): JSONObject = JSONObject()
         .put("id", id).put("name", name).put("html", html)
-        .put("interactive", interactive).put("network", network)
+        .put("interactive", interactive).put("network", network).put("software", software)
 
     companion object {
         fun fromJson(o: JSONObject) = HtmlWidget(
@@ -30,6 +32,7 @@ data class HtmlWidget(
             html = o.optString("html"),
             interactive = o.optBoolean("interactive", false),
             network = o.optBoolean("network", false),
+            software = o.optBoolean("software", false),
         )
 
         fun listFromJson(text: String?): List<HtmlWidget> = runCatching {
