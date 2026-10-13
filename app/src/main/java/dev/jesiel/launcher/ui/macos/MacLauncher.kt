@@ -55,6 +55,7 @@ import dev.jesiel.launcher.ui.common.CalendarCard
 import dev.jesiel.launcher.ui.common.ClockCard
 import dev.jesiel.launcher.ui.common.ControlCenter
 import dev.jesiel.launcher.ui.common.DesktopCanvas
+import dev.jesiel.launcher.ui.common.DockTray
 import dev.jesiel.launcher.ui.common.DockDivider
 import dev.jesiel.launcher.ui.common.DrawerStyle
 import dev.jesiel.launcher.ui.common.LauncherPalette
@@ -141,6 +142,7 @@ fun MacLauncher(state: LauncherUiState, controller: LauncherController) {
                             shape = RoundedCornerShape(26.dp),
                             modifier = Modifier.padding(horizontal = 12.dp),
                             trailing = {
+                                DockTray(state, controller, palette)
                                 DockDivider(palette.dockStroke, vertical = false)
                                 MenuBarButton(state, controller, palette, "Launchpad", Icons.Default.Apps, Color.White, { openLaunchpad(search = false) }, size = 48.dp, background = Color(0x4D8E8E93))
                             },

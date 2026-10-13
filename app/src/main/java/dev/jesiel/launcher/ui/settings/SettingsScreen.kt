@@ -239,28 +239,57 @@ fun SettingsScreen(state: LauncherUiState, controller: LauncherController, onClo
                     )
                 }
 
-                SectionTitle("Barras e telas")
+                SectionTitle(if (state.themeId == "windows") "Barra de tarefas" else "Dock")
                 Card {
-                    SwitchRow(if (state.themeId == "windows") "Mostrar barra de tarefas" else "Mostrar dock / painel", layout.showDock) { on ->
+                    val isWindows = state.themeId == "windows"
+                    SwitchRow(if (isWindows) "Mostrar barra de tarefas" else "Mostrar dock / painel", layout.showDock) { on ->
                         vm.updateLayout { it.copy(showDock = on) }
                     }
                     if (layout.showDock) {
-                        SwitchRow(if (state.themeId == "windows") "Fundo da barra de tarefas" else "Fundo da dock / painel", layout.dockBackground) { on ->
-                            vm.updateLayout { it.copy(dockBackground = on) }
+                        SwitchRow("Fundo translúcido", layout.dockBackground) { on -> vm.updateLayout { it.copy(dockBackground = on) } }
+                        SwitchRow("Mostrar hora", layout.showTray) { on -> vm.updateLayout { it.copy(showTray = on) } }
+                        if (layout.showTray) {
+                            SwitchRow("Mostrar data junto da hora", layout.trayShowDate) { on -> vm.updateLayout { it.copy(trayShowDate = on) } }
+                            SwitchRow("Mostrar Wi-Fi e bateria", layout.trayShowStatus) { on -> vm.updateLayout { it.copy(trayShowStatus = on) } }
                         }
+                        if (isWindows) {
+                            SwitchRow("Botão de pesquisa", layout.dockShowSearch) { on -> vm.updateLayout { it.copy(dockShowSearch = on) } }
+                            Spacer(Modifier.height(6.dp))
+                            Text("Alinhamento", fontWeight = FontWeight.SemiBold)
+                            Spacer(Modifier.height(6.dp))
+                            Choices(listOf(true, false), layout.dockCentered, { if (it) "Centralizado" else "À esquerda" }) { centered ->
+                                vm.updateLayout { it.copy(dockCentered = centered) }
+                            }
+                        }
+                        Spacer(Modifier.height(10.dp))
+                        val iconValue = if (layout.dockIconSizeDp > 0) layout.dockIconSizeDp else if (isWindows) 32 else 46
+                        SliderRow("Tamanho dos ícones", "$iconValue dp", iconValue.toFloat(), 24f..64f, 9) { v ->
+                            vm.updateLayout { it.copy(dockIconSizeDp = v.roundToInt()) }
+                        }
+                        SliderRow("Máximo de apps", "${layout.dockMaxApps}", layout.dockMaxApps.toFloat(), 3f..8f, 4) { v ->
+                            vm.updateLayout { it.copy(dockMaxApps = v.roundToInt()) }
+                        }
+                        Text(
+                            "Apps na dock: " + state.dock.joinToString { it.label }.ifEmpty { "nenhum" } +
+                                ". Toque e segure um app para fixar ou desafixar.",
+                            fontSize = 12.sp,
+                            color = Color.Gray,
+                        )
+                    } else {
+                        Text(
+                            "Sem a barra, deslize para cima para abrir os apps e para baixo para o painel de controle.",
+                            fontSize = 12.sp,
+                            color = Color.Gray,
+                        )
                     }
-                    if (layout.showDock && (state.themeId == "windows" || state.themeId == "kde")) {
-                        SwitchRow("Mostrar hora e data na barra", layout.showTray) { on -> vm.updateLayout { it.copy(showTray = on) } }
-                    }
+                }
+
+                SectionTitle("Telas")
+                Card {
                     if (state.themeId == "ubuntu" || state.themeId == "macos") {
                         SwitchRow("Mostrar barra superior", layout.showTopBar) { on -> vm.updateLayout { it.copy(showTopBar = on) } }
+                        Spacer(Modifier.height(8.dp))
                     }
-                    Text(
-                        "Sem a barra, deslize para cima para abrir os apps e para baixo para o painel de controle.",
-                        fontSize = 12.sp,
-                        color = Color.Gray,
-                        modifier = Modifier.padding(top = 4.dp, bottom = 12.dp),
-                    )
                     Text("Tela à esquerda", fontWeight = FontWeight.SemiBold)
                     Spacer(Modifier.height(6.dp))
                     Choices(LeftScreen.entries, state.leftScreen, { it.label }) { vm.setLeftScreen(it) }
@@ -326,17 +355,6 @@ fun SettingsScreen(state: LauncherUiState, controller: LauncherController, onClo
                     }
                     Spacer(Modifier.height(8.dp))
                     Button(onClick = { controller.widgetPickerOpen = true }) { Text("Adicionar widget") }
-                }
-
-                SectionTitle("Dock")
-                Card {
-                    Text(
-                        "Toque e segure um app e escolha fixar no dock (ou na barra de tarefas). Até 5 apps.",
-                        fontSize = 13.sp,
-                        color = Color.Gray,
-                    )
-                    Spacer(Modifier.height(6.dp))
-                    Text(state.dock.joinToString { it.label }.ifEmpty { "Vazio" })
                 }
 
                 SectionTitle("Sistema")

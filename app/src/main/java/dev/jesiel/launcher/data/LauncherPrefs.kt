@@ -24,8 +24,16 @@ data class ThemeLayout(
     val showDock: Boolean = true,
     /** Fundo (painel translúcido) atrás dos ícones da dock / barra de tarefas. */
     val dockBackground: Boolean = true,
-    /** Bandeja com hora, data, Wi-Fi e bateria na barra (Windows e KDE). */
+    /** Bandeja com hora (e opcionalmente data, Wi-Fi e bateria) na dock / barra de tarefas. */
     val showTray: Boolean = true,
+    val trayShowDate: Boolean = true,
+    val trayShowStatus: Boolean = true,
+    /** Tamanho dos ícones da dock; 0 usa o padrão do tema. */
+    val dockIconSizeDp: Int = 0,
+    val dockMaxApps: Int = 5,
+    /** Windows: ícones da barra centralizados (Windows 11) ou à esquerda (Windows 10). */
+    val dockCentered: Boolean = true,
+    val dockShowSearch: Boolean = true,
     /** O menu de apps abre direto na lista completa (como no KDE) em vez dos fixados. */
     val menuOpensAllApps: Boolean = false,
     /** Título, seletor de exibição e filtros por categoria acima da lista de apps. */
@@ -98,8 +106,9 @@ data class LauncherData(
     companion object {
         /** iOS e macOS começam com várias telas, como nos sistemas originais. */
         fun defaultLayout(themeId: String) = when (themeId) {
-            "ios" -> ThemeLayout(iconSizeDp = 56, multiPage = true, pageCount = 2)
-            "macos" -> ThemeLayout(multiPage = true, pageCount = 2)
+            "ios" -> ThemeLayout(iconSizeDp = 56, multiPage = true, pageCount = 2, showTray = false)
+            "macos" -> ThemeLayout(multiPage = true, pageCount = 2, showTray = false)
+            "ubuntu" -> ThemeLayout(showTray = false)
             else -> ThemeLayout()
         }
     }
@@ -145,7 +154,14 @@ class LauncherPrefs(context: Context) {
                     menuIcon = enumOr(l.optString("menuIcon"), MenuIcon.DEFAULT),
                     showDock = l.optBoolean("dock", true),
                     dockBackground = l.optBoolean("dockBackground", true),
-                    showTray = l.optBoolean("tray", true),
+                    // Só Windows e KDE tinham bandeja; nos outros temas ela começa desligada.
+                    showTray = l.optBoolean("dockTray", if (id == "windows" || id == "kde") l.optBoolean("tray", true) else false),
+                    trayShowDate = l.optBoolean("trayDate", true),
+                    trayShowStatus = l.optBoolean("trayStatus", true),
+                    dockIconSizeDp = l.optInt("dockIcon", 0),
+                    dockMaxApps = l.optInt("dockMax", 5),
+                    dockCentered = l.optBoolean("dockCentered", true),
+                    dockShowSearch = l.optBoolean("dockSearch", true),
                     menuOpensAllApps = l.optBoolean("menuAllApps", false),
                     showAppsHeader = l.optBoolean("appsHeader", true),
                     drawerIconSizeDp = l.optInt("drawerIcon", 48),
@@ -209,7 +225,13 @@ class LauncherPrefs(context: Context) {
                         .put("menuIcon", l.menuIcon.name)
                         .put("dock", l.showDock)
                         .put("dockBackground", l.dockBackground)
-                        .put("tray", l.showTray)
+                        .put("dockTray", l.showTray)
+                        .put("trayDate", l.trayShowDate)
+                        .put("trayStatus", l.trayShowStatus)
+                        .put("dockIcon", l.dockIconSizeDp)
+                        .put("dockMax", l.dockMaxApps)
+                        .put("dockCentered", l.dockCentered)
+                        .put("dockSearch", l.dockShowSearch)
                         .put("menuAllApps", l.menuOpensAllApps)
                         .put("appsHeader", l.showAppsHeader)
                         .put("drawerIcon", l.drawerIconSizeDp)

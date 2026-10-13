@@ -70,6 +70,7 @@ import dev.jesiel.launcher.ui.common.BuiltinSpec
 import dev.jesiel.launcher.ui.common.ClockCard
 import dev.jesiel.launcher.ui.common.ControlCenter
 import dev.jesiel.launcher.ui.common.DesktopCanvas
+import dev.jesiel.launcher.ui.common.DockTray
 import dev.jesiel.launcher.ui.common.LauncherPalette
 import dev.jesiel.launcher.ui.common.LocalPalette
 import dev.jesiel.launcher.ui.common.MenuButtonIcon
@@ -294,6 +295,10 @@ private fun Taskbar(
             .dockPanel(state.layout.dockBackground, palette, WindowsShape)
             .padding(horizontal = 6.dp),
     ) {
+        val layout = state.layout
+        val dockIcon = if (layout.dockIconSizeDp > 0) layout.dockIconSizeDp.dp else 32.dp
+        // Centralizado (Windows 11): Iniciar, busca e apps formam um grupo no meio da barra.
+        if (layout.dockCentered) Spacer(Modifier.weight(1f))
         TaskbarButton(active = startOpen, description = "Iniciar", palette = palette, onClick = onStart) {
             // O logotipo "afunda" de leve enquanto o Iniciar está aberto.
             val scale by animateFloatAsState(if (startOpen) 0.9f else 1f, spring(dampingRatio = 0.4f), label = "iniciar")
@@ -301,14 +306,16 @@ private fun Taskbar(
                 MenuButtonIcon(state, controller, palette, 28.dp) { WindowsLogo(26.dp) }
             }
         }
-        TaskbarButton(active = false, description = "Pesquisar", palette = palette, onClick = onSearch) {
-            Icon(Icons.Default.Search, contentDescription = null, tint = palette.panelText, modifier = Modifier.size(26.dp))
+        if (layout.dockShowSearch) {
+            TaskbarButton(active = false, description = "Pesquisar", palette = palette, onClick = onSearch) {
+                Icon(Icons.Default.Search, contentDescription = null, tint = palette.panelText, modifier = Modifier.size(26.dp))
+            }
         }
         if (state.dock.isNotEmpty()) {
             Box(Modifier.padding(horizontal = 4.dp).width(1.dp).height(28.dp).background(palette.panelStroke))
         }
         Row(
-            Modifier.weight(1f).horizontalScroll(rememberScrollState()),
+            Modifier.weight(if (layout.dockCentered) 2.2f else 1f, fill = !layout.dockCentered).horizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(2.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -317,59 +324,15 @@ private fun Taskbar(
                     app = app,
                     state = state,
                     controller = controller,
-                    iconSize = 32.dp,
+                    iconSize = dockIcon,
                     showLabel = false,
                     labels = WindowsMenuLabels,
                     onLaunched = onLaunched,
                 )
             }
         }
-        if (state.layout.showTray) {
-            Tray(
-                palette,
-                active = controller.controlCenterOpen,
-                onClick = onTray,
-                onHide = { controller.viewModel.updateLayout { it.copy(showTray = false) } },
-            )
-        }
-    }
-}
-
-/** Bandeja do sistema: Wi-Fi, bateria e hora. Abre as configurações rápidas. */
-@Composable
-@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
-private fun Tray(palette: LauncherPalette, active: Boolean, onClick: () -> Unit, onHide: () -> Unit) {
-    var menu by remember { mutableStateOf(false) }
-    val context = LocalContext.current
-    val now = rememberNow()
-    val battery = rememberBatteryState()
-    val locale = remember { Locale.getDefault() }
-    val time = remember(now) {
-        SimpleDateFormat(if (android.text.format.DateFormat.is24HourFormat(context)) "HH:mm" else "h:mm", locale).format(Date(now))
-    }
-    val date = remember(now) { SimpleDateFormat("dd/MM", locale).format(Date(now)) }
-    Box {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier
-            .semantics { contentDescription = "Configurações rápidas" }
-            .clip(RoundedCornerShape(10.dp))
-            .background(if (active) palette.tile else Color.Transparent)
-            .combinedClickable(onClick = onClick, onLongClick = { menu = true })
-            .padding(horizontal = 8.dp, vertical = 6.dp),
-    ) {
-        Icon(Icons.Default.Wifi, contentDescription = null, tint = palette.panelText, modifier = Modifier.size(16.dp))
-        Spacer(Modifier.width(4.dp))
-        BatteryGlyph(battery?.percent ?: 0, battery?.charging == true, palette.panelText, 20.dp)
-        Spacer(Modifier.width(8.dp))
-        Column(horizontalAlignment = Alignment.End) {
-            Text(time, color = palette.panelText, fontSize = 12.sp, maxLines = 1)
-            Text(date, color = palette.panelTextSecondary, fontSize = 10.sp, maxLines = 1)
-        }
-    }
-    androidx.compose.material3.DropdownMenu(expanded = menu, onDismissRequest = { menu = false }, shape = RoundedCornerShape(12.dp)) {
-        androidx.compose.material3.DropdownMenuItem(text = { Text("Ocultar hora e data") }, onClick = { menu = false; onHide() })
-    }
+        if (layout.dockCentered) Spacer(Modifier.weight(1f))
+        DockTray(state, controller, palette)
     }
 }
 

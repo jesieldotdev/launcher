@@ -66,13 +66,14 @@ fun AppDock(
     leading: @Composable () -> Unit = {},
     trailing: @Composable () -> Unit = {},
 ) {
+    val size = if (state.layout.dockIconSizeDp > 0) state.layout.dockIconSizeDp.dp else iconSize
     val apps: @Composable () -> Unit = {
         state.dock.forEach { app ->
             AppTile(
                 app = app,
                 state = state,
                 controller = controller,
-                iconSize = iconSize,
+                iconSize = size,
                 showLabel = false,
                 labels = labels,
                 iconBackground = palette.iconBackground,

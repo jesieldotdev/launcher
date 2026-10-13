@@ -50,6 +50,7 @@ import dev.jesiel.launcher.ui.common.ClockCard
 import dev.jesiel.launcher.ui.common.ControlCenter
 import dev.jesiel.launcher.ui.common.DayCard
 import dev.jesiel.launcher.ui.common.DesktopCanvas
+import dev.jesiel.launcher.ui.common.DockTray
 import dev.jesiel.launcher.ui.common.DrawerStyle
 import dev.jesiel.launcher.ui.common.LauncherPalette
 import dev.jesiel.launcher.ui.common.SystemMonitorCard
@@ -136,7 +137,7 @@ fun KdeLauncher(state: LauncherUiState, controller: LauncherController) {
                         leading = {
                             MenuBarButton(state, controller, palette, "Lançador de aplicativos", Icons.Default.Apps, palette.onAccent, { openDrawer(search = false) }, size = 44.dp, background = palette.accent)
                         },
-                        trailing = { if (state.layout.showTray) Tray(palette) { controller.controlCenterOpen = !controller.controlCenterOpen } },
+                        trailing = { DockTray(state, controller, palette) },
                     )
                 }
             }
@@ -152,26 +153,6 @@ fun KdeLauncher(state: LauncherUiState, controller: LauncherController) {
             labels = KdeLabels,
         )
         ControlCenter(controller, palette)
-    }
-}
-
-@Composable
-private fun Tray(palette: LauncherPalette, onClick: () -> Unit) {
-    val battery = rememberBatteryState()
-    val time = rememberTimeText()
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier
-            .semantics { contentDescription = "Bandeja do sistema" }
-            .clip(RoundedCornerShape(12.dp))
-            .clickable(onClick = onClick)
-            .padding(horizontal = 8.dp, vertical = 8.dp),
-    ) {
-        Icon(Icons.Default.Wifi, null, tint = palette.panelText, modifier = Modifier.size(16.dp))
-        Spacer(Modifier.width(4.dp))
-        BatteryGlyph(battery?.percent ?: 0, battery?.charging == true, palette.panelText, 20.dp)
-        Spacer(Modifier.width(8.dp))
-        Text(time, color = palette.panelText, fontSize = 13.sp)
     }
 }
 

@@ -87,7 +87,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
             layout = data.layoutFor(data.themeId),
             apps = apps,
             home = home,
-            dock = data.dock.mapNotNull(byKey::get),
+            dock = data.dock.mapNotNull(byKey::get).take(data.layoutFor(data.themeId).dockMaxApps),
             recents = data.recents.mapNotNull { (key, at) -> byKey[key]?.let { RecentApp(it, at) } },
             widgetIds = data.widgetIds,
             folders = data.folders.values.toList(),
@@ -156,7 +156,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
 
     fun toggleDock(app: AppInfo) = prefs.update { d ->
         if (app.key in d.dock) d.copy(dock = d.dock - app.key)
-        else d.copy(dock = (d.dock + app.key).takeLast(MAX_DOCK))
+        else d.copy(dock = (d.dock + app.key).takeLast(d.layoutFor(d.themeId).dockMaxApps.coerceIn(1, MAX_DOCK)))
     }
 
     /** Move o app para uma pasta existente ou cria uma nova (quando [folderId] é nulo). */
@@ -365,6 +365,6 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     companion object {
         const val FOLDER_PREFIX = "folder:"
         const val MAX_RECENTS = 12
-        const val MAX_DOCK = 5
+        const val MAX_DOCK = 8
     }
 }

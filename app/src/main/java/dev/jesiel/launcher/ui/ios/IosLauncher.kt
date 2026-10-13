@@ -34,6 +34,7 @@ import dev.jesiel.launcher.ui.common.BuiltinSpec
 import dev.jesiel.launcher.ui.common.ControlCenter
 import dev.jesiel.launcher.ui.common.DayCard
 import dev.jesiel.launcher.ui.common.DesktopCanvas
+import dev.jesiel.launcher.ui.common.DockTray
 import dev.jesiel.launcher.ui.common.DrawerStyle
 import dev.jesiel.launcher.ui.common.LauncherPalette
 import dev.jesiel.launcher.ui.common.SearchBar
@@ -117,6 +118,7 @@ fun IosLauncher(state: LauncherUiState, controller: LauncherController) {
                         iconSize = 54.dp,
                         shape = RoundedCornerShape(32.dp),
                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp).fillMaxWidth(),
+                        trailing = { DockTray(state, controller, palette) },
                     )
                 }
             }

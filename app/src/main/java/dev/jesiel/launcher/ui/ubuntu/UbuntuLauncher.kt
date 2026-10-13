@@ -54,6 +54,7 @@ import dev.jesiel.launcher.ui.common.BuiltinSpec
 import dev.jesiel.launcher.ui.common.ClockCard
 import dev.jesiel.launcher.ui.common.ControlCenter
 import dev.jesiel.launcher.ui.common.DesktopCanvas
+import dev.jesiel.launcher.ui.common.DockTray
 import dev.jesiel.launcher.ui.common.DockDivider
 import dev.jesiel.launcher.ui.common.DrawerStyle
 import dev.jesiel.launcher.ui.common.LauncherPalette
@@ -136,6 +137,7 @@ fun UbuntuLauncher(state: LauncherUiState, controller: LauncherController) {
                             labels = UbuntuLabels,
                             modifier = Modifier.fillMaxHeight(0.82f).align(Alignment.CenterVertically),
                             trailing = {
+                                DockTray(state, controller, palette, vertical = true)
                                 DockDivider(palette.cardTextSecondary.copy(alpha = 0.4f), vertical = true)
                                 MenuBarButton(state, controller, palette, "Mostrar aplicativos", Icons.Default.Apps, palette.panelText, { openDrawer(search = false) }, size = 44.dp)
                             },
