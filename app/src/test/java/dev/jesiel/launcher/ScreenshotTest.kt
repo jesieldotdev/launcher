@@ -305,6 +305,22 @@ class ScreenshotTest {
     }
 
     @Test
+    fun dragOntoAnotherPushesIt() {
+        val controller = controller()
+        controller.editMode = true
+        compose.setContent { WindowsLauncher(sampleState(), controller) }
+        // Arrasta o Chrome sobre o Spotify e captura antes de soltar: o Spotify já saiu do caminho.
+        compose.onNodeWithText("Chrome").performTouchInput {
+            down(center)
+            moveBy(androidx.compose.ui.geometry.Offset(width * 0.6f, 0f))
+            moveBy(androidx.compose.ui.geometry.Offset(width * 0.5f, 0f))
+        }
+        compose.mainClock.advanceTimeBy(1_500)
+        compose.waitForIdle()
+        compose.onRoot().captureRoboImage(shot("windows-collision"))
+    }
+
+    @Test
     fun noDockBackground() {
         val controller = controller()
         compose.setContent { WindowsLauncher(sampleState().copy(layout = ThemeLayout(dockBackground = false)), controller) }

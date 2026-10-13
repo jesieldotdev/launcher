@@ -73,3 +73,38 @@ class DesktopGridTest {
         assertEquals(1, placed.getValue("i3").page)
     }
 }
+
+class CollisionTest {
+
+    private fun p(x: Float, y: Float, w: Float = 1f, h: Float = 1f) = dev.jesiel.launcher.data.Placement(0, x, y, w, h)
+
+    @Test
+    fun gridDropPushesOccupantToNearestCell() {
+        val grid = dev.jesiel.launcher.data.DesktopGrid(columns = 4, rows = 6, multiPage = true, pageCount = 1)
+        val all = mapOf("a" to p(0f, 0f), "b" to p(1f, 0f))
+        val result = grid.pushApart("b", p(0.1f, 0.2f), all)
+        assertEquals(p(0f, 0f), result.getValue("b"))
+        val a = result.getValue("a")
+        assert(!a.overlaps(result.getValue("b")))
+        assertEquals(1f, kotlin.math.abs(a.x - 0f) + kotlin.math.abs(a.y - 0f), 0.001f)
+    }
+
+    @Test
+    fun freeDropNeverLeavesOverlaps() {
+        val grid = dev.jesiel.launcher.data.DesktopGrid(columns = 4, rows = 6, multiPage = true, pageCount = 1, free = true)
+        val all = mapOf("a" to p(1f, 1f), "b" to p(2f, 1f), "w" to p(0f, 3f, 4f, 2f))
+        val result = grid.pushApart("w", p(0.5f, 0.6f, 4f, 2f), all)
+        val items = result.values.toList()
+        for (i in items.indices) for (j in i + 1 until items.size) assert(!items[i].overlaps(items[j])) { "${items[i]} x ${items[j]}" }
+    }
+
+    @Test
+    fun resizingPushesNeighbours() {
+        val grid = dev.jesiel.launcher.data.DesktopGrid(columns = 4, rows = 6, multiPage = true, pageCount = 1)
+        val all = mapOf("clock" to p(0f, 0f, 2f, 1f), "a" to p(2f, 0f), "b" to p(3f, 0f))
+        val result = grid.pushApart("clock", p(0f, 0f, 4f, 1f), all)
+        assert(!result.getValue("a").overlaps(result.getValue("clock")))
+        assert(!result.getValue("b").overlaps(result.getValue("clock")))
+        assert(!result.getValue("a").overlaps(result.getValue("b")))
+    }
+}

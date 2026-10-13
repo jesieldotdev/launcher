@@ -127,6 +127,49 @@ class DesktopGrid(
         return best ?: fallback ?: firstFree(CellSize(snapped.w, snapped.h), others)
     }
 
+    /**
+     * Colisão: põe [selfId] em [target] e afasta os itens que ficariam por baixo dele para o
+     * espaço livre mais próximo de onde estavam. Devolve as novas posições de todos os itens.
+     */
+    fun pushApart(selfId: String, target: Placement, all: Map<String, Placement>): Map<String, Placement> {
+        val placed = clamp(if (free) target else target.snapped())
+        val result = LinkedHashMap(all)
+        result[selfId] = placed
+        val hit = all.filter { (id, p) -> id != selfId && p.overlaps(placed) }
+            .entries.sortedBy { (_, p) -> abs(p.x - placed.x) + abs(p.y - placed.y) }
+        for ((id, p) in hit) {
+            val obstacles = result.filterKeys { it != id }.values
+            result[id] = closestFreeSpot(p, obstacles)
+        }
+        return result
+    }
+
+    /** Posição livre mais próxima de [p] (passos de célula na grade, de 1/4 no modo livre). */
+    private fun closestFreeSpot(p: Placement, obstacles: Collection<Placement>): Placement {
+        val step = if (free) 0.25f else 1f
+        val onPage = obstacles.filter { it.page == p.page }
+        val maxY = if (multiPage) rows - p.h else (onPage.maxOfOrNull { it.y + it.h } ?: 0f) + p.h
+        var best: Placement? = null
+        var bestDist = Float.MAX_VALUE
+        var y = 0f
+        while (y <= maxY + EPSILON) {
+            var x = 0f
+            while (x + p.w <= columns + EPSILON) {
+                val c = p.copy(x = x, y = y)
+                if (onPage.none { it.overlaps(c) }) {
+                    val d = abs(c.x - p.x) + abs(c.y - p.y) * 1.2f
+                    if (d < bestDist) {
+                        bestDist = d
+                        best = c
+                    }
+                }
+                x += step
+            }
+            y += step
+        }
+        return best ?: firstFree(CellSize(p.w, p.h), obstacles)
+    }
+
     companion object {
         private const val EPSILON = 0.001f
 

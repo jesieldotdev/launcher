@@ -43,6 +43,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -224,9 +225,32 @@ fun DesktopCanvas(
             }
         }
 
+        // Colisão: enquanto um item é arrastado, os que estão no caminho se afastam (prévia);
+        // ao soltar, as posições da prévia são gravadas.
+        var dragging by remember { mutableStateOf<String?>(null) }
+        var preview by remember { mutableStateOf<Map<String, Placement>?>(null) }
+        var lastTarget by remember { mutableStateOf<Placement?>(null) }
+
+        fun previewMove(id: String, target: Placement?) {
+            if (target == null) {
+                dragging = null
+                preview = null
+                lastTarget = null
+                return
+            }
+            dragging = id
+            val key = if (layout.freePlacement) target else grid.clamp(target.snapped())
+            if (key == lastTarget) return
+            lastTarget = key
+            preview = grid.pushApart(id, target, resolved)
+        }
+
         fun move(id: String, target: Placement) {
-            val placed = if (layout.freePlacement) grid.clamp(target) else grid.nearestFree(target, id, resolved)
-            vm.savePlacements(mapOf(id to placed))
+            val result = grid.pushApart(id, target, resolved)
+            vm.savePlacements(result.filter { (key, p) -> resolved[key] != p })
+            dragging = null
+            preview = null
+            lastTarget = null
         }
 
         fun remove(id: String) {
@@ -250,7 +274,8 @@ fun DesktopCanvas(
 
         @Composable
         fun Page(page: Int) {
-            val onPage = entries.filter { resolved[it.id]?.page == page }
+            fun shown(id: String): Placement? = if (id != dragging) preview?.get(id) ?: resolved[id] else resolved[id]
+            val onPage = entries.filter { shown(it.id)?.page == page }
             val usedRows = onPage.maxOfOrNull { resolved.getValue(it.id).let { p -> p.y + p.h } } ?: 0f
             val pageRows = if (layout.multiPage) rows.toFloat() else maxOf(rows.toFloat(), usedRows + if (edit) 2 else 0)
             Box(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
@@ -262,20 +287,37 @@ fun DesktopCanvas(
                     DesktopBackground(controller, edit, onTap = { selected = null }, onAddScreen = ::addScreen, modifier = Modifier.matchParentSize())
                     // Guias só aparecem no modo grade, deixando claro qual modo está ativo.
                     if (edit && !layout.freePlacement) GridGuides(columns, pageRows.toInt(), cellW, cellH, palette.onWallpaper)
+                    // Sombra de onde o item arrastado vai cair.
+                    val landing = dragging?.let { preview?.get(it) }?.takeIf { it.page == page }
+                    if (landing != null) {
+                        Box(
+                            Modifier
+                                .offset(cellW * landing.x, cellH * landing.y)
+                                .size(cellW * landing.w, cellH * landing.h)
+                                .padding(3.dp)
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(palette.accent.copy(alpha = 0.25f))
+                                .border(2.dp, palette.accent.copy(alpha = 0.7f), RoundedCornerShape(14.dp)),
+                        )
+                    }
                     onPage.forEach { entry ->
-                        val placement = resolved.getValue(entry.id)
-                        PlacedItem(
-                            placement = placement,
-                            cellW = cellW,
-                            cellH = cellH,
-                            edit = edit,
-                            selected = selected == entry.id,
-                            resizable = entry !is DesktopEntry.Item && (entry !is DesktopEntry.Builtin || entry.spec.resizable),
-                            accent = palette.accent,
-                            onSelect = { selected = entry.id },
-                            onMove = { move(entry.id, it) },
-                        ) {
-                            EntryContent(entry, state, controller, palette, labels, onRemove = { remove(entry.id) })
+                        // Chave estável: o estado do arraste fica com o item certo mesmo se a lista mudar.
+                        key(entry.id) {
+                            val placement = shown(entry.id)!!
+                            PlacedItem(
+                                placement = placement,
+                                cellW = cellW,
+                                cellH = cellH,
+                                edit = edit,
+                                selected = selected == entry.id,
+                                resizable = entry !is DesktopEntry.Item && (entry !is DesktopEntry.Builtin || entry.spec.resizable),
+                                accent = palette.accent,
+                                onSelect = { selected = entry.id },
+                                onMove = { move(entry.id, it) },
+                                onDragTarget = { previewMove(entry.id, it) },
+                            ) {
+                                EntryContent(entry, state, controller, palette, labels, onRemove = { remove(entry.id) })
+                            }
                         }
                     }
                 }
@@ -422,6 +464,7 @@ private fun PlacedItem(
     accent: Color,
     onSelect: () -> Unit,
     onMove: (Placement) -> Unit,
+    onDragTarget: (Placement?) -> Unit,
     content: @Composable () -> Unit,
 ) {
     val density = LocalDensity.current
@@ -494,10 +537,14 @@ private fun PlacedItem(
                                     launch { ay.animateTo(current.y, spring(dampingRatio = 0.75f, stiffness = 400f)) }
                                 }
                             },
-                            onDragCancel = { drag = Offset.Zero },
+                            onDragCancel = {
+                                drag = Offset.Zero
+                                onDragTarget(null)
+                            },
                         ) { change, amount ->
                             change.consume()
                             drag += amount
+                            onDragTarget(current.copy(x = ax.value + drag.x / cellWpx, y = ay.value + drag.y / cellHpx))
                         }
                     },
             )
@@ -514,10 +561,20 @@ private fun PlacedItem(
                                     onMove(p.copy(w = p.w + resize.x / cellWpx, h = p.h + resize.y / cellHpx))
                                     resize = Offset.Zero
                                 },
-                                onDragCancel = { resize = Offset.Zero },
+                                onDragCancel = {
+                                    resize = Offset.Zero
+                                    onDragTarget(null)
+                                },
                             ) { change, amount ->
                                 change.consume()
                                 resize += amount
+                                val p = current
+                                onDragTarget(
+                                    p.copy(
+                                        w = (p.w + resize.x / cellWpx).coerceAtLeast(0.5f),
+                                        h = (p.h + resize.y / cellHpx).coerceAtLeast(0.5f),
+                                    ),
+                                )
                             }
                         },
                     contentAlignment = Alignment.Center,
