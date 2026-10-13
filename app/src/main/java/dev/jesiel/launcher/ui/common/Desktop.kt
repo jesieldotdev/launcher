@@ -195,7 +195,7 @@ fun DesktopCanvas(
         // Grava as posições calculadas (novos itens, ou encaixe ao voltar para a grade).
         LaunchedEffect(resolved) {
             val changed = resolved.filter { (id, p) -> state.placements[id] != p }
-            if (changed.isNotEmpty()) vm.savePlacements(changed)
+            if (changed.isNotEmpty()) vm.savePlacements(state.themeId, changed)
         }
 
         val desktopPages = if (layout.multiPage) maxOf(layout.pageCount, (resolved.values.maxOfOrNull { it.page } ?: 0) + 1) else 1
@@ -247,7 +247,7 @@ fun DesktopCanvas(
 
         fun move(id: String, target: Placement) {
             val result = grid.pushApart(id, target, resolved)
-            vm.savePlacements(result.filter { (key, p) -> resolved[key] != p })
+            vm.savePlacements(state.themeId, result.filter { (key, p) -> resolved[key] != p })
             dragging = null
             preview = null
             lastTarget = null

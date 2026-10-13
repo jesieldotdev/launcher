@@ -57,7 +57,13 @@ class MainActivity : ComponentActivity() {
             // Sendo a tela inicial, o botão Voltar nunca fecha o launcher.
             BackHandler { }
             // Troca de tema com transição suave.
-            Crossfade(targetState = theme, animationSpec = tween(450), label = "tema") { it.Content(state, controller) }
+            // O tema que está saindo é desenhado com o último estado dele (e não grava nada),
+            // para não misturar as posições dos dois temas durante a transição.
+            val lastStates = remember { mutableMapOf<String, LauncherUiState>() }
+            lastStates[theme.id] = state
+            Crossfade(targetState = theme, animationSpec = tween(450), label = "tema") { t ->
+                t.Content(if (t.id == theme.id) state else lastStates[t.id] ?: state, controller)
+            }
 
             // Leitor de notícias do feed, por cima do tema.
             AnimatedVisibility(

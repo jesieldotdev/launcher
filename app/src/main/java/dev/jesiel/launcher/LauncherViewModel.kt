@@ -58,6 +58,7 @@ data class LauncherUiState(
     val menuIconVersion: Long = 0,
     val leftScreen: LeftScreen = LeftScreen.FEED,
     val windowMode: Boolean = false,
+    val sharedLayout: Boolean = true,
 )
 
 class LauncherViewModel(application: Application) : AndroidViewModel(application) {
@@ -96,13 +97,14 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
             dockKeys = data.dock.toSet(),
             colorMode = data.colorMode,
             swipeDown = data.swipeDown,
-            placements = data.placements[data.themeId].orEmpty(),
+            placements = data.placementsFor(data.themeId),
             hiddenBuiltins = data.hiddenBuiltins[data.themeId].orEmpty(),
             transparency = data.transparency,
             appsView = data.appsView,
             menuIconVersion = menuIconVersion.value,
             leftScreen = data.leftScreen,
             windowMode = data.windowMode,
+            sharedLayout = data.sharedLayout,
         )
     }
 
@@ -207,7 +209,18 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         d.copy(homeOrder = d.homeOrder.toMutableList().apply { add(target, removeAt(index)) })
     }
 
-    fun setTheme(themeId: String) = prefs.update { it.copy(themeId = themeId) }
+    fun setTheme(themeId: String) = prefs.update { d ->
+        if (!d.sharedLayout || themeId == d.themeId) return@update d.copy(themeId = themeId)
+        // Com a organização compartilhada, grade e telas acompanham, para as posições baterem.
+        val from = d.layoutFor(d.themeId)
+        val to = d.layoutFor(themeId).copy(
+            gridColumns = from.gridColumns,
+            multiPage = from.multiPage,
+            pageCount = from.pageCount,
+            freePlacement = from.freePlacement,
+        )
+        d.copy(themeId = themeId, layouts = d.layouts + (themeId to to))
+    }
 
     fun updateLayout(transform: (ThemeLayout) -> ThemeLayout) = prefs.update { d ->
         d.copy(layouts = d.layouts + (d.themeId to transform(d.layoutFor(d.themeId))))
@@ -270,7 +283,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
                 homeOrder = order,
                 folders = folders,
                 dock = imported.dock.take(MAX_DOCK).ifEmpty { d.dock },
-                placements = d.placements + (d.themeId to placements),
+                placements = d.placements + ((if (d.sharedLayout) LauncherData.SHARED_PLACEMENTS else d.themeId) to placements),
                 layouts = d.layouts + (d.themeId to layout),
             )
         }
@@ -314,10 +327,28 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     fun setSwipeDown(action: SwipeAction) = prefs.update { it.copy(swipeDown = action) }
 
     /** Grava posições na área de trabalho do tema atual (mesclando com as existentes). */
-    fun savePlacements(changes: Map<String, Placement>) = prefs.update { d ->
-        val current = d.placements[d.themeId].orEmpty()
+    /**
+     * Grava posições do tema [themeId]. Ignora temas que não estão ativos: durante a transição
+     * entre temas, o que está saindo ainda aparece e não deve gravar nada.
+     */
+    fun savePlacements(themeId: String, changes: Map<String, Placement>) = prefs.update { d ->
+        if (themeId != d.themeId) return@update d
+        val current = d.placementsFor(themeId)
         if (changes.all { (id, p) -> current[id] == p }) return@update d
-        d.copy(placements = d.placements + (d.themeId to current + changes))
+        if (!d.sharedLayout) {
+            return@update d.copy(placements = d.placements + (themeId to d.placements[themeId].orEmpty() + changes))
+        }
+        val (own, shared) = changes.entries.partition { LauncherData.isBuiltin(it.key) }
+        val themeMap = d.placements[themeId].orEmpty() + own.associate { it.key to it.value }
+        val sharedMap = current.filterKeys { !LauncherData.isBuiltin(it) } + shared.associate { it.key to it.value }
+        d.copy(placements = d.placements + (themeId to themeMap) + (LauncherData.SHARED_PLACEMENTS to sharedMap))
+    }
+
+    fun setSharedLayout(on: Boolean) = prefs.update { d ->
+        // Ao ligar, a organização do tema atual passa a valer para todos.
+        val sharedMap = d.placements[d.themeId].orEmpty().filterKeys { !LauncherData.isBuiltin(it) }
+        if (on) d.copy(sharedLayout = true, placements = d.placements + (LauncherData.SHARED_PLACEMENTS to sharedMap))
+        else d.copy(sharedLayout = false, placements = d.placements + (d.themeId to d.placementsFor(d.themeId)))
     }
 
     fun setBuiltinHidden(id: String, hidden: Boolean) = prefs.update { d ->
@@ -331,11 +362,12 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         val layout = d.layoutFor(d.themeId)
         if (layout.pageCount <= 1) return@update d
         // Itens das páginas seguintes sobem uma página; os da removida voltam a ser encaixados.
-        val moved = d.placements[d.themeId].orEmpty()
+        fun shift(map: Map<String, Placement>) = map
             .filterValues { it.page != page }
             .mapValues { (_, p) -> if (p.page > page) p.copy(page = p.page - 1) else p }
+        val keys = listOf(d.themeId) + if (d.sharedLayout) listOf(LauncherData.SHARED_PLACEMENTS) else emptyList()
         d.copy(
-            placements = d.placements + (d.themeId to moved),
+            placements = d.placements + keys.associateWith { shift(d.placements[it].orEmpty()) },
             layouts = d.layouts + (d.themeId to layout.copy(pageCount = layout.pageCount - 1)),
         )
     }

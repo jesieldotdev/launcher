@@ -102,10 +102,28 @@ data class LauncherData(
     val leftScreen: LeftScreen,
     /** Abrir apps em janela livre acima da barra, para a barra não cobrir o app. */
     val windowMode: Boolean,
+    /** Apps, pastas e widgets ficam na mesma posição em todos os temas. */
+    val sharedLayout: Boolean,
 ) {
     fun layoutFor(themeId: String) = layouts[themeId] ?: defaultLayout(themeId)
 
+    /**
+     * Posições na área de trabalho de [themeId]. Com [sharedLayout], apps, pastas e widgets vêm
+     * do mapa compartilhado entre temas; os componentes próprios do tema, sempre do tema.
+     */
+    fun placementsFor(themeId: String): Map<String, Placement> {
+        val own = placements[themeId].orEmpty()
+        if (!sharedLayout) return own
+        val shared = placements[SHARED_PLACEMENTS] ?: own.filterKeys { !isBuiltin(it) }
+        return own.filterKeys(::isBuiltin) + shared
+    }
+
     companion object {
+        /** Chave do mapa de posições compartilhado entre temas. */
+        const val SHARED_PLACEMENTS = "_shared"
+
+        fun isBuiltin(id: String) = id.startsWith("builtin:")
+
         /** iOS e macOS começam com várias telas, como nos sistemas originais. */
         fun defaultLayout(themeId: String) = when (themeId) {
             "ios" -> ThemeLayout(iconSizeDp = 56, multiPage = true, pageCount = 2, showTray = false)
@@ -201,6 +219,7 @@ class LauncherPrefs(context: Context) {
             appsView = enumOr(prefs.getString(KEY_APPS_VIEW, null), AppsView.GRID),
             leftScreen = enumOr(prefs.getString(KEY_LEFT_SCREEN, null), LeftScreen.FEED),
             windowMode = prefs.getBoolean(KEY_WINDOW_MODE, false),
+            sharedLayout = prefs.getBoolean(KEY_SHARED_LAYOUT, true),
         )
     }
 
@@ -270,6 +289,7 @@ class LauncherPrefs(context: Context) {
             .putString(KEY_APPS_VIEW, d.appsView.name)
             .putString(KEY_LEFT_SCREEN, d.leftScreen.name)
             .putBoolean(KEY_WINDOW_MODE, d.windowMode)
+            .putBoolean(KEY_SHARED_LAYOUT, d.sharedLayout)
             .apply()
     }
 
@@ -297,5 +317,6 @@ class LauncherPrefs(context: Context) {
         const val KEY_APPS_VIEW = "appsView"
         const val KEY_LEFT_SCREEN = "leftScreen"
         const val KEY_WINDOW_MODE = "windowMode"
+        const val KEY_SHARED_LAYOUT = "sharedLayout"
     }
 }

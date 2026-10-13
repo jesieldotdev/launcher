@@ -213,6 +213,14 @@ fun SettingsScreen(state: LauncherUiState, controller: LauncherController, onClo
 
                 SectionTitle("Área de trabalho")
                 Card {
+                    SwitchRow("Mesma organização em todos os temas", state.sharedLayout) { vm.setSharedLayout(it) }
+                    Text(
+                        if (state.sharedLayout) "Apps, pastas e widgets ficam nas mesmas posições ao trocar de tema; só os cartões próprios de cada tema mudam."
+                        else "Cada tema guarda sua própria organização.",
+                        fontSize = 12.sp,
+                        color = Color.Gray,
+                        modifier = Modifier.padding(bottom = 12.dp),
+                    )
                     Text("Posição dos itens", fontWeight = FontWeight.SemiBold)
                     Spacer(Modifier.height(6.dp))
                     Choices(listOf(false, true), layout.freePlacement, { if (it) "Livre" else "Grade" }) { free ->
