@@ -24,6 +24,8 @@ class HtmlWidgetTest {
         assertTrue(html.contains(">17:03 <b></b>"))
         assertTrue(html.contains("--bateria:71"))
         assertFalse(html.contains("<script"))
+        // Toque longo não deve selecionar texto do widget.
+        assertTrue(html.contains("user-select:none"))
     }
 
     @Test

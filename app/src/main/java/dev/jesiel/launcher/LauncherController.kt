@@ -52,6 +52,7 @@ class LauncherController(
         controlCenterOpen = false
         editMode = false
         articleUrl = null
+        htmlLibraryOpen = false
     }
 
     /** Executa o gesto de deslizar para baixo configurado; [openSearch] é a busca do tema. */
@@ -263,6 +264,9 @@ class LauncherController(
 
     /** Widget HTML aberto no editor (novo ou existente); nulo quando o editor está fechado. */
     var htmlEditing by mutableStateOf<dev.jesiel.launcher.data.HtmlWidget?>(null)
+
+    /** Biblioteca de widgets HTML salvos (adicionar, editar, duplicar, excluir). */
+    var htmlLibraryOpen by mutableStateOf(false)
 
     /** Definidos pela área de trabalho do tema, para os links launcher://apps e launcher://busca. */
     var openAppsMenu: (() -> Unit)? = null

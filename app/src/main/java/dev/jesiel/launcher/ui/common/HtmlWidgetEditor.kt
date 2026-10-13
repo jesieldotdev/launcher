@@ -47,6 +47,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.jesiel.launcher.LauncherController
 import dev.jesiel.launcher.data.HtmlTemplates
 import dev.jesiel.launcher.data.HtmlVariables
@@ -194,7 +195,7 @@ fun HtmlWidgetEditor(
                 OutlinedButton(onClick = {
                     vm.removeHtmlWidget(initial.id)
                     controller.htmlEditing = null
-                }) { Text("Remover widget") }
+                }) { Text("Excluir widget") }
             }
         }
     }
@@ -213,3 +214,64 @@ private fun Chip(text: String, onClick: () -> Unit) {
             .padding(horizontal = 12.dp, vertical = 7.dp),
     )
 }
+
+
+/** Biblioteca dos widgets HTML salvos: pôr ou tirar da área de trabalho, editar, duplicar, excluir. */
+@Composable
+fun HtmlWidgetLibrary(controller: LauncherController, palette: LauncherPalette) {
+    val vm = controller.viewModel
+    val state by vm.state.collectAsStateWithLifecycle()
+    var confirmDelete by remember { mutableStateOf<HtmlWidget?>(null) }
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = { controller.htmlLibraryOpen = false },
+        title = { Text("Widgets HTML") },
+        text = {
+            Column(Modifier.heightIn(max = 520.dp).verticalScroll(rememberScrollState())) {
+                if (state.htmlWidgets.isEmpty()) Text("Nenhum widget salvo ainda.", color = Color.Gray)
+                state.htmlWidgets.forEach { w ->
+                    Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+                        Box(
+                            Modifier
+                                .fillMaxWidth()
+                                .height(96.dp)
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(Brush.linearGradient(listOf(Color(0xFF1B2A4A), Color(0xFF3A5BA0)))),
+                        ) {
+                            HtmlWidgetView(w, controller, palette, Modifier.fillMaxSize())
+                            // Camada por cima: a prévia não recebe toques.
+                            Box(Modifier.fillMaxSize().clickable { controller.htmlLibraryOpen = false; controller.htmlEditing = w })
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text(w.name, fontWeight = FontWeight.SemiBold)
+                                Text(if (w.onDesktop) "Na área de trabalho" else "Guardado", fontSize = 12.sp, color = Color.Gray)
+                            }
+                            androidx.compose.material3.TextButton(onClick = { vm.setHtmlWidgetOnDesktop(w.id, !w.onDesktop) }) {
+                                Text(if (w.onDesktop) "Tirar" else "Adicionar")
+                            }
+                        }
+                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            androidx.compose.material3.TextButton(onClick = { controller.htmlLibraryOpen = false; controller.htmlEditing = w }) { Text("Editar") }
+                            androidx.compose.material3.TextButton(onClick = { vm.duplicateHtmlWidget(w.id) }) { Text("Duplicar") }
+                            androidx.compose.material3.TextButton(onClick = { confirmDelete = w }) { Text("Excluir") }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            androidx.compose.material3.TextButton(onClick = { controller.htmlLibraryOpen = false; controller.newHtmlWidget() }) { Text("Novo widget") }
+        },
+        dismissButton = { androidx.compose.material3.TextButton(onClick = { controller.htmlLibraryOpen = false }) { Text("Fechar") } },
+    )
+    confirmDelete?.let { w ->
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { confirmDelete = null },
+            title = { Text("Excluir \"${w.name}\"?") },
+            text = { Text("O widget sai da área de trabalho e da biblioteca. Um backup é feito antes.") },
+            confirmButton = { androidx.compose.material3.TextButton(onClick = { vm.removeHtmlWidget(w.id); confirmDelete = null }) { Text("Excluir") } },
+            dismissButton = { androidx.compose.material3.TextButton(onClick = { confirmDelete = null }) { Text("Cancelar") } },
+        )
+    }
+}
+

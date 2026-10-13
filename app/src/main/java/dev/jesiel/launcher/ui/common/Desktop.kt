@@ -135,7 +135,7 @@ fun DesktopCanvas(
         builtins.filter { it.id !in state.hiddenBuiltins }.map(DesktopEntry::Builtin) +
             state.home.map(DesktopEntry::Item) +
             state.widgetIds.map(DesktopEntry::Widget) +
-            state.htmlWidgets.map(DesktopEntry::Html)
+            state.htmlWidgets.filter { it.onDesktop }.map(DesktopEntry::Html)
     }
     // Links launcher://apps e launcher://busca dos widgets HTML usam o menu deste tema.
     androidx.compose.runtime.SideEffect {
@@ -268,7 +268,8 @@ fun DesktopCanvas(
             when (val entry = entries.firstOrNull { it.id == id }) {
                 is DesktopEntry.Builtin -> vm.setBuiltinHidden(entry.spec.id, true)
                 is DesktopEntry.Widget -> controller.removeWidget(entry.widgetId)
-                is DesktopEntry.Html -> vm.removeHtmlWidget(entry.widget.id)
+                // Volta para a biblioteca; pode ser adicionado de novo em "+ Adicionar".
+                is DesktopEntry.Html -> vm.setHtmlWidgetOnDesktop(entry.widget.id, false)
                 is DesktopEntry.Item -> when (val item = entry.item) {
                     is HomeItem.App -> vm.toggleFavorite(item.app)
                     is HomeItem.Folder -> vm.deleteFolder(item.id)
@@ -427,7 +428,7 @@ private fun DesktopMenu(at: DpOffset?, onDismiss: () -> Unit, controller: Launch
         DropdownMenu(expanded = at != null, onDismissRequest = onDismiss, shape = RoundedCornerShape(12.dp)) {
             DropdownMenuItem(text = { Text("Organizar área de trabalho") }, onClick = { onDismiss(); controller.editMode = true })
             DropdownMenuItem(text = { Text("Adicionar widget") }, onClick = { onDismiss(); controller.widgetPickerOpen = true })
-            DropdownMenuItem(text = { Text("Criar widget HTML") }, onClick = { onDismiss(); controller.newHtmlWidget() })
+            DropdownMenuItem(text = { Text("Widgets HTML…") }, onClick = { onDismiss(); controller.htmlLibraryOpen = true })
             DropdownMenuItem(text = { Text("Adicionar tela") }, onClick = { onDismiss(); onAddScreen() })
             val dockLayout = controller.viewModel.state.value.layout
             val showDock = dockLayout.showDock
@@ -685,7 +686,7 @@ private fun ComponentWithMenu(
         Box(Modifier.offset(menuAt?.x ?: 0.dp, menuAt?.y ?: 0.dp)) {
             DropdownMenu(expanded = menuAt != null, onDismissRequest = { menuAt = null }, shape = RoundedCornerShape(12.dp)) {
                 Text(name, fontSize = 13.sp, color = Color.Gray, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
-                DropdownMenuItem(text = { Text("Remover") }, onClick = { menuAt = null; onRemove() })
+                DropdownMenuItem(text = { Text(if (onEdit != null) "Remover da área de trabalho" else "Remover") }, onClick = { menuAt = null; onRemove() })
                 DropdownMenuItem(text = { Text("Mover ou redimensionar") }, onClick = { menuAt = null; controller.editMode = true })
                 if (onConfigure != null) DropdownMenuItem(text = { Text("Configurar widget") }, onClick = { menuAt = null; onConfigure() })
                 if (onEdit != null) DropdownMenuItem(text = { Text("Editar HTML") }, onClick = { menuAt = null; onEdit() })
@@ -782,7 +783,11 @@ private fun EditBar(
                 Pill("+ Adicionar", palette) { addOpen = true }
                 DropdownMenu(expanded = addOpen, onDismissRequest = { addOpen = false }, shape = RoundedCornerShape(12.dp)) {
                     DropdownMenuItem(text = { Text("Widget Android…") }, onClick = { addOpen = false; controller.widgetPickerOpen = true })
-                    DropdownMenuItem(text = { Text("Widget HTML…") }, onClick = { addOpen = false; controller.newHtmlWidget() })
+                    DropdownMenuItem(text = { Text("Novo widget HTML…") }, onClick = { addOpen = false; controller.newHtmlWidget() })
+                    // Widgets HTML salvos que não estão na área de trabalho.
+                    state.htmlWidgets.filter { !it.onDesktop }.forEach { w ->
+                        DropdownMenuItem(text = { Text("Widget salvo: ${w.name}") }, onClick = { addOpen = false; vm.setHtmlWidgetOnDesktop(w.id, true) })
+                    }
                     builtins.filter { it.id in state.hiddenBuiltins }.forEach { spec ->
                         DropdownMenuItem(text = { Text(spec.name) }, onClick = { addOpen = false; vm.setBuiltinHidden(spec.id, false) })
                     }

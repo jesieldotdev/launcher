@@ -334,9 +334,21 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         d.copy(htmlWidgets = if (exists) d.htmlWidgets.map { if (it.id == widget.id) widget else it } else d.htmlWidgets + widget)
     }
 
+    /** Tira o widget da área de trabalho, mas o mantém guardado na biblioteca. */
+    fun setHtmlWidgetOnDesktop(id: String, onDesktop: Boolean) = prefs.update { d ->
+        d.copy(htmlWidgets = d.htmlWidgets.map { if (it.id == id) it.copy(onDesktop = onDesktop) else it })
+    }
+
+    /** Apaga o widget de vez (da área de trabalho e da biblioteca). */
     fun removeHtmlWidget(id: String) {
-        backups.snapshot("Antes de remover um widget HTML")
+        backups.snapshot("Antes de excluir um widget HTML")
         prefs.update { d -> d.copy(htmlWidgets = d.htmlWidgets.filter { it.id != id }) }
+    }
+
+    /** Cria uma cópia de um widget salvo, já na área de trabalho. */
+    fun duplicateHtmlWidget(id: String) = prefs.update { d ->
+        val source = d.htmlWidgets.firstOrNull { it.id == id } ?: return@update d
+        d.copy(htmlWidgets = d.htmlWidgets + source.copy(id = UUID.randomUUID().toString().take(8), name = source.name + " (cópia)", onDesktop = true))
     }
 
     fun setWindowMode(on: Boolean) = prefs.update { it.copy(windowMode = on) }

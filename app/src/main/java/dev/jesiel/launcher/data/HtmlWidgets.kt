@@ -20,10 +20,12 @@ data class HtmlWidget(
     val network: Boolean = false,
     /** Desenho por software: mais compatível em aparelhos onde o WebView fica em branco. */
     val software: Boolean = false,
+    /** Na área de trabalho ou só guardado na biblioteca de widgets. */
+    val onDesktop: Boolean = true,
 ) {
     fun toJson(): JSONObject = JSONObject()
         .put("id", id).put("name", name).put("html", html)
-        .put("interactive", interactive).put("network", network).put("software", software)
+        .put("interactive", interactive).put("network", network).put("software", software).put("onDesktop", onDesktop)
 
     companion object {
         fun fromJson(o: JSONObject) = HtmlWidget(
@@ -33,6 +35,7 @@ data class HtmlWidget(
             interactive = o.optBoolean("interactive", false),
             network = o.optBoolean("network", false),
             software = o.optBoolean("software", false),
+            onDesktop = o.optBoolean("onDesktop", true),
         )
 
         fun listFromJson(text: String?): List<HtmlWidget> = runCatching {
@@ -91,7 +94,8 @@ object HtmlVariables {
         val cssVars = values.entries.joinToString(";") { (k, v) -> "--$k:${cssValue(v)}" }
         val head = """
             <meta name="viewport" content="width=device-width, initial-scale=1">
-            <style>:root{$cssVars}html,body{margin:0;padding:0;background:transparent;overflow:hidden;height:100%}</style>
+            <style>:root{$cssVars}html,body{margin:0;padding:0;background:transparent;overflow:hidden;height:100%}
+            *{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}</style>
         """.trimIndent()
         val script = if (!interactive) "" else """
             <script>

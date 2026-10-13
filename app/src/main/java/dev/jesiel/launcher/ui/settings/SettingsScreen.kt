@@ -377,11 +377,20 @@ fun SettingsScreen(state: LauncherUiState, controller: LauncherController, onClo
                     )
                     state.htmlWidgets.forEach { w ->
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(w.name + if (w.interactive) " · interativo" else " · leve", modifier = Modifier.weight(1f))
+                            Column(Modifier.weight(1f)) {
+                                Text(w.name)
+                                Text(if (w.onDesktop) "Na área de trabalho" else "Guardado", fontSize = 12.sp, color = Color.Gray)
+                            }
+                            androidx.compose.material3.TextButton(onClick = { vm.setHtmlWidgetOnDesktop(w.id, !w.onDesktop) }) {
+                                Text(if (w.onDesktop) "Tirar" else "Adicionar")
+                            }
                             androidx.compose.material3.TextButton(onClick = { onClose(); controller.htmlEditing = w }) { Text("Editar") }
                         }
                     }
-                    OutlinedButton(onClick = { onClose(); controller.newHtmlWidget() }) { Text("Criar widget HTML") }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(onClick = { onClose(); controller.newHtmlWidget() }) { Text("Criar widget HTML") }
+                        OutlinedButton(onClick = { onClose(); controller.htmlLibraryOpen = true }) { Text("Biblioteca") }
+                    }
                 }
 
                 SectionTitle("Sistema")

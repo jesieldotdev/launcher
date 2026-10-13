@@ -124,6 +124,10 @@ fun HtmlWidgetView(
                 // página ficava com altura zero e nada aparecia.
                 layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
                 setBackgroundColor(AndroidColor.TRANSPARENT)
+                // Toque longo é do Launcher (menu do widget), não seleção de texto da página.
+                isLongClickable = false
+                isHapticFeedbackEnabled = false
+                setOnLongClickListener { true }
                 isVerticalScrollBarEnabled = false
                 isHorizontalScrollBarEnabled = false
                 overScrollMode = View.OVER_SCROLL_NEVER

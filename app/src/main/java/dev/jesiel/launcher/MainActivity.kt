@@ -101,6 +101,11 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
+            if (controller.htmlLibraryOpen) {
+                val palette = controller.palette ?: dev.jesiel.launcher.ui.windows.windowsPalette(isDark(state.colorMode))
+                MaterialTheme(colorScheme = palette.colorScheme) { dev.jesiel.launcher.ui.common.HtmlWidgetLibrary(controller, palette) }
+            }
+
             // Editor de widgets HTML.
             BackHandler(enabled = controller.htmlEditing != null) { controller.htmlEditing = null }
             AnimatedVisibility(
