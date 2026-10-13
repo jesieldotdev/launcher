@@ -271,7 +271,8 @@ class ScreenshotTest {
     @Test
     fun noTray() {
         val controller = controller()
-        compose.setContent { WindowsLauncher(sampleState().copy(layout = ThemeLayout(showTray = false)), controller) }
+        val state = sampleState().let { it.copy(layout = ThemeLayout(showTray = false, dockMaxApps = 8), dock = apps.take(7)) }
+        compose.setContent { WindowsLauncher(state, controller) }
         compose.onRoot().captureRoboImage(shot("windows-no-tray"))
     }
 

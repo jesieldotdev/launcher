@@ -299,41 +299,47 @@ private fun Taskbar(
     ) {
         val layout = state.layout
         val dockIcon = if (layout.dockIconSizeDp > 0) layout.dockIconSizeDp.dp else 32.dp
-        // Centralizado (Windows 11): Iniciar, busca e apps formam um grupo no meio da barra.
-        if (layout.dockCentered) Spacer(Modifier.weight(1f))
-        TaskbarButton(active = startOpen, description = "Iniciar", palette = palette, onClick = onStart) {
-            // O logotipo "afunda" de leve enquanto o Iniciar está aberto.
-            val scale by animateFloatAsState(if (startOpen) 0.9f else 1f, spring(dampingRatio = 0.4f), label = "iniciar")
-            Box(Modifier.graphicsLayer { scaleX = scale; scaleY = scale }) {
-                MenuButtonIcon(state, controller, palette, 28.dp) { WindowsLogo(26.dp) }
-            }
-        }
-        if (layout.dockShowSearch) {
-            TaskbarButton(active = false, description = "Pesquisar", palette = palette, onClick = onSearch) {
-                Icon(Icons.Default.Search, contentDescription = null, tint = palette.panelText, modifier = Modifier.size(26.dp))
-            }
-        }
-        if (state.dock.isNotEmpty()) {
-            Box(Modifier.padding(horizontal = 4.dp).width(1.dp).height(28.dp).background(palette.panelStroke))
-        }
+        // Iniciar, busca e apps formam um grupo que usa todo o espaço livre da barra (inclusive o
+        // liberado ao ocultar a hora); centralizado no Windows 11, à esquerda no estilo Windows 10.
         Row(
-            Modifier.weight(if (layout.dockCentered) 2.2f else 1f, fill = !layout.dockCentered).horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(2.dp),
+            Modifier.weight(1f),
+            horizontalArrangement = if (layout.dockCentered) Arrangement.Center else Arrangement.Start,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            state.dock.forEach { app ->
-                AppTile(
-                    app = app,
-                    state = state,
-                    controller = controller,
-                    iconSize = dockIcon,
-                    showLabel = false,
-                    labels = WindowsMenuLabels,
-                    onLaunched = onLaunched,
-                )
+            TaskbarButton(active = startOpen, description = "Iniciar", palette = palette, onClick = onStart) {
+                // O logotipo "afunda" de leve enquanto o Iniciar está aberto.
+                val scale by animateFloatAsState(if (startOpen) 0.9f else 1f, spring(dampingRatio = 0.4f), label = "iniciar")
+                Box(Modifier.graphicsLayer { scaleX = scale; scaleY = scale }) {
+                    MenuButtonIcon(state, controller, palette, 28.dp) { WindowsLogo(26.dp) }
+                }
+            }
+            if (layout.dockShowSearch) {
+                TaskbarButton(active = false, description = "Pesquisar", palette = palette, onClick = onSearch) {
+                    Icon(Icons.Default.Search, contentDescription = null, tint = palette.panelText, modifier = Modifier.size(26.dp))
+                }
+            }
+            if (state.dock.isNotEmpty()) {
+                Box(Modifier.padding(horizontal = 4.dp).width(1.dp).height(28.dp).background(palette.panelStroke))
+            }
+            // Ocupa só o necessário; rola apenas se os apps não couberem de jeito nenhum.
+            Row(
+                Modifier.weight(1f, fill = false).horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(2.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                state.dock.forEach { app ->
+                    AppTile(
+                        app = app,
+                        state = state,
+                        controller = controller,
+                        iconSize = dockIcon,
+                        showLabel = false,
+                        labels = WindowsMenuLabels,
+                        onLaunched = onLaunched,
+                    )
+                }
             }
         }
-        if (layout.dockCentered) Spacer(Modifier.weight(1f))
         DockTray(state, controller, palette)
     }
 }
