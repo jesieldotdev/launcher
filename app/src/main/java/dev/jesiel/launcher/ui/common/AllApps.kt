@@ -152,7 +152,7 @@ private fun AlphabeticalApps(
         modifier = Modifier.fillMaxSize(),
     ) {
         grouped.forEach { (letter, group) ->
-            item(key = "h-$letter", span = { GridItemSpan(maxLineSpan) }) {
+            item(key = "h-$letter", span = { GridItemSpan(maxLineSpan) }, contentType = "letra") {
                 Text(
                     letter.toString(),
                     color = palette.accent,
@@ -160,12 +160,13 @@ private fun AlphabeticalApps(
                     modifier = Modifier.padding(start = 10.dp, top = 10.dp, bottom = 2.dp),
                 )
             }
-            items(group, key = { it.key }) { app ->
+            items(group, key = { it.key }, contentType = { "app" }) { app ->
                 if (grid) {
                     Box(contentAlignment = Alignment.TopCenter) {
                         AppTile(
                             app = app, state = state, controller = controller, iconSize = 44.dp, showLabel = true,
-                            labelStyle = palette.panelLabel, labels = labels, iconBackground = palette.iconBackground, onLaunched = onLaunched,
+                            labelStyle = palette.panelLabel, labels = labels, iconBackground = palette.iconBackground,
+                            pressEffect = false, onLaunched = onLaunched,
                         )
                     }
                 } else {

@@ -45,14 +45,15 @@ fun Modifier.pressScale(interaction: InteractionSource, pressed: Float = 0.88f):
 }
 
 /**
- * Desfoca o que fica atrás de um painel aberto. O conteúdo desenhado pelo launcher é desfocado
- * aqui (Android 12+); o papel de parede do sistema, pela janela.
+ * Desfoca o que o launcher desenha atrás de um painel aberto (Android 12+). O desfoque da
+ * janela inteira (papel de parede do sistema) não é usado: em muitos aparelhos ele obriga o
+ * sistema a recalcular o desfoque a cada quadro e deixa a rolagem travando.
  */
 @Composable
 fun Modifier.backdrop(controller: LauncherController, active: Boolean, enabled: Boolean): Modifier {
     val on = active && enabled
-    val radius by animateDpAsState(if (on) 28.dp else 0.dp, tween(260), label = "desfoque")
-    LaunchedEffect(on) { controller.setWindowBlur(if (on) 70 else 0) }
+    val radius by animateDpAsState(if (on) 24.dp else 0.dp, tween(200), label = "desfoque")
+    LaunchedEffect(Unit) { controller.setWindowBlur(0) }
     return if (radius > 0.dp) blur(radius) else this
 }
 

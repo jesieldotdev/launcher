@@ -21,6 +21,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
+import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -33,7 +34,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.boundsInWindow
-import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.onPlaced
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
@@ -68,6 +69,8 @@ fun AppTile(
     labels: AppMenuLabels = AppMenuLabels(),
     folderId: String? = null,
     iconBackground: Color? = null,
+    /** Efeito de "encolher" ao tocar; em listas roláveis usa-se o ripple, mais leve. */
+    pressEffect: Boolean = true,
     onLaunched: () -> Unit = {},
 ) {
     var menuOpen by remember { mutableStateOf(false) }
@@ -85,11 +88,11 @@ fun AppTile(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Top,
             modifier = Modifier
-                .pressScale(interaction)
+                .then(if (pressEffect) Modifier.pressScale(interaction) else Modifier)
                 .clip(RoundedCornerShape(12.dp))
                 .combinedClickable(
                     interactionSource = interaction,
-                    indication = null,
+                    indication = if (pressEffect) null else ripple(),
                     onClick = {
                         controller.launch(app, bounds())
                         onLaunched()
@@ -103,7 +106,7 @@ fun AppTile(
         ) {
             val iconModifier = Modifier
                 .size(iconSize)
-                .onGloballyPositioned { coordinates[0] = it }
+                .onPlaced { coordinates[0] = it }
             if (iconBackground != null) {
                 Box(
                     iconModifier.clip(RoundedCornerShape(iconSize * 0.24f)).background(iconBackground).padding(iconSize * 0.14f),
@@ -124,8 +127,9 @@ fun AppTile(
             }
         }
 
-        AppMenu(
-            expanded = menuOpen,
+        // O menu só é composto quando aberto: em listas longas isso deixa cada item mais leve.
+        if (menuOpen) AppMenu(
+            expanded = true,
             app = app,
             state = state,
             controller = controller,
@@ -235,8 +239,9 @@ fun AppListRow(
             Image(bitmap = app.icon, contentDescription = null, modifier = Modifier.size(iconSize))
             content()
         }
-        AppMenu(
-            expanded = menuOpen,
+        // O menu só é composto quando aberto: em listas longas isso deixa cada item mais leve.
+        if (menuOpen) AppMenu(
+            expanded = true,
             app = app,
             state = state,
             controller = controller,

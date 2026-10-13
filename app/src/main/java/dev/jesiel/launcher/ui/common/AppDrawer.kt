@@ -183,7 +183,7 @@ private fun DrawerContent(
                 modifier = Modifier.weight(1f).fillMaxHeight(),
                 contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 8.dp),
             ) {
-                items(apps, key = { it.key }) { app ->
+                items(apps, key = { it.key }, contentType = { "app" }) { app ->
                     Box(contentAlignment = Alignment.TopCenter) {
                         AppTile(
                             app = app,
@@ -193,6 +193,7 @@ private fun DrawerContent(
                             showLabel = true,
                             labels = labels,
                             iconBackground = palette.iconBackground,
+                            pressEffect = false,
                             onLaunched = ::close,
                         )
                     }
