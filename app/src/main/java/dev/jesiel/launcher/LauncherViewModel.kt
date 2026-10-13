@@ -9,6 +9,9 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import dev.jesiel.launcher.data.AppInfo
 import dev.jesiel.launcher.data.AppRepository
+import dev.jesiel.launcher.data.ColorMode
+import dev.jesiel.launcher.data.Placement
+import dev.jesiel.launcher.data.SwipeAction
 import dev.jesiel.launcher.data.FolderData
 import dev.jesiel.launcher.data.HomeItem
 import dev.jesiel.launcher.data.LauncherData
@@ -34,6 +37,11 @@ data class LauncherUiState(
     /** Apps presentes na tela inicial, soltos ou dentro de pastas. */
     val favoriteKeys: Set<String> = emptySet(),
     val dockKeys: Set<String> = emptySet(),
+    val colorMode: ColorMode = ColorMode.SYSTEM,
+    val swipeDown: SwipeAction = SwipeAction.CONTROL_CENTER,
+    /** Posições salvas na área de trabalho do tema atual. */
+    val placements: Map<String, Placement> = emptyMap(),
+    val hiddenBuiltins: Set<String> = emptySet(),
 )
 
 class LauncherViewModel(application: Application) : AndroidViewModel(application) {
@@ -69,6 +77,10 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
             folders = data.folders.values.toList(),
             favoriteKeys = data.homeOrder.toSet() + data.folders.values.flatMap { it.appKeys },
             dockKeys = data.dock.toSet(),
+            colorMode = data.colorMode,
+            swipeDown = data.swipeDown,
+            placements = data.placements[data.themeId].orEmpty(),
+            hiddenBuiltins = data.hiddenBuiltins[data.themeId].orEmpty(),
         )
     }
 
@@ -177,6 +189,37 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
 
     fun updateLayout(transform: (ThemeLayout) -> ThemeLayout) = prefs.update { d ->
         d.copy(layouts = d.layouts + (d.themeId to transform(d.layoutFor(d.themeId))))
+    }
+
+    fun setColorMode(mode: ColorMode) = prefs.update { it.copy(colorMode = mode) }
+
+    fun setSwipeDown(action: SwipeAction) = prefs.update { it.copy(swipeDown = action) }
+
+    /** Grava posições na área de trabalho do tema atual (mesclando com as existentes). */
+    fun savePlacements(changes: Map<String, Placement>) = prefs.update { d ->
+        val current = d.placements[d.themeId].orEmpty()
+        if (changes.all { (id, p) -> current[id] == p }) return@update d
+        d.copy(placements = d.placements + (d.themeId to current + changes))
+    }
+
+    fun setBuiltinHidden(id: String, hidden: Boolean) = prefs.update { d ->
+        val set = d.hiddenBuiltins[d.themeId].orEmpty()
+        d.copy(hiddenBuiltins = d.hiddenBuiltins + (d.themeId to if (hidden) set + id else set - id))
+    }
+
+    fun addPage() = updateLayout { it.copy(pageCount = it.pageCount + 1) }
+
+    fun removePage(page: Int) = prefs.update { d ->
+        val layout = d.layoutFor(d.themeId)
+        if (layout.pageCount <= 1) return@update d
+        // Itens das páginas seguintes sobem uma página; os da removida voltam a ser encaixados.
+        val moved = d.placements[d.themeId].orEmpty()
+            .filterValues { it.page != page }
+            .mapValues { (_, p) -> if (p.page > page) p.copy(page = p.page - 1) else p }
+        d.copy(
+            placements = d.placements + (d.themeId to moved),
+            layouts = d.layouts + (d.themeId to layout.copy(pageCount = layout.pageCount - 1)),
+        )
     }
 
     fun addWidget(id: Int) = prefs.update { it.copy(widgetIds = it.widgetIds + id) }

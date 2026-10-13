@@ -1,6 +1,7 @@
 package dev.jesiel.launcher.data
 
 import android.content.Context
+import android.content.pm.ApplicationInfo
 import android.content.pm.LauncherActivityInfo
 import android.content.pm.LauncherApps
 import android.os.UserHandle
@@ -60,7 +61,31 @@ class AppRepository(context: Context, private val scope: CoroutineScope) {
         component = componentName,
         user = user,
         icon = getBadgedIcon(0).toBitmap(iconSizePx, iconSizePx).asImageBitmap(),
+        category = categoryOf(applicationInfo, componentName.packageName),
     )
+
+    private fun categoryOf(info: ApplicationInfo, pkg: String): AppCategory {
+        when (info.category) {
+            ApplicationInfo.CATEGORY_SOCIAL -> return AppCategory.COMMUNICATION
+            ApplicationInfo.CATEGORY_AUDIO, ApplicationInfo.CATEGORY_VIDEO, ApplicationInfo.CATEGORY_IMAGE -> return AppCategory.MEDIA
+            ApplicationInfo.CATEGORY_PRODUCTIVITY -> return AppCategory.PRODUCTIVITY
+            ApplicationInfo.CATEGORY_GAME -> return AppCategory.GAMES
+        }
+        val p = pkg.lowercase()
+        return when {
+            COMMUNICATION_HINTS.any { it in p } -> AppCategory.COMMUNICATION
+            MEDIA_HINTS.any { it in p } -> AppCategory.MEDIA
+            PRODUCTIVITY_HINTS.any { it in p } -> AppCategory.PRODUCTIVITY
+            else -> AppCategory.TOOLS
+        }
+    }
+
+    private companion object {
+        // Muitos apps não declaram categoria; estes trechos de pacote cobrem os casos comuns.
+        val COMMUNICATION_HINTS = listOf("whatsapp", "telegram", "messag", "mms", "dialer", "phone", "contacts", "mail", "gm", "instagram", "facebook", "discord", "signal", "skype", "teams", "slack", "twitter")
+        val MEDIA_HINTS = listOf("music", "spotify", "video", "youtube", "camera", "gallery", "photo", "player", "netflix", "deezer", "podcast", "recorder", "soundrecorder")
+        val PRODUCTIVITY_HINTS = listOf("docs", "sheets", "slides", "office", "calendar", "notes", "keep", "drive", "calculator", "word", "excel", "notion", "todo", "tasks")
+    }
 
     fun close() {
         launcherApps.unregisterCallback(callback)

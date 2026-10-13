@@ -4,7 +4,10 @@ import android.appwidget.AppWidgetProviderInfo
 import android.graphics.drawable.Drawable
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
+import android.os.Bundle
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -34,16 +37,20 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.graphics.drawable.toBitmap
 import dev.jesiel.launcher.widgets.WidgetHost
 
-/** Mostra um widget Android já vinculado ao launcher. */
+/** Mostra um widget Android já vinculado ao launcher, informando a ele o espaço disponível. */
+@Suppress("DEPRECATION")
 @Composable
 fun AppWidget(id: Int, widgets: WidgetHost, modifier: Modifier = Modifier) {
-    val info = remember(id) { widgets.info(id) } ?: return
-    val density = LocalDensity.current
-    val minHeight = with(density) { info.minHeight.toDp() }.coerceAtLeast(72.dp)
-    AndroidView(
-        factory = { ctx -> widgets.createView(ctx, id)!! },
-        modifier = modifier.fillMaxWidth().heightIn(min = minHeight),
-    )
+    remember(id) { widgets.info(id) } ?: return
+    BoxWithConstraints(modifier) {
+        val w = maxWidth.value.toInt()
+        val h = maxHeight.value.toInt()
+        AndroidView(
+            factory = { ctx -> widgets.createView(ctx, id)!! },
+            update = { view -> runCatching { view.updateAppWidgetSize(Bundle(), w, h, w, h) } },
+            modifier = Modifier.fillMaxSize(),
+        )
+    }
 }
 
 private class ProviderEntry(val info: AppWidgetProviderInfo, val label: String, val appLabel: String, val icon: Drawable?)

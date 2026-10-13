@@ -33,9 +33,9 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -51,14 +51,26 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import dev.jesiel.launcher.LauncherController
 import dev.jesiel.launcher.LauncherUiState
+import dev.jesiel.launcher.data.ColorMode
+import dev.jesiel.launcher.data.SwipeAction
 import dev.jesiel.launcher.theme.LauncherThemeSpec
 import dev.jesiel.launcher.theme.ThemeRegistry
+import dev.jesiel.launcher.ui.common.isDark
 import kotlin.math.roundToInt
 
-private val SettingsColors = lightColorScheme(
+private val SettingsLight = lightColorScheme(
     primary = Color(0xFF0067C0),
     surface = Color(0xFFF6F8FB),
     background = Color(0xFFF6F8FB),
+    surfaceContainerHighest = Color.White,
+)
+
+private val SettingsDark = darkColorScheme(
+    primary = Color(0xFF4CC2FF),
+    onPrimary = Color(0xFF00213A),
+    surface = Color(0xFF16171A),
+    background = Color(0xFF16171A),
+    surfaceContainerHighest = Color(0xFF24262B),
 )
 
 @Composable
@@ -71,7 +83,7 @@ fun SettingsScreen(state: LauncherUiState, controller: LauncherController, onClo
         onPauseOrDispose { }
     }
 
-    MaterialTheme(colorScheme = SettingsColors) {
+    MaterialTheme(colorScheme = if (isDark(state.colorMode)) SettingsDark else SettingsLight) {
         Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
             Column(
                 Modifier
@@ -109,7 +121,7 @@ fun SettingsScreen(state: LauncherUiState, controller: LauncherController, onClo
                     }
                 }
                 Text(
-                    "Favoritos, pastas, dock e widgets são mantidos ao trocar de tema. Os ajustes abaixo valem só para o tema atual.",
+                    "Favoritos, pastas, dock, widgets e modo de cor são mantidos ao trocar de tema. Grade, posições e telas valem só para o tema atual.",
                     fontSize = 12.sp,
                     color = Color.Gray,
                     modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
@@ -117,6 +129,10 @@ fun SettingsScreen(state: LauncherUiState, controller: LauncherController, onClo
 
                 SectionTitle("Aparência")
                 Card {
+                    Text("Modo de cor", fontWeight = FontWeight.SemiBold)
+                    Spacer(Modifier.height(6.dp))
+                    Choices(ColorMode.entries, state.colorMode, { it.label }) { vm.setColorMode(it) }
+                    Spacer(Modifier.height(16.dp))
                     SwitchRow("Papel de parede do tema", layout.useThemeWallpaper) { on ->
                         vm.updateLayout { it.copy(useThemeWallpaper = on) }
                     }
@@ -139,6 +155,48 @@ fun SettingsScreen(state: LauncherUiState, controller: LauncherController, onClo
                     SwitchRow("Mostrar nomes dos apps", layout.showLabels) { on ->
                         vm.updateLayout { it.copy(showLabels = on) }
                     }
+                }
+
+                SectionTitle("Área de trabalho")
+                Card {
+                    Text("Posição dos itens", fontWeight = FontWeight.SemiBold)
+                    Spacer(Modifier.height(6.dp))
+                    Choices(listOf(false, true), layout.freePlacement, { if (it) "Livre" else "Grade" }) { free ->
+                        vm.updateLayout { it.copy(freePlacement = free) }
+                    }
+                    Text(
+                        if (layout.freePlacement) "Itens ficam exatamente onde você soltar, como na área de trabalho do Windows."
+                        else "Itens se encaixam nas células da grade.",
+                        fontSize = 12.sp,
+                        color = Color.Gray,
+                        modifier = Modifier.padding(top = 6.dp),
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    SwitchRow("Várias telas (deslizar para o lado)", layout.multiPage) { on ->
+                        vm.updateLayout { it.copy(multiPage = on, pageCount = maxOf(it.pageCount, if (on) 2 else 1)) }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    Button(onClick = { onClose(); controller.editMode = true }) { Text("Organizar área de trabalho") }
+                    Text(
+                        "Arraste para mover, use o ponto no canto para redimensionar e toque em um item para movê-lo de tela ou removê-lo.",
+                        fontSize = 12.sp,
+                        color = Color.Gray,
+                        modifier = Modifier.padding(top = 6.dp),
+                    )
+                }
+
+                SectionTitle("Gestos")
+                Card {
+                    Text("Deslizar para baixo na área de trabalho", fontWeight = FontWeight.SemiBold)
+                    Spacer(Modifier.height(6.dp))
+                    Choices(SwipeAction.entries, state.swipeDown, { it.label }) { vm.setSwipeDown(it) }
+                    Text(
+                        "Deslizar para cima abre o menu de apps. A navegação do sistema (gestos ou botões) é definida pelo Android; " +
+                            "em alguns aparelhos, como os Xiaomi, os gestos só funcionam com o launcher de fábrica.",
+                        fontSize = 12.sp,
+                        color = Color.Gray,
+                        modifier = Modifier.padding(top = 8.dp),
+                    )
                 }
 
                 SectionTitle("Widgets")
@@ -164,7 +222,7 @@ fun SettingsScreen(state: LauncherUiState, controller: LauncherController, onClo
                 SectionTitle("Dock")
                 Card {
                     Text(
-                        "Toque e segure um app e escolha \"Fixar na barra de tarefas\". Até 5 apps.",
+                        "Toque e segure um app e escolha fixar no dock (ou na barra de tarefas). Até 5 apps.",
                         fontSize = 13.sp,
                         color = Color.Gray,
                     )
@@ -181,6 +239,25 @@ fun SettingsScreen(state: LauncherUiState, controller: LauncherController, onClo
                     OutlinedButton(onClick = controller::openSystemSettings) { Text("Configurações do Android") }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun <T> Choices(options: List<T>, selected: T, label: (T) -> String, onSelect: (T) -> Unit) {
+    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        options.forEach { option ->
+            val on = option == selected
+            Text(
+                label(option),
+                fontSize = 13.sp,
+                color = if (on) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(if (on) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+                    .clickable { onSelect(option) }
+                    .padding(horizontal = 14.dp, vertical = 8.dp),
+            )
         }
     }
 }
@@ -203,7 +280,7 @@ private fun Card(content: @Composable () -> Unit) {
             .padding(horizontal = 16.dp, vertical = 4.dp)
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
-            .background(Color.White)
+            .background(MaterialTheme.colorScheme.surfaceContainerHighest)
             .padding(16.dp),
     ) { content() }
 }

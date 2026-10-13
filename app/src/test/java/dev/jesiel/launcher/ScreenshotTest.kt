@@ -16,14 +16,21 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipeDown
 import androidx.compose.ui.test.hasSetTextAction
 import com.github.takahirom.roborazzi.captureRoboImage
 import com.github.takahirom.roborazzi.roborazziSystemPropertyOutputDirectory
 import dev.jesiel.launcher.data.AppInfo
+import dev.jesiel.launcher.data.ColorMode
 import dev.jesiel.launcher.data.FolderData
 import dev.jesiel.launcher.data.HomeItem
 import dev.jesiel.launcher.data.RecentApp
 import dev.jesiel.launcher.ui.settings.SettingsScreen
+import dev.jesiel.launcher.ui.ios.IosLauncher
+import dev.jesiel.launcher.ui.kde.KdeLauncher
+import dev.jesiel.launcher.ui.macos.MacLauncher
+import dev.jesiel.launcher.ui.ubuntu.UbuntuLauncher
 import dev.jesiel.launcher.ui.windows.WindowsLauncher
 import dev.jesiel.launcher.widgets.WidgetHost
 import org.junit.Rule
@@ -33,11 +40,11 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
-/** Gera imagens das telas do tema Windows com dados de exemplo (veja docs/screenshots). */
+/** Gera imagens das telas de cada tema com dados de exemplo (veja docs/screenshots). */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(sdk = [34], qualifiers = "w400dp-h860dp-xxhdpi")
-class WindowsScreenshotTest {
+class ScreenshotTest {
 
     @get:Rule
     val compose = createAndroidComposeRule<ComponentActivity>()
@@ -70,7 +77,7 @@ class WindowsScreenshotTest {
         )
     }
 
-    private fun sampleState(): LauncherUiState {
+    private fun sampleState(dark: Boolean = false): LauncherUiState {
         val now = System.currentTimeMillis()
         val folder = HomeItem.Folder("f1", "Google", apps.slice(9..11))
         val home = apps.take(7).map(HomeItem::App) + folder
@@ -88,6 +95,7 @@ class WindowsScreenshotTest {
             folders = listOf(FolderData("f1", "Google", folder.apps.map { it.key })),
             favoriteKeys = apps.take(7).map { it.key }.toSet(),
             dockKeys = setOf(apps[4].key, apps[1].key, apps[0].key, apps[2].key),
+            colorMode = if (dark) ColorMode.DARK else ColorMode.LIGHT,
         )
     }
 
@@ -108,6 +116,40 @@ class WindowsScreenshotTest {
         val controller = controller()
         compose.setContent { WindowsLauncher(sampleState(), controller) }
         compose.onRoot().captureRoboImage(shot("windows-home"))
+    }
+
+    @Test
+    fun homeDark() {
+        val controller = controller()
+        compose.setContent { WindowsLauncher(sampleState(dark = true), controller) }
+        compose.onRoot().captureRoboImage(shot("windows-home-dark"))
+    }
+
+    @Test
+    fun editMode() {
+        val controller = controller()
+        controller.editMode = true
+        compose.setContent { WindowsLauncher(sampleState(), controller) }
+        compose.onRoot().captureRoboImage(shot("windows-edit"))
+    }
+
+    @Test
+    fun controlCenter() {
+        val controller = controller()
+        compose.setContent { WindowsLauncher(sampleState(dark = true), controller) }
+        compose.onNodeWithContentDescription("Configurações rápidas").performClick()
+        compose.mainClock.advanceTimeBy(1_000)
+        compose.waitForIdle()
+        compose.onRoot().captureRoboImage(shot("windows-control-center"))
+    }
+
+    @Test
+    fun swipeDownOpensControlCenter() {
+        val controller = controller()
+        compose.setContent { WindowsLauncher(sampleState(), controller) }
+        compose.onRoot().performTouchInput { swipeDown(startY = centerY - 300f, endY = centerY + 300f, durationMillis = 120) }
+        compose.waitForIdle()
+        org.junit.Assert.assertTrue(controller.controlCenterOpen)
     }
 
     @Test
@@ -140,6 +182,48 @@ class WindowsScreenshotTest {
         compose.mainClock.advanceTimeBy(1_000)
         compose.waitForIdle()
         compose.onRoot().captureRoboImage(shot("windows-search"))
+    }
+
+    private fun themeShot(name: String, dark: Boolean, open: String? = null, content: @androidx.compose.runtime.Composable (LauncherUiState, LauncherController) -> Unit) {
+        val controller = controller()
+        val state = sampleState(dark)
+        compose.setContent { content(state, controller) }
+        if (open != null) {
+            compose.onNodeWithContentDescription(open).performClick()
+            compose.mainClock.advanceTimeBy(1_000)
+            compose.waitForIdle()
+        }
+        compose.onRoot().captureRoboImage(shot(name))
+    }
+
+    @Test fun ubuntu() = themeShot("ubuntu-home", dark = true) { s, c -> UbuntuLauncher(s, c) }
+    @Test fun ubuntuLight() = themeShot("ubuntu-home-light", dark = false) { s, c -> UbuntuLauncher(s, c) }
+    @Test fun ubuntuApps() = themeShot("ubuntu-apps", dark = true, open = "Mostrar aplicativos") { s, c -> UbuntuLauncher(s, c) }
+    @Test fun kde() = themeShot("kde-home", dark = true) { s, c -> KdeLauncher(s, c) }
+    @Test fun kdeLight() = themeShot("kde-home-light", dark = false) { s, c -> KdeLauncher(s, c) }
+    @Test fun kdeApps() = themeShot("kde-apps", dark = true, open = "Lançador de aplicativos") { s, c -> KdeLauncher(s, c) }
+    @Test fun macos() = themeShot("macos-home", dark = false) { s, c -> MacLauncher(s, c) }
+    @Test fun macosDark() = themeShot("macos-home-dark", dark = true) { s, c -> MacLauncher(s, c) }
+    @Test fun macosLaunchpad() = themeShot("macos-launchpad", dark = false, open = "Launchpad") { s, c -> MacLauncher(s, c) }
+    @Test fun macosControl() = themeShot("macos-control-center", dark = false, open = "Central de Controle") { s, c -> MacLauncher(s, c) }
+    @Test fun ios() = themeShot("ios-home", dark = false) { s, c -> IosLauncher(s, c) }
+    @Test fun iosDark() = themeShot("ios-home-dark", dark = true) { s, c -> IosLauncher(s, c) }
+
+    @Test
+    fun iosLibrary() {
+        val controller = controller()
+        compose.setContent { IosLauncher(sampleState(), controller) }
+        compose.onNodeWithText("Buscar").performClick()
+        compose.mainClock.advanceTimeBy(1_000)
+        compose.waitForIdle()
+        compose.onRoot().captureRoboImage(shot("ios-library"))
+    }
+
+    @Test
+    fun settingsDark() {
+        val controller = controller()
+        compose.setContent { SettingsScreen(sampleState(dark = true), controller, onClose = {}) }
+        compose.onRoot().captureRoboImage(shot("settings-dark"))
     }
 
     @Test

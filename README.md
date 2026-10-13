@@ -1,50 +1,75 @@
 # Launcher
 
-Launcher Android com múltiplos temas inspirados em sistemas de desktop e mobile. Cada tema muda
-não só as cores, mas também a forma de navegar: posição do dock, menu de apps e disposição dos
-widgets. Favoritos, pastas, dock e widgets são preservados ao trocar de tema.
+Launcher Android com cinco temas inspirados em sistemas de desktop e mobile: **Windows, Ubuntu,
+KDE Plasma, macOS e iOS**. Cada tema muda não só as cores, mas também a forma de navegar:
+posição do dock, menu de apps, barras e componentes. Favoritos, pastas, dock e widgets são
+preservados ao trocar de tema.
 
 O conceito completo está em [`docs/conceito.md`](docs/conceito.md).
 
-## Primeiro tema: Windows
+**Baixar APK:** [`releases/launcher-debug.apk`](releases/launcher-debug.apk)
 
-| Área de trabalho | Menu Iniciar | Todos os apps | Busca | Personalizar |
+## Temas
+
+| Windows | Ubuntu | KDE Plasma | macOS | iOS |
 | --- | --- | --- | --- | --- |
-| ![](docs/screenshots/windows-home.png) | ![](docs/screenshots/windows-start.png) | ![](docs/screenshots/windows-all-apps.png) | ![](docs/screenshots/windows-search.png) | ![](docs/screenshots/settings.png) |
+| ![](docs/screenshots/windows-home.png) | ![](docs/screenshots/ubuntu-home.png) | ![](docs/screenshots/kde-home.png) | ![](docs/screenshots/macos-home.png) | ![](docs/screenshots/ios-home.png) |
+| ![](docs/screenshots/windows-home-dark.png) | ![](docs/screenshots/ubuntu-home-light.png) | ![](docs/screenshots/kde-home-light.png) | ![](docs/screenshots/macos-home-dark.png) | ![](docs/screenshots/ios-home-dark.png) |
+| ![](docs/screenshots/windows-start.png) | ![](docs/screenshots/ubuntu-apps.png) | ![](docs/screenshots/kde-apps.png) | ![](docs/screenshots/macos-launchpad.png) | ![](docs/screenshots/ios-library.png) |
+
+| Organizar área de trabalho | Painel de controle | Personalizar |
+| --- | --- | --- |
+| ![](docs/screenshots/windows-edit.png) | ![](docs/screenshots/windows-control-center.png) | ![](docs/screenshots/settings-dark.png) |
 
 _Capturas geradas pelos testes de screenshot com apps de exemplo._
 
-- **Área de trabalho:** cartões de bateria e relógio, barra de pesquisa, widgets Android,
-  apps fixados (com pastas) e cartão "Recente".
-- **Barra de tarefas:** botão Iniciar, pesquisa e até 5 apps fixados.
-- **Menu Iniciar:** busca de apps (ignora acentos) com atalho para pesquisa na Web,
-  "Fixados", "Todos os apps" em ordem alfabética e "Recomendados".
-- **Toque longo em um app:** fixar/desafixar na tela inicial ou na barra de tarefas, mover para
-  pasta, reordenar, informações do app e desinstalar.
-- **Toque longo na área de trabalho:** adicionar widget, papel de parede e personalização.
-- **Personalizar:** seletor de tema com prévia, papel de parede (do tema ou do sistema), tamanho
-  dos ícones, colunas da grade, nomes dos apps, widgets e definição como launcher padrão.
+- **Windows:** barra de tarefas com Iniciar, busca, apps e bandeja (abre as configurações
+  rápidas); Menu Iniciar com Fixados, Todos os apps, Recomendados e busca; cartão "Recente".
+- **Ubuntu:** barra superior com Atividades e menu do sistema, dock lateral de favoritos e
+  grade de aplicativos.
+- **KDE Plasma:** monitor do sistema (bateria, memória, armazenamento), ícones em blocos,
+  painel flutuante e lançador com categorias e abas.
+- **macOS:** barra de menus com Spotlight e Central de Controle, calendário, Dock e Launchpad.
+- **iOS:** widgets grandes, várias telas, busca acima do dock e Biblioteca de Apps com índice A–Z.
 
-Os temas Ubuntu, KDE Plasma, macOS e iOS aparecem no seletor como "Em breve".
+## Recursos
 
-"Recente" e "Recomendados" mostram os apps abertos pelo próprio launcher, o que não exige
-permissões especiais. Arquivos recentes e clima, como nos mockups, ficam para depois.
+- **Modo claro, escuro ou seguir o sistema**, em todos os temas e na tela de ajustes.
+- **Área de trabalho organizável:** toque longo no fundo → *Organizar área de trabalho*.
+  Arraste itens, redimensione widgets e componentes pelo ponto no canto, remova ou mova de tela.
+  - **Grade:** os itens se encaixam nas células.
+  - **Livre:** os itens ficam onde você soltar, como na área de trabalho do Windows.
+- **Várias telas** (opcional), alternadas deslizando para o lado.
+- **Painel de controle:** Wi-Fi, Bluetooth, lanterna, Não perturbe, rotação, localização, modo
+  avião, dados, brilho, volume e atalho para as notificações do sistema.
+- **Gestos do launcher:** deslizar para cima abre o menu de apps; deslizar para baixo abre o
+  painel de controle, as notificações ou a busca (configurável).
+- Widgets Android, pastas, dock configurável, busca sem acentos, launcher padrão.
+
+O Android não permite que apps liguem Wi-Fi ou Bluetooth diretamente; esses botões abrem o
+painel do sistema. Brilho e rotação pedem a permissão "Alterar configurações do sistema", e
+"Não perturbe" pede o acesso correspondente.
+
+### Gestos de navegação do sistema
+
+A navegação por gestos ou por botões é controlada pelo Android, não pelo launcher. Em alguns
+aparelhos (por exemplo, Xiaomi/HyperOS) os gestos de tela cheia só ficam disponíveis com o
+launcher de fábrica, e o sistema volta para os botões quando outro launcher é o padrão.
 
 ## Arquitetura
 
 ```
 app/src/main/java/dev/jesiel/launcher/
-├── data/        Apps instalados (LauncherApps, inclui perfil de trabalho) e preferências
+├── data/        Apps instalados, preferências, grade e posições da área de trabalho
 ├── widgets/     AppWidgetHost para widgets Android
 ├── theme/       LauncherThemeSpec + ThemeRegistry: contrato que cada tema implementa
-├── ui/common/   Ícone de app com menu, pastas, widgets, busca
+├── ui/common/   Área de trabalho, painel de controle, gaveta de apps, dock, cartões, paleta
 ├── ui/settings/ Tela "Personalizar"
-└── ui/windows/  Tema Windows: área de trabalho, barra de tarefas e Menu Iniciar
+└── ui/{windows,ubuntu,kde,macos,ios}/  Cada tema
 ```
 
-Um novo tema implementa `LauncherThemeSpec.Content(state, controller)` e é registrado em
-`ThemeRegistry`. Ele recebe o mesmo `LauncherUiState` (apps, favoritos, pastas, dock, recentes,
-widgets) e usa o `LauncherController` para abrir apps e ações do sistema.
+Um tema define uma `LauncherPalette` (clara e escura), os componentes próprios (`BuiltinSpec`)
+e a moldura (barras, dock, menus), e reaproveita `DesktopCanvas`, `AppDrawer` e `ControlCenter`.
 
 ## Compilar
 
@@ -55,6 +80,3 @@ Requer JDK 17+ e Android SDK 35.
 ./gradlew testDebugUnitTest      # testes
 ./gradlew recordRoborazziDebug   # regenera docs/screenshots
 ```
-
-O workflow do GitHub Actions também gera o APK de debug como artefato.
-Depois de instalar, abra o app e toque em **Definir como padrão** em Personalizar.

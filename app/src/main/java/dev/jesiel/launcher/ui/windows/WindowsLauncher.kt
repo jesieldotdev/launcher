@@ -9,7 +9,7 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -30,12 +30,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -46,282 +46,181 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
-import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.unit.Velocity
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.jesiel.launcher.LauncherController
 import dev.jesiel.launcher.LauncherUiState
 import dev.jesiel.launcher.data.AppInfo
-import dev.jesiel.launcher.data.HomeItem
-import dev.jesiel.launcher.data.RecentApp
+import dev.jesiel.launcher.data.CellSize
 import dev.jesiel.launcher.ui.common.AppListRow
 import dev.jesiel.launcher.ui.common.AppTile
-import dev.jesiel.launcher.ui.common.AppWidget
-import dev.jesiel.launcher.ui.common.FolderTile
+import dev.jesiel.launcher.ui.common.BatteryCard
+import dev.jesiel.launcher.ui.common.BatteryGlyph
+import dev.jesiel.launcher.ui.common.BuiltinSpec
+import dev.jesiel.launcher.ui.common.ClockCard
+import dev.jesiel.launcher.ui.common.ControlCenter
+import dev.jesiel.launcher.ui.common.DesktopCanvas
+import dev.jesiel.launcher.ui.common.LauncherPalette
+import dev.jesiel.launcher.ui.common.LocalPalette
+import dev.jesiel.launcher.ui.common.PanelPosition
+import dev.jesiel.launcher.ui.common.SearchBar
+import dev.jesiel.launcher.ui.common.glass
+import dev.jesiel.launcher.ui.common.isDark
+import dev.jesiel.launcher.ui.common.rememberBatteryState
+import dev.jesiel.launcher.ui.common.rememberNow
 import dev.jesiel.launcher.ui.common.relativeTime
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+
+private val TaskbarHeight = 60.dp
 
 /**
  * Tema Windows: área de trabalho com cartões, apps fixados e recentes; barra de tarefas
- * inferior com botão Iniciar, e Menu Iniciar com busca, "Fixados", "Todos os apps" e "Recomendados".
+ * inferior com Iniciar, busca, apps e bandeja (que abre as configurações rápidas).
  */
 @Composable
 fun WindowsLauncher(state: LauncherUiState, controller: LauncherController) {
+    val dark = isDark(state.colorMode)
+    val palette = remember(dark) { windowsPalette(dark) }
     var startOpen by rememberSaveable { mutableStateOf(false) }
     var searchFocused by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(controller.homePresses) { startOpen = false }
     BackHandler(enabled = startOpen) { startOpen = false }
+    BackHandler(enabled = controller.controlCenterOpen) { controller.controlCenterOpen = false }
+    BackHandler(enabled = controller.editMode) { controller.editMode = false }
 
     fun openStart(search: Boolean) {
+        controller.controlCenterOpen = false
         searchFocused = search
         startOpen = true
     }
 
-    MaterialTheme(colorScheme = WindowsColorScheme) {
-        Box(Modifier.fillMaxSize()) {
-            if (state.layout.useThemeWallpaper) WindowsBloomWallpaper(Modifier.fillMaxSize())
-
-            Desktop(
-                state = state,
-                controller = controller,
-                onSearch = { openStart(search = true) },
-                onSwipeUp = { openStart(search = false) },
-                modifier = Modifier
-                    .fillMaxSize()
-                    .statusBarsPadding()
-                    .navigationBarsPadding()
-                    .padding(bottom = TaskbarHeight + 12.dp),
-            )
-
-            AnimatedVisibility(visible = startOpen, enter = fadeIn(), exit = fadeOut()) {
-                Box(
-                    Modifier
-                        .fillMaxSize()
-                        .background(Color(0x33000000))
-                        .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {
-                            startOpen = false
-                        },
+    val builtins = remember(palette, state.recents) {
+        listOf(
+            BuiltinSpec("battery", "Bateria", { c -> CellSize((c / 2).toFloat(), 1.4f) }) { BatteryCard(palette, it) },
+            BuiltinSpec("clock", "Relógio", { c -> CellSize((c - c / 2).toFloat(), 1.4f) }) { ClockCard(palette, it) },
+            BuiltinSpec("search", "Pesquisa", { c -> CellSize(c.toFloat(), 0.75f) }) { m ->
+                SearchBar(
+                    palette = palette,
+                    placeholder = "Pesquisar na web ou no dispositivo",
+                    onClick = { openStart(search = true) },
+                    modifier = m.padding(vertical = 4.dp),
+                    background = palette.panel.copy(alpha = 0.93f),
+                    leading = { WindowsLogo(20.dp) },
                 )
-            }
-            AnimatedVisibility(
-                visible = startOpen,
-                enter = slideInVertically(tween(220)) { it / 3 } + fadeIn(tween(180)),
-                exit = slideOutVertically(tween(180)) { it / 3 } + fadeOut(tween(150)),
-                modifier = Modifier.align(Alignment.BottomCenter),
-            ) {
-                StartMenu(
+            },
+            BuiltinSpec("recent", "Recente", { c -> CellSize(c.toFloat(), 2.8f) }) { RecentCard(state, controller, palette, it) },
+        )
+    }
+
+    CompositionLocalProvider(LocalPalette provides palette) {
+        MaterialTheme(colorScheme = palette.colorScheme) {
+            Box(Modifier.fillMaxSize()) {
+                if (state.layout.useThemeWallpaper) WindowsBloomWallpaper(dark, Modifier.fillMaxSize())
+
+                DesktopCanvas(
                     state = state,
                     controller = controller,
-                    focusSearch = searchFocused,
-                    onClose = { startOpen = false },
+                    palette = palette,
+                    builtins = builtins,
+                    labels = WindowsMenuLabels,
+                    onSwipeUp = { openStart(search = false) },
+                    onSearch = { openStart(search = true) },
                     modifier = Modifier
+                        .fillMaxSize()
                         .statusBarsPadding()
                         .navigationBarsPadding()
-                        .padding(start = 10.dp, end = 10.dp, top = 12.dp, bottom = TaskbarHeight + 18.dp),
+                        .padding(start = 8.dp, end = 8.dp, top = 8.dp, bottom = TaskbarHeight + 12.dp),
                 )
-            }
 
-            Taskbar(
-                state = state,
-                controller = controller,
-                startOpen = startOpen,
-                onStart = { if (startOpen) startOpen = false else openStart(search = false) },
-                onSearch = { openStart(search = true) },
-                onLaunched = { startOpen = false },
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .navigationBarsPadding()
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
-            )
-        }
-    }
-}
-
-@Composable
-private fun Desktop(
-    state: LauncherUiState,
-    controller: LauncherController,
-    onSearch: () -> Unit,
-    onSwipeUp: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    var menuOpen by remember { mutableStateOf(false) }
-    var menuOffset by remember { mutableStateOf(DpOffset.Zero) }
-    val scroll = rememberScrollState()
-    // Deslizar para cima no fim da área de trabalho abre o Menu Iniciar.
-    val swipeUp = remember(onSwipeUp) {
-        object : NestedScrollConnection {
-            override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
-                if (available.y < -1500f) onSwipeUp()
-                return Velocity.Zero
-            }
-        }
-    }
-
-    Box(
-        modifier
-            .pointerInput(Unit) {
-                detectTapGestures(onLongPress = { pos ->
-                    menuOffset = DpOffset(pos.x.toDp(), pos.y.toDp())
-                    menuOpen = true
-                })
-            }
-            .nestedScroll(swipeUp),
-    ) {
-        Column(
-            Modifier
-                .fillMaxSize()
-                .verticalScroll(scroll)
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                BatteryCard(Modifier.weight(1f).height(132.dp))
-                ClockCard(Modifier.weight(1f).height(132.dp))
-            }
-
-            SearchPill(onClick = onSearch)
-
-            state.widgetIds.forEach { id ->
-                AppWidget(
-                    id = id,
-                    widgets = controller.widgets,
-                    modifier = Modifier.clip(RoundedCornerShape(18.dp)),
-                )
-            }
-
-            PinnedGrid(state, controller)
-
-            RecentCard(state.recents, state, controller)
-        }
-
-        Box(Modifier.align(Alignment.TopStart).padding(start = menuOffset.x, top = menuOffset.y)) {
-            DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }, shape = RoundedCornerShape(12.dp)) {
-                DropdownMenuItem(text = { Text("Adicionar widget") }, onClick = {
-                    menuOpen = false
-                    controller.widgetPickerOpen = true
-                })
-                DropdownMenuItem(text = { Text("Papel de parede") }, onClick = {
-                    menuOpen = false
-                    controller.openWallpaperPicker()
-                })
-                DropdownMenuItem(text = { Text("Personalizar launcher") }, onClick = {
-                    menuOpen = false
-                    controller.settingsOpen = true
-                })
-            }
-        }
-    }
-}
-
-@Composable
-private fun SearchPill(onClick: () -> Unit) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(52.dp)
-            .acrylic(Color(0xEEF5F8FD), RoundedCornerShape(26.dp))
-            .clickable(onClick = onClick)
-            .padding(horizontal = 18.dp),
-    ) {
-        WindowsLogo(20.dp)
-        Spacer(Modifier.width(14.dp))
-        Text(
-            "Pesquisar na web ou no dispositivo",
-            color = WinColors.TextSecondary,
-            fontSize = 15.sp,
-            modifier = Modifier.weight(1f),
-        )
-        Icon(Icons.Default.Search, contentDescription = null, tint = WinColors.Text)
-    }
-}
-
-@Composable
-private fun PinnedGrid(state: LauncherUiState, controller: LauncherController) {
-    if (state.home.isEmpty()) {
-        Text(
-            "Toque e segure um app no Menu Iniciar para fixá-lo aqui.",
-            style = WallpaperLabel.copy(fontSize = 14.sp),
-            modifier = Modifier.padding(8.dp),
-        )
-        return
-    }
-    val columns = state.layout.gridColumns
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        state.home.chunked(columns).forEach { row ->
-            Row(Modifier.fillMaxWidth()) {
-                row.forEach { item ->
-                    Box(Modifier.weight(1f), contentAlignment = Alignment.TopCenter) {
-                        HomeItemTile(item, state, controller)
-                    }
+                AnimatedVisibility(visible = startOpen, enter = fadeIn(), exit = fadeOut()) {
+                    Box(
+                        Modifier
+                            .fillMaxSize()
+                            .background(Color(0x33000000))
+                            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {
+                                startOpen = false
+                            },
+                    )
                 }
-                repeat(columns - row.size) { Spacer(Modifier.weight(1f)) }
+                AnimatedVisibility(
+                    visible = startOpen,
+                    enter = slideInVertically(tween(220)) { it / 3 } + fadeIn(tween(180)),
+                    exit = slideOutVertically(tween(180)) { it / 3 } + fadeOut(tween(150)),
+                    modifier = Modifier.align(Alignment.BottomCenter),
+                ) {
+                    StartMenu(
+                        state = state,
+                        controller = controller,
+                        focusSearch = searchFocused,
+                        onClose = { startOpen = false },
+                        modifier = Modifier
+                            .statusBarsPadding()
+                            .navigationBarsPadding()
+                            .padding(start = 10.dp, end = 10.dp, top = 12.dp, bottom = TaskbarHeight + 18.dp),
+                    )
+                }
+
+                ControlCenter(controller, palette, PanelPosition.BOTTOM_END, bottomInset = TaskbarHeight + 10.dp)
+
+                Taskbar(
+                    state = state,
+                    controller = controller,
+                    palette = palette,
+                    startOpen = startOpen,
+                    onStart = { if (startOpen) startOpen = false else openStart(search = false) },
+                    onSearch = { openStart(search = true) },
+                    onTray = {
+                        startOpen = false
+                        controller.controlCenterOpen = !controller.controlCenterOpen
+                    },
+                    onLaunched = { startOpen = false },
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .navigationBarsPadding()
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                )
             }
         }
     }
 }
 
 @Composable
-private fun HomeItemTile(item: HomeItem, state: LauncherUiState, controller: LauncherController) {
-    when (item) {
-        is HomeItem.App -> AppTile(
-            app = item.app,
-            state = state,
-            controller = controller,
-            labelStyle = WallpaperLabel,
-            labels = WindowsMenuLabels,
-        )
-        is HomeItem.Folder -> FolderTile(
-            folder = item,
-            state = state,
-            controller = controller,
-            background = Color(0x55FFFFFF),
-            labelStyle = WallpaperLabel,
-            panelColor = WinColors.Panel,
-            panelTextColor = WinColors.Text,
-            labels = WindowsMenuLabels,
-        )
-    }
-}
-
-@Composable
-private fun RecentCard(recents: List<RecentApp>, state: LauncherUiState, controller: LauncherController) {
+private fun RecentCard(state: LauncherUiState, controller: LauncherController, palette: LauncherPalette, modifier: Modifier) {
     Column(
-        Modifier
-            .fillMaxWidth()
-            .acrylic(Color(0x8CE9F0FA), RoundedCornerShape(20.dp))
-            .padding(vertical = 14.dp, horizontal = 12.dp),
+        modifier
+            .glass(recentCardColor(palette.dark), RoundedCornerShape(20.dp), palette.panelStroke)
+            .verticalScroll(rememberScrollState())
+            .padding(vertical = 12.dp, horizontal = 10.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 8.dp)) {
-            Text("Recente", color = WinColors.Text, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, modifier = Modifier.weight(1f))
-            if (recents.isNotEmpty()) {
+            Text("Recente", color = palette.panelText, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, modifier = Modifier.weight(1f))
+            if (state.recents.isNotEmpty()) {
                 Text(
                     "Limpar",
-                    color = WinColors.Accent,
+                    color = palette.accent,
                     fontSize = 13.sp,
                     modifier = Modifier.clip(RoundedCornerShape(6.dp)).clickable { controller.viewModel.clearRecents() }.padding(4.dp),
                 )
             }
         }
-        Spacer(Modifier.height(6.dp))
-        if (recents.isEmpty()) {
+        Spacer(Modifier.height(4.dp))
+        if (state.recents.isEmpty()) {
             Text(
                 "Os apps que você abrir pelo launcher aparecem aqui.",
-                color = WinColors.TextSecondary,
+                color = palette.panelTextSecondary,
                 fontSize = 13.sp,
                 modifier = Modifier.padding(8.dp),
             )
         }
         val now = rememberNow()
-        recents.take(4).forEach { recent ->
+        state.recents.take(6).forEach { recent ->
             RecentRow(recent.app, relativeTime(recent.launchedAt, now), state, controller)
         }
     }
@@ -335,6 +234,7 @@ fun RecentRow(
     controller: LauncherController,
     onLaunched: () -> Unit = {},
 ) {
+    val palette = LocalPalette.current
     AppListRow(
         app = app,
         state = state,
@@ -344,63 +244,106 @@ fun RecentRow(
         onLaunched = onLaunched,
     ) {
         Column {
-            Text(app.label, color = WinColors.Text, fontSize = 14.sp)
-            Text("Aberto $subtitle", color = WinColors.TextSecondary, fontSize = 12.sp)
+            Text(app.label, color = palette.panelText, fontSize = 14.sp)
+            Text("Aberto $subtitle", color = palette.panelTextSecondary, fontSize = 12.sp)
         }
     }
 }
-
-private val TaskbarHeight = 60.dp
 
 @Composable
 private fun Taskbar(
     state: LauncherUiState,
     controller: LauncherController,
+    palette: LauncherPalette,
     startOpen: Boolean,
     onStart: () -> Unit,
     onSearch: () -> Unit,
+    onTray: () -> Unit,
     onLaunched: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterHorizontally),
         modifier = modifier
             .fillMaxWidth()
             .height(TaskbarHeight)
-            .acrylic(WinColors.Taskbar, RoundedCornerShape(22.dp))
-            .padding(horizontal = 8.dp),
+            .glass(palette.dock, WindowsShape, palette.dockStroke)
+            .padding(horizontal = 6.dp),
     ) {
-        TaskbarButton(active = startOpen, description = "Iniciar", onClick = onStart) { WindowsLogo(26.dp) }
-        TaskbarButton(active = false, description = "Pesquisar", onClick = onSearch) {
-            Icon(Icons.Default.Search, contentDescription = null, tint = WinColors.Text, modifier = Modifier.size(26.dp))
+        TaskbarButton(active = startOpen, description = "Iniciar", palette = palette, onClick = onStart) { WindowsLogo(26.dp) }
+        TaskbarButton(active = false, description = "Pesquisar", palette = palette, onClick = onSearch) {
+            Icon(Icons.Default.Search, contentDescription = null, tint = palette.panelText, modifier = Modifier.size(26.dp))
         }
         if (state.dock.isNotEmpty()) {
-            Box(Modifier.padding(horizontal = 4.dp).width(1.dp).height(28.dp).background(WinColors.Divider))
+            Box(Modifier.padding(horizontal = 4.dp).width(1.dp).height(28.dp).background(palette.panelStroke))
         }
-        state.dock.forEach { app ->
-            AppTile(
-                app = app,
-                state = state,
-                controller = controller,
-                iconSize = 34.dp,
-                showLabel = false,
-                labels = WindowsMenuLabels,
-                onLaunched = onLaunched,
-            )
+        Row(
+            Modifier.weight(1f).horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(2.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            state.dock.forEach { app ->
+                AppTile(
+                    app = app,
+                    state = state,
+                    controller = controller,
+                    iconSize = 32.dp,
+                    showLabel = false,
+                    labels = WindowsMenuLabels,
+                    onLaunched = onLaunched,
+                )
+            }
+        }
+        Tray(palette, active = controller.controlCenterOpen, onClick = onTray)
+    }
+}
+
+/** Bandeja do sistema: Wi-Fi, bateria e hora. Abre as configurações rápidas. */
+@Composable
+private fun Tray(palette: LauncherPalette, active: Boolean, onClick: () -> Unit) {
+    val context = LocalContext.current
+    val now = rememberNow()
+    val battery = rememberBatteryState()
+    val locale = remember { Locale.getDefault() }
+    val time = remember(now) {
+        SimpleDateFormat(if (android.text.format.DateFormat.is24HourFormat(context)) "HH:mm" else "h:mm", locale).format(Date(now))
+    }
+    val date = remember(now) { SimpleDateFormat("dd/MM", locale).format(Date(now)) }
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .semantics { contentDescription = "Configurações rápidas" }
+            .clip(RoundedCornerShape(10.dp))
+            .background(if (active) palette.tile else Color.Transparent)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 8.dp, vertical = 6.dp),
+    ) {
+        Icon(Icons.Default.Wifi, contentDescription = null, tint = palette.panelText, modifier = Modifier.size(16.dp))
+        Spacer(Modifier.width(4.dp))
+        BatteryGlyph(battery?.percent ?: 0, battery?.charging == true, palette.panelText, 20.dp)
+        Spacer(Modifier.width(8.dp))
+        Column(horizontalAlignment = Alignment.End) {
+            Text(time, color = palette.panelText, fontSize = 12.sp, maxLines = 1)
+            Text(date, color = palette.panelTextSecondary, fontSize = 10.sp, maxLines = 1)
         }
     }
 }
 
 @Composable
-private fun TaskbarButton(active: Boolean, description: String, onClick: () -> Unit, content: @Composable () -> Unit) {
+private fun TaskbarButton(
+    active: Boolean,
+    description: String,
+    palette: LauncherPalette,
+    onClick: () -> Unit,
+    content: @Composable () -> Unit,
+) {
     Box(
         contentAlignment = Alignment.Center,
         modifier = Modifier
             .semantics { contentDescription = description }
-            .size(46.dp)
+            .size(44.dp)
             .clip(RoundedCornerShape(10.dp))
-            .background(if (active) Color(0x22000000) else Color.Transparent)
+            .background(if (active) palette.tile else Color.Transparent)
             .clickable(onClick = onClick),
     ) {
         content()
@@ -411,7 +354,7 @@ private fun TaskbarButton(active: Boolean, description: String, onClick: () -> U
                     .padding(bottom = 3.dp)
                     .size(width = 16.dp, height = 3.dp)
                     .clip(CircleShape)
-                    .background(WinColors.Accent),
+                    .background(palette.accent),
             )
         }
     }

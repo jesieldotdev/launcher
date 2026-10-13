@@ -3,6 +3,7 @@ package dev.jesiel.launcher.ui.common
 import android.graphics.Rect
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -64,6 +65,7 @@ fun AppTile(
     labelStyle: TextStyle = TextStyle(color = Color.White, fontSize = 12.sp),
     labels: AppMenuLabels = AppMenuLabels(),
     folderId: String? = null,
+    iconBackground: Color? = null,
     onLaunched: () -> Unit = {},
 ) {
     var menuOpen by remember { mutableStateOf(false) }
@@ -89,16 +91,19 @@ fun AppTile(
                 )
                 .padding(vertical = 6.dp, horizontal = 2.dp),
         ) {
-            Image(
-                bitmap = app.icon,
-                contentDescription = app.label,
-                modifier = Modifier
-                    .size(iconSize)
-                    .onGloballyPositioned {
-                        val r = it.boundsInWindow()
-                        bounds = Rect(r.left.toInt(), r.top.toInt(), r.right.toInt(), r.bottom.toInt())
-                    },
-            )
+            val iconModifier = Modifier
+                .size(iconSize)
+                .onGloballyPositioned {
+                    val r = it.boundsInWindow()
+                    bounds = Rect(r.left.toInt(), r.top.toInt(), r.right.toInt(), r.bottom.toInt())
+                }
+            if (iconBackground != null) {
+                Box(
+                    iconModifier.clip(RoundedCornerShape(iconSize * 0.24f)).background(iconBackground).padding(iconSize * 0.14f),
+                ) { Image(bitmap = app.icon, contentDescription = app.label, modifier = Modifier.matchParentSize()) }
+            } else {
+                Image(bitmap = app.icon, contentDescription = app.label, modifier = iconModifier)
+            }
             if (showLabel) {
                 Spacer(Modifier.height(6.dp))
                 Text(
@@ -174,6 +179,7 @@ private fun AppMenu(
             Item("Mover para trás") { vm.moveFavorite(app, -1) }
             Item("Mover para frente") { vm.moveFavorite(app, 1) }
         }
+        if (looseFavorite) Item("Organizar área de trabalho") { controller.editMode = true }
         HorizontalDivider()
         Item("Informações do app") { controller.openAppInfo(app) }
         Item("Desinstalar") { controller.uninstall(app) }

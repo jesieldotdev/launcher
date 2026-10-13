@@ -13,13 +13,28 @@ data class ThemeLayout(
     val gridColumns: Int = 4,
     val showLabels: Boolean = true,
     val useThemeWallpaper: Boolean = true,
+    /** Posição livre (como a área de trabalho do Windows) em vez de encaixar na grade. */
+    val freePlacement: Boolean = false,
+    /** Várias telas, alternadas deslizando para o lado. */
+    val multiPage: Boolean = false,
+    val pageCount: Int = 1,
 )
 
 data class FolderData(val id: String, val name: String, val appKeys: List<String>)
 
+enum class ColorMode(val label: String) { SYSTEM("Seguir o sistema"), LIGHT("Claro"), DARK("Escuro") }
+
+enum class SwipeAction(val label: String) {
+    CONTROL_CENTER("Painel de controle"),
+    NOTIFICATIONS("Notificações do sistema"),
+    SEARCH("Busca de apps"),
+    NONE("Nada"),
+}
+
 /**
  * Tudo o que o launcher persiste. Favoritos, pastas, dock e widgets são compartilhados entre
- * temas, para que o usuário não perca a organização ao alternar.
+ * temas, para que o usuário não perca a organização ao alternar. Posições na área de trabalho
+ * são guardadas por tema, porque cada tema organiza a tela de um jeito.
  */
 data class LauncherData(
     val themeId: String,
@@ -32,8 +47,23 @@ data class LauncherData(
     val recents: List<Pair<String, Long>>,
     val widgetIds: List<Int>,
     val layouts: Map<String, ThemeLayout>,
+    val colorMode: ColorMode,
+    val swipeDown: SwipeAction,
+    /** Tema → id do item na área de trabalho → posição. */
+    val placements: Map<String, Map<String, Placement>>,
+    /** Tema → componentes próprios do tema que o usuário removeu da área de trabalho. */
+    val hiddenBuiltins: Map<String, Set<String>>,
 ) {
-    fun layoutFor(themeId: String) = layouts[themeId] ?: ThemeLayout()
+    fun layoutFor(themeId: String) = layouts[themeId] ?: defaultLayout(themeId)
+
+    companion object {
+        /** iOS e macOS começam com várias telas, como nos sistemas originais. */
+        fun defaultLayout(themeId: String) = when (themeId) {
+            "ios" -> ThemeLayout(iconSizeDp = 56, multiPage = true, pageCount = 2)
+            "macos" -> ThemeLayout(multiPage = true, pageCount = 2)
+            else -> ThemeLayout()
+        }
+    }
 }
 
 class LauncherPrefs(context: Context) {
@@ -49,22 +79,20 @@ class LauncherPrefs(context: Context) {
     }
 
     private fun read(): LauncherData {
-        val folders = JSONObject(prefs.getString(KEY_FOLDERS, "{}")!!).let { json ->
+        val folders = obj(KEY_FOLDERS).let { json ->
             json.keys().asSequence().associateWith { id ->
                 val f = json.getJSONObject(id)
                 FolderData(id, f.getString("name"), f.getJSONArray("apps").strings())
             }
         }
-        val recents = JSONArray(prefs.getString(KEY_RECENTS, "[]")!!).let { arr ->
-            (0 until arr.length()).map { i ->
-                val o = arr.getJSONObject(i)
+        val recents = arr(KEY_RECENTS).let { a ->
+            (0 until a.length()).map { i ->
+                val o = a.getJSONObject(i)
                 o.getString("key") to o.getLong("at")
             }
         }
-        val widgets = JSONArray(prefs.getString(KEY_WIDGETS, "[]")!!).let { arr ->
-            (0 until arr.length()).map { arr.getInt(it) }
-        }
-        val layouts = JSONObject(prefs.getString(KEY_LAYOUTS, "{}")!!).let { json ->
+        val widgets = arr(KEY_WIDGETS).let { a -> (0 until a.length()).map { a.getInt(it) } }
+        val layouts = obj(KEY_LAYOUTS).let { json ->
             json.keys().asSequence().associateWith { id ->
                 val l = json.getJSONObject(id)
                 ThemeLayout(
@@ -72,18 +100,37 @@ class LauncherPrefs(context: Context) {
                     gridColumns = l.optInt("columns", 4),
                     showLabels = l.optBoolean("labels", true),
                     useThemeWallpaper = l.optBoolean("themeWallpaper", true),
+                    freePlacement = l.optBoolean("free", false),
+                    multiPage = l.optBoolean("multiPage", false),
+                    pageCount = l.optInt("pages", 1),
                 )
             }
+        }
+        val placements = obj(KEY_PLACEMENTS).let { json ->
+            json.keys().asSequence().associateWith { theme ->
+                val items = json.getJSONObject(theme)
+                items.keys().asSequence().associateWith { id ->
+                    val p = items.getJSONArray(id)
+                    Placement(p.getInt(0), p.getDouble(1).toFloat(), p.getDouble(2).toFloat(), p.getDouble(3).toFloat(), p.getDouble(4).toFloat())
+                }
+            }
+        }
+        val hidden = obj(KEY_HIDDEN).let { json ->
+            json.keys().asSequence().associateWith { theme -> json.getJSONArray(theme).strings().toSet() }
         }
         return LauncherData(
             themeId = prefs.getString(KEY_THEME, "windows")!!,
             initialized = prefs.getBoolean(KEY_INITIALIZED, false),
-            homeOrder = JSONArray(prefs.getString(KEY_HOME, "[]")!!).strings(),
+            homeOrder = arr(KEY_HOME).strings(),
             folders = folders,
-            dock = JSONArray(prefs.getString(KEY_DOCK, "[]")!!).strings(),
+            dock = arr(KEY_DOCK).strings(),
             recents = recents,
             widgetIds = widgets,
             layouts = layouts,
+            colorMode = enumOr(prefs.getString(KEY_COLOR_MODE, null), ColorMode.SYSTEM),
+            swipeDown = enumOr(prefs.getString(KEY_SWIPE_DOWN, null), SwipeAction.CONTROL_CENTER),
+            placements = placements,
+            hiddenBuiltins = hidden,
         )
     }
 
@@ -104,10 +151,23 @@ class LauncherPrefs(context: Context) {
                         .put("iconSize", l.iconSizeDp)
                         .put("columns", l.gridColumns)
                         .put("labels", l.showLabels)
-                        .put("themeWallpaper", l.useThemeWallpaper),
+                        .put("themeWallpaper", l.useThemeWallpaper)
+                        .put("free", l.freePlacement)
+                        .put("multiPage", l.multiPage)
+                        .put("pages", l.pageCount),
                 )
             }
         }
+        val placements = JSONObject().apply {
+            d.placements.forEach { (theme, items) ->
+                put(theme, JSONObject().apply {
+                    items.forEach { (id, p) ->
+                        put(id, JSONArray().put(p.page).put(p.x.toDouble()).put(p.y.toDouble()).put(p.w.toDouble()).put(p.h.toDouble()))
+                    }
+                })
+            }
+        }
+        val hidden = JSONObject().apply { d.hiddenBuiltins.forEach { (theme, ids) -> put(theme, JSONArray(ids.toList())) } }
         prefs.edit()
             .putString(KEY_THEME, d.themeId)
             .putBoolean(KEY_INITIALIZED, d.initialized)
@@ -117,10 +177,19 @@ class LauncherPrefs(context: Context) {
             .putString(KEY_RECENTS, recents.toString())
             .putString(KEY_WIDGETS, JSONArray(d.widgetIds).toString())
             .putString(KEY_LAYOUTS, layouts.toString())
+            .putString(KEY_COLOR_MODE, d.colorMode.name)
+            .putString(KEY_SWIPE_DOWN, d.swipeDown.name)
+            .putString(KEY_PLACEMENTS, placements.toString())
+            .putString(KEY_HIDDEN, hidden.toString())
             .apply()
     }
 
+    private fun obj(key: String) = runCatching { JSONObject(prefs.getString(key, "{}")!!) }.getOrDefault(JSONObject())
+    private fun arr(key: String) = runCatching { JSONArray(prefs.getString(key, "[]")!!) }.getOrDefault(JSONArray())
     private fun JSONArray.strings() = (0 until length()).map { getString(it) }
+
+    private inline fun <reified E : Enum<E>> enumOr(name: String?, default: E): E =
+        enumValues<E>().firstOrNull { it.name == name } ?: default
 
     private companion object {
         const val KEY_THEME = "theme"
@@ -131,5 +200,9 @@ class LauncherPrefs(context: Context) {
         const val KEY_RECENTS = "recents"
         const val KEY_WIDGETS = "widgets"
         const val KEY_LAYOUTS = "layouts"
+        const val KEY_COLOR_MODE = "colorMode"
+        const val KEY_SWIPE_DOWN = "swipeDown"
+        const val KEY_PLACEMENTS = "placements"
+        const val KEY_HIDDEN = "hiddenBuiltins"
     }
 }

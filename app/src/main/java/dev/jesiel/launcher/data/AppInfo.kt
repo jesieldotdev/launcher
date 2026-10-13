@@ -12,6 +12,7 @@ data class AppInfo(
     val component: ComponentName,
     val user: UserHandle,
     val icon: ImageBitmap,
+    val category: AppCategory = AppCategory.TOOLS,
 ) {
     val packageName: String get() = component.packageName
 }
@@ -28,3 +29,12 @@ sealed interface HomeItem {
 }
 
 data class RecentApp(val app: AppInfo, val launchedAt: Long)
+
+/** Categorias usadas nos filtros das gavetas de apps. */
+enum class AppCategory(val label: String) {
+    COMMUNICATION("Comunicação"),
+    MEDIA("Multimídia"),
+    PRODUCTIVITY("Produtividade"),
+    GAMES("Jogos"),
+    TOOLS("Ferramentas"),
+}

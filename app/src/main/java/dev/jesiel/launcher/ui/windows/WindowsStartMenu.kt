@@ -59,6 +59,9 @@ import dev.jesiel.launcher.data.HomeItem
 import dev.jesiel.launcher.ui.common.AppListRow
 import dev.jesiel.launcher.ui.common.AppTile
 import dev.jesiel.launcher.ui.common.FolderTile
+import dev.jesiel.launcher.ui.common.LocalPalette
+import dev.jesiel.launcher.ui.common.acrylicPanel
+import dev.jesiel.launcher.ui.common.rememberNow
 import dev.jesiel.launcher.ui.common.relativeTime
 import dev.jesiel.launcher.ui.common.search
 
@@ -87,7 +90,7 @@ fun StartMenu(
         modifier
             .fillMaxWidth()
             .fillMaxHeight()
-            .acrylic(WinColors.Panel, RoundedCornerShape(24.dp))
+            .acrylicPanel()
             .padding(top = 18.dp),
     ) {
         StartSearchField(
@@ -111,10 +114,10 @@ fun StartMenu(
             }
         }
 
-        HorizontalDivider(color = WinColors.Divider)
+        HorizontalDivider(color = LocalPalette.current.panelStroke)
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth().background(Color(0x0A000000)).padding(horizontal = 12.dp, vertical = 8.dp),
+            modifier = Modifier.fillMaxWidth().background(LocalPalette.current.tile.copy(alpha = 0.04f)).padding(horizontal = 12.dp, vertical = 8.dp),
         ) {
             FooterButton(Icons.Default.Edit, "Personalizar") {
                 closeAll()
@@ -146,19 +149,19 @@ private fun StartSearchField(
             .fillMaxWidth()
             .height(46.dp)
             .clip(RoundedCornerShape(23.dp))
-            .background(Color.White)
+            .background(LocalPalette.current.field)
             .padding(horizontal = 16.dp),
     ) {
-        Icon(Icons.Default.Search, contentDescription = null, tint = WinColors.Text, modifier = Modifier.size(22.dp))
+        Icon(Icons.Default.Search, contentDescription = null, tint = LocalPalette.current.panelText, modifier = Modifier.size(22.dp))
         Spacer(Modifier.width(12.dp))
         Box(Modifier.weight(1f)) {
-            if (query.isEmpty()) Text("Buscar apps", color = WinColors.TextSecondary, fontSize = 15.sp)
+            if (query.isEmpty()) Text("Buscar apps", color = LocalPalette.current.panelTextSecondary, fontSize = 15.sp)
             BasicTextField(
                 value = query,
                 onValueChange = onQueryChange,
                 singleLine = true,
-                textStyle = TextStyle(color = WinColors.Text, fontSize = 15.sp),
-                cursorBrush = SolidColor(WinColors.Accent),
+                textStyle = TextStyle(color = LocalPalette.current.panelText, fontSize = 15.sp),
+                cursorBrush = SolidColor(LocalPalette.current.accent),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                 keyboardActions = KeyboardActions(onSearch = { if (query.isNotBlank()) onSubmit() }),
                 modifier = Modifier.fillMaxWidth().focusRequester(focusRequester),
@@ -168,7 +171,7 @@ private fun StartSearchField(
             Icon(
                 Icons.Default.Close,
                 contentDescription = "Limpar",
-                tint = WinColors.TextSecondary,
+                tint = LocalPalette.current.panelTextSecondary,
                 modifier = Modifier.size(20.dp).clip(RoundedCornerShape(10.dp)).clickable { onQueryChange("") },
             )
         }
@@ -181,19 +184,19 @@ private fun SectionHeader(title: String, action: String?, actionIcon: ImageVecto
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier.fillMaxWidth().padding(horizontal = 22.dp, vertical = 4.dp),
     ) {
-        Text(title, color = WinColors.Text, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, modifier = Modifier.weight(1f))
+        Text(title, color = LocalPalette.current.panelText, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, modifier = Modifier.weight(1f))
         if (action != null) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
                     .clip(RoundedCornerShape(6.dp))
-                    .background(Color(0x0F000000))
+                    .background(LocalPalette.current.tile)
                     .clickable(onClick = onAction)
                     .padding(start = if (leading) 4.dp else 10.dp, end = if (leading) 10.dp else 4.dp, top = 4.dp, bottom = 4.dp),
             ) {
-                if (leading && actionIcon != null) Icon(actionIcon, null, tint = WinColors.Text, modifier = Modifier.size(18.dp))
-                Text(action, color = WinColors.Text, fontSize = 13.sp)
-                if (!leading && actionIcon != null) Icon(actionIcon, null, tint = WinColors.Text, modifier = Modifier.size(18.dp))
+                if (leading && actionIcon != null) Icon(actionIcon, null, tint = LocalPalette.current.panelText, modifier = Modifier.size(18.dp))
+                Text(action, color = LocalPalette.current.panelText, fontSize = 13.sp)
+                if (!leading && actionIcon != null) Icon(actionIcon, null, tint = LocalPalette.current.panelText, modifier = Modifier.size(18.dp))
             }
         }
     }
@@ -219,7 +222,7 @@ private fun PinnedPage(state: LauncherUiState, controller: LauncherController, o
                                     controller = controller,
                                     iconSize = 44.dp,
                                     showLabel = true,
-                                    labelStyle = PanelLabel,
+                                    labelStyle = LocalPalette.current.panelLabel,
                                     labels = WindowsMenuLabels,
                                     onLaunched = onLaunched,
                                 )
@@ -227,11 +230,11 @@ private fun PinnedPage(state: LauncherUiState, controller: LauncherController, o
                                     folder = item,
                                     state = state,
                                     controller = controller,
-                                    background = Color(0x14000000),
+                                    background = LocalPalette.current.tile,
                                     iconSize = 44.dp,
-                                    labelStyle = PanelLabel,
-                                    panelColor = WinColors.Panel,
-                                    panelTextColor = WinColors.Text,
+                                    labelStyle = LocalPalette.current.panelLabel,
+                                    panelColor = LocalPalette.current.panel,
+                                    panelTextColor = LocalPalette.current.panelText,
                                     labels = WindowsMenuLabels,
                                 )
                             }
@@ -250,7 +253,7 @@ private fun PinnedPage(state: LauncherUiState, controller: LauncherController, o
             if (state.recents.isEmpty()) {
                 Text(
                     "Os apps que você abrir recentemente aparecerão aqui.",
-                    color = WinColors.TextSecondary,
+                    color = LocalPalette.current.panelTextSecondary,
                     fontSize = 13.sp,
                     modifier = Modifier.padding(10.dp),
                 )
@@ -273,7 +276,7 @@ private fun AllApps(state: LauncherUiState, controller: LauncherController, onBa
                 item(key = "header-$letter") {
                     Text(
                         letter.toString(),
-                        color = WinColors.Accent,
+                        color = LocalPalette.current.accent,
                         fontWeight = FontWeight.SemiBold,
                         modifier = Modifier.padding(start = 10.dp, top = 10.dp, bottom = 2.dp),
                     )
@@ -298,11 +301,11 @@ private fun SearchResults(query: String, state: LauncherUiState, controller: Lau
                     iconSize = 44.dp,
                     labels = WindowsMenuLabels,
                     onLaunched = onLaunched,
-                    modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(Color(0x14000000)),
+                    modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(LocalPalette.current.tile),
                 ) {
                     Column {
-                        Text(results.first().label, color = WinColors.Text, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-                        Text("Aplicativo", color = WinColors.TextSecondary, fontSize = 12.sp)
+                        Text(results.first().label, color = LocalPalette.current.panelText, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                        Text("Aplicativo", color = LocalPalette.current.panelTextSecondary, fontSize = 12.sp)
                     }
                 }
             }
@@ -324,9 +327,9 @@ private fun SearchResults(query: String, state: LauncherUiState, controller: Lau
                     }
                     .padding(horizontal = 8.dp, vertical = 10.dp),
             ) {
-                Icon(Icons.Default.Search, null, tint = WinColors.Accent, modifier = Modifier.size(28.dp))
+                Icon(Icons.Default.Search, null, tint = LocalPalette.current.accent, modifier = Modifier.size(28.dp))
                 Spacer(Modifier.width(14.dp))
-                Text("\"$query\" — ver resultados da Web", color = WinColors.Text, fontSize = 14.sp)
+                Text("\"$query\" — ver resultados da Web", color = LocalPalette.current.panelText, fontSize = 14.sp)
             }
         }
     }
@@ -336,7 +339,7 @@ private fun SearchResults(query: String, state: LauncherUiState, controller: Lau
 private fun ResultHeader(text: String) {
     Text(
         text,
-        color = WinColors.TextSecondary,
+        color = LocalPalette.current.panelTextSecondary,
         fontSize = 12.sp,
         fontWeight = FontWeight.SemiBold,
         modifier = Modifier.padding(start = 10.dp, top = 10.dp, bottom = 4.dp),
@@ -346,7 +349,7 @@ private fun ResultHeader(text: String) {
 @Composable
 private fun AppRow(app: AppInfo, state: LauncherUiState, controller: LauncherController, onLaunched: () -> Unit) {
     AppListRow(app = app, state = state, controller = controller, labels = WindowsMenuLabels, onLaunched = onLaunched) {
-        Text(app.label, color = WinColors.Text, fontSize = 14.sp)
+        Text(app.label, color = LocalPalette.current.panelText, fontSize = 14.sp)
     }
 }
 
@@ -357,7 +360,7 @@ private fun FooterButton(icon: ImageVector, label: String, onClick: () -> Unit) 
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable(onClick = onClick).padding(horizontal = 10.dp, vertical = 8.dp),
     ) {
-        Icon(icon, contentDescription = null, tint = WinColors.Text, modifier = Modifier.size(20.dp))
-        Text(label, color = WinColors.Text, fontSize = 13.sp)
+        Icon(icon, contentDescription = null, tint = LocalPalette.current.panelText, modifier = Modifier.size(20.dp))
+        Text(label, color = LocalPalette.current.panelText, fontSize = 13.sp)
     }
 }

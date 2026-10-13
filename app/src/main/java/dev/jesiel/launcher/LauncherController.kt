@@ -1,5 +1,6 @@
 package dev.jesiel.launcher
 
+import android.annotation.SuppressLint
 import android.app.Activity
 import android.app.SearchManager
 import android.app.WallpaperManager
@@ -19,6 +20,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import dev.jesiel.launcher.data.AppInfo
+import dev.jesiel.launcher.data.SwipeAction
 import dev.jesiel.launcher.widgets.WidgetHost
 
 /**
@@ -32,6 +34,9 @@ class LauncherController(
 ) {
     var settingsOpen by mutableStateOf(false)
     var widgetPickerOpen by mutableStateOf(false)
+    var controlCenterOpen by mutableStateOf(false)
+    /** Modo de organização da área de trabalho (arrastar, redimensionar, remover). */
+    var editMode by mutableStateOf(false)
 
     /** Incrementado quando o botão Home é pressionado com o launcher já visível. */
     var homePresses by mutableIntStateOf(0)
@@ -44,6 +49,28 @@ class LauncherController(
         homePresses++
         settingsOpen = false
         widgetPickerOpen = false
+        controlCenterOpen = false
+        editMode = false
+    }
+
+    /** Executa o gesto de deslizar para baixo configurado; [openSearch] é a busca do tema. */
+    fun onSwipeDown(action: SwipeAction, openSearch: () -> Unit) {
+        when (action) {
+            SwipeAction.CONTROL_CENTER -> controlCenterOpen = true
+            SwipeAction.NOTIFICATIONS -> expandNotifications()
+            SwipeAction.SEARCH -> openSearch()
+            SwipeAction.NONE -> Unit
+        }
+    }
+
+    /** Abre a cortina de notificações do sistema (API oculta, mas estável há muitas versões). */
+    @SuppressLint("WrongConstant")
+    fun expandNotifications() {
+        val ok = runCatching {
+            val service = activity.getSystemService("statusbar")
+            Class.forName("android.app.StatusBarManager").getMethod("expandNotificationsPanel").invoke(service)
+        }.isSuccess
+        if (!ok) toast("Não foi possível abrir as notificações")
     }
 
     fun launch(app: AppInfo, bounds: Rect? = null) {
@@ -148,7 +175,7 @@ class LauncherController(
 
     // -------------------------------------------------------------------------------------------
 
-    private fun start(intent: Intent, silent: Boolean = false): Boolean = try {
+    fun start(intent: Intent, silent: Boolean = false): Boolean = try {
         activity.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         true
     } catch (e: ActivityNotFoundException) {
@@ -159,7 +186,7 @@ class LauncherController(
         false
     }
 
-    private fun toast(message: String) = Toast.makeText(activity, message, Toast.LENGTH_SHORT).show()
+    fun toast(message: String) = Toast.makeText(activity, message, Toast.LENGTH_SHORT).show()
 
     private companion object {
         const val REQUEST_BIND_WIDGET = 11
