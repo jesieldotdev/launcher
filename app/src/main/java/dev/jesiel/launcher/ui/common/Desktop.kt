@@ -487,6 +487,11 @@ private fun PlacedItem(
                                     ay.snapTo(dropY)
                                     drag = Offset.Zero
                                     onMove(p.copy(x = dropX, y = dropY))
+                                    // Se a posição final for a mesma de antes, nada muda no estado e o
+                                    // item ficaria onde foi solto; então ele sempre desliza até a posição
+                                    // atual (se ela mudar, o LaunchedEffect acima assume a animação).
+                                    launch { ax.animateTo(current.x, spring(dampingRatio = 0.75f, stiffness = 400f)) }
+                                    launch { ay.animateTo(current.y, spring(dampingRatio = 0.75f, stiffness = 400f)) }
                                 }
                             },
                             onDragCancel = { drag = Offset.Zero },

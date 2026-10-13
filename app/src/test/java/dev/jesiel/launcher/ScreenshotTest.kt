@@ -276,6 +276,35 @@ class ScreenshotTest {
     }
 
     @Test
+    fun allAppsWithoutHeader() {
+        val controller = controller()
+        compose.setContent {
+            WindowsLauncher(sampleState(dark = true).copy(layout = ThemeLayout(menuOpensAllApps = true, showAppsHeader = false)), controller)
+        }
+        compose.onNodeWithContentDescription("Iniciar").performClick()
+        compose.mainClock.advanceTimeBy(1_500)
+        compose.waitForIdle()
+        compose.onRoot().captureRoboImage(shot("windows-all-apps-no-header"))
+    }
+
+    @Test
+    fun gridDropSnapsBackToCell() {
+        val controller = controller()
+        controller.editMode = true
+        compose.setContent { WindowsLauncher(sampleState(), controller) }
+        // Arrasta um pouco (menos de meia célula): na grade o item deve voltar para a célula.
+        compose.onNodeWithText("Chrome").performTouchInput {
+            down(center)
+            moveBy(androidx.compose.ui.geometry.Offset(40f, 30f))
+            moveBy(androidx.compose.ui.geometry.Offset(20f, 10f))
+            up()
+        }
+        compose.mainClock.advanceTimeBy(2_000)
+        compose.waitForIdle()
+        compose.onRoot().captureRoboImage(shot("windows-grid-drop"))
+    }
+
+    @Test
     fun noDockBackground() {
         val controller = controller()
         compose.setContent { WindowsLauncher(sampleState().copy(layout = ThemeLayout(dockBackground = false)), controller) }

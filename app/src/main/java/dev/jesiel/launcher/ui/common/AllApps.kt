@@ -96,6 +96,15 @@ fun AppsViewSelector(state: LauncherUiState, controller: LauncherController, pal
                     },
                 )
             }
+            androidx.compose.material3.HorizontalDivider()
+            DropdownMenuItem(
+                text = { Text("Ocultar título e filtros") },
+                onClick = {
+                    open = false
+                    controller.viewModel.updateLayout { it.copy(showAppsHeader = false) }
+                    controller.toast("Para mostrar de novo: Personalizar → Aparência")
+                },
+            )
         }
     }
 }
@@ -111,7 +120,7 @@ fun AllAppsContent(
     labels: AppMenuLabels,
     onLaunched: () -> Unit,
     modifier: Modifier = Modifier,
-    columns: Int = 4,
+    columns: Int = state.layout.drawerColumns,
     gridState: LazyGridState? = null,
 ) {
     AnimatedContent(
@@ -164,13 +173,16 @@ private fun AlphabeticalApps(
                 if (grid) {
                     Box(contentAlignment = Alignment.TopCenter) {
                         AppTile(
-                            app = app, state = state, controller = controller, iconSize = 44.dp, showLabel = true,
+                            app = app, state = state, controller = controller, iconSize = state.layout.drawerIconSizeDp.dp, showLabel = true,
                             labelStyle = palette.panelLabel, labels = labels, iconBackground = palette.iconBackground,
                             pressEffect = false, onLaunched = onLaunched,
                         )
                     }
                 } else {
-                    AppListRow(app = app, state = state, controller = controller, labels = labels, onLaunched = onLaunched) {
+                    AppListRow(
+                        app = app, state = state, controller = controller, labels = labels, onLaunched = onLaunched,
+                        iconSize = (state.layout.drawerIconSizeDp * 0.75f).dp,
+                    ) {
                         Text(app.label, color = palette.panelText, fontSize = 14.sp)
                     }
                 }

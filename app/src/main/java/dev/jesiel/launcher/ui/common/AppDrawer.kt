@@ -127,10 +127,10 @@ private fun DrawerContent(
         onClose()
     }
 
-    val apps = remember(state.apps, query, category) {
+    val apps = remember(state.apps, query, category, state.layout.showAppsHeader) {
         when {
             query.isNotBlank() -> state.apps.search(query)
-            category != null -> state.apps.filter { it.category == category }
+            category != null && state.layout.showAppsHeader -> state.apps.filter { it.category == category }
             else -> state.apps
         }
     }
@@ -150,10 +150,11 @@ private fun DrawerContent(
             if (best != null) controller.launch(best) else controller.webSearch(query)
             close()
         }
-        if (query.isBlank()) {
+        val header = state.layout.showAppsHeader
+        if (query.isBlank() && header) {
             Row(Modifier.padding(start = 16.dp, top = 10.dp, end = 16.dp)) { AppsViewSelector(state, controller, palette) }
         }
-        if (style.categories && query.isBlank()) {
+        if (style.categories && query.isBlank() && header) {
             LazyRow(
                 Modifier.padding(top = 10.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -173,12 +174,12 @@ private fun DrawerContent(
                     palette = palette,
                     labels = labels,
                     onLaunched = ::close,
-                    columns = style.columns,
+                    columns = state.layout.drawerColumns,
                     gridState = grid,
                     modifier = Modifier.weight(1f).fillMaxHeight(),
                 )
             } else LazyVerticalGrid(
-                columns = GridCells.Fixed(style.columns),
+                columns = GridCells.Fixed(state.layout.drawerColumns),
                 state = grid,
                 modifier = Modifier.weight(1f).fillMaxHeight(),
                 contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 8.dp),
@@ -191,6 +192,7 @@ private fun DrawerContent(
                             controller = controller,
                             labelStyle = palette.panelLabel,
                             showLabel = true,
+                            iconSize = state.layout.drawerIconSizeDp.dp,
                             labels = labels,
                             iconBackground = palette.iconBackground,
                             pressEffect = false,

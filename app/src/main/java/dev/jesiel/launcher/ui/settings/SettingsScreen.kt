@@ -183,16 +183,27 @@ fun SettingsScreen(state: LauncherUiState, controller: LauncherController, onClo
                         }
                     }
 
+                    Spacer(Modifier.height(12.dp))
+                    SliderRow("Ícones na lista de apps", "${layout.drawerIconSizeDp} dp", layout.drawerIconSizeDp.toFloat(), 36f..72f, 8) { v ->
+                        vm.updateLayout { it.copy(drawerIconSizeDp = v.roundToInt()) }
+                    }
+                    SliderRow("Colunas na lista de apps", "${layout.drawerColumns}", layout.drawerColumns.toFloat(), 3f..6f, 2) { v ->
+                        vm.updateLayout { it.copy(drawerColumns = v.roundToInt()) }
+                    }
+                    SwitchRow("Mostrar título, exibição e filtros na lista de apps", layout.showAppsHeader) { on ->
+                        vm.updateLayout { it.copy(showAppsHeader = on) }
+                    }
+
                     Spacer(Modifier.height(16.dp))
                     Text("Exibição de \"Todos os apps\"", fontWeight = FontWeight.SemiBold)
                     Spacer(Modifier.height(6.dp))
                     Choices(AppsView.entries, state.appsView, { it.label }) { vm.setAppsView(it) }
 
                     Spacer(Modifier.height(16.dp))
-                    SliderRow("Tamanho dos ícones", "${layout.iconSizeDp} dp", layout.iconSizeDp.toFloat(), 40f..72f, 7) { v ->
+                    SliderRow("Ícones da área de trabalho", "${layout.iconSizeDp} dp", layout.iconSizeDp.toFloat(), 40f..72f, 7) { v ->
                         vm.updateLayout { it.copy(iconSizeDp = v.roundToInt()) }
                     }
-                    SliderRow("Colunas da grade", "${layout.gridColumns}", layout.gridColumns.toFloat(), 3f..6f, 2) { v ->
+                    SliderRow("Colunas da área de trabalho", "${layout.gridColumns}", layout.gridColumns.toFloat(), 3f..6f, 2) { v ->
                         vm.updateLayout { it.copy(gridColumns = v.roundToInt()) }
                     }
                     SwitchRow("Mostrar nomes dos apps", layout.showLabels) { on ->

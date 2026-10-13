@@ -28,6 +28,11 @@ data class ThemeLayout(
     val showTray: Boolean = true,
     /** O menu de apps abre direto na lista completa (como no KDE) em vez dos fixados. */
     val menuOpensAllApps: Boolean = false,
+    /** Título, seletor de exibição e filtros por categoria acima da lista de apps. */
+    val showAppsHeader: Boolean = true,
+    /** Tamanho dos ícones e colunas na lista / grade de apps (menu Iniciar e gavetas). */
+    val drawerIconSizeDp: Int = 48,
+    val drawerColumns: Int = 4,
     /** Barra superior (Ubuntu e macOS) visível. */
     val showTopBar: Boolean = true,
 )
@@ -142,6 +147,9 @@ class LauncherPrefs(context: Context) {
                     dockBackground = l.optBoolean("dockBackground", true),
                     showTray = l.optBoolean("tray", true),
                     menuOpensAllApps = l.optBoolean("menuAllApps", false),
+                    showAppsHeader = l.optBoolean("appsHeader", true),
+                    drawerIconSizeDp = l.optInt("drawerIcon", 48),
+                    drawerColumns = l.optInt("drawerColumns", 4),
                     showTopBar = l.optBoolean("topBar", true),
                 )
             }
@@ -203,6 +211,9 @@ class LauncherPrefs(context: Context) {
                         .put("dockBackground", l.dockBackground)
                         .put("tray", l.showTray)
                         .put("menuAllApps", l.menuOpensAllApps)
+                        .put("appsHeader", l.showAppsHeader)
+                        .put("drawerIcon", l.drawerIconSizeDp)
+                        .put("drawerColumns", l.drawerColumns)
                         .put("topBar", l.showTopBar),
                 )
             }

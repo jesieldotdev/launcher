@@ -242,16 +242,17 @@ private fun PinnedPage(state: LauncherUiState, controller: LauncherController, o
         SectionHeader("Fixados", "Todos os apps", Icons.AutoMirrored.Filled.KeyboardArrowRight, onAction = onAllApps)
         Spacer(Modifier.height(6.dp))
         Column(Modifier.padding(horizontal = 10.dp)) {
-            pinned.chunked(4).forEachIndexed { r, row ->
+            val cols = state.layout.drawerColumns
+            pinned.chunked(cols).forEachIndexed { r, row ->
                 Row(Modifier.fillMaxWidth()) {
                     row.forEachIndexed { c, item ->
-                        Box(Modifier.weight(1f).entrance(r * 4 + c), contentAlignment = Alignment.TopCenter) {
+                        Box(Modifier.weight(1f).entrance(r * cols + c), contentAlignment = Alignment.TopCenter) {
                             when (item) {
                                 is HomeItem.App -> AppTile(
                                     app = item.app,
                                     state = state,
                                     controller = controller,
-                                    iconSize = 44.dp,
+                                    iconSize = state.layout.drawerIconSizeDp.dp,
                                     showLabel = true,
                                     labelStyle = LocalPalette.current.panelLabel,
                                     labels = WindowsMenuLabels,
@@ -262,7 +263,7 @@ private fun PinnedPage(state: LauncherUiState, controller: LauncherController, o
                                     state = state,
                                     controller = controller,
                                     background = LocalPalette.current.tile,
-                                    iconSize = 44.dp,
+                                    iconSize = state.layout.drawerIconSizeDp.dp,
                                     labelStyle = LocalPalette.current.panelLabel,
                                     panelColor = LocalPalette.current.panel,
                                     panelTextColor = LocalPalette.current.panelText,
@@ -271,7 +272,7 @@ private fun PinnedPage(state: LauncherUiState, controller: LauncherController, o
                             }
                         }
                     }
-                    repeat(4 - row.size) { Spacer(Modifier.weight(1f)) }
+                    repeat(cols - row.size) { Spacer(Modifier.weight(1f)) }
                 }
             }
         }
@@ -303,23 +304,28 @@ private fun AllApps(state: LauncherUiState, controller: LauncherController, onBa
     val palette = LocalPalette.current
     var category by rememberSaveable { mutableStateOf<AppCategory?>(null) }
     val categories = remember(state.apps) { AppCategory.entries.filter { c -> state.apps.any { it.category == c } } }
-    val apps = remember(state.apps, category) { category?.let { c -> state.apps.filter { it.category == c } } ?: state.apps }
+    val header = state.layout.showAppsHeader
+    val apps = remember(state.apps, category, header) {
+        category?.takeIf { header }?.let { c -> state.apps.filter { it.category == c } } ?: state.apps
+    }
     Column {
-        if (showBack) {
-            SectionHeader("Todos os apps", "Voltar", Icons.AutoMirrored.Filled.KeyboardArrowLeft, leading = true, onAction = onBack)
-        } else {
-            SectionHeader("Todos os apps", "Fixados", Icons.AutoMirrored.Filled.KeyboardArrowRight, onAction = onBack)
-        }
-        Row(Modifier.padding(horizontal = 22.dp, vertical = 4.dp)) {
-            AppsViewSelector(state, controller, palette)
-        }
-        // Filtros por categoria, como no menu do KDE.
-        LazyRow(
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-            contentPadding = PaddingValues(horizontal = 18.dp, vertical = 4.dp),
-        ) {
-            item { CategoryChip("Todos", category == null, palette) { category = null } }
-            items(categories) { c -> CategoryChip(c.label, category == c, palette) { category = c } }
+        if (state.layout.showAppsHeader) {
+            if (showBack) {
+                SectionHeader("Todos os apps", "Voltar", Icons.AutoMirrored.Filled.KeyboardArrowLeft, leading = true, onAction = onBack)
+            } else {
+                SectionHeader("Todos os apps", "Fixados", Icons.AutoMirrored.Filled.KeyboardArrowRight, onAction = onBack)
+            }
+            Row(Modifier.padding(horizontal = 22.dp, vertical = 4.dp)) {
+                AppsViewSelector(state, controller, palette)
+            }
+            // Filtros por categoria, como no menu do KDE.
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                contentPadding = PaddingValues(horizontal = 18.dp, vertical = 4.dp),
+            ) {
+                item { CategoryChip("Todos", category == null, palette) { category = null } }
+                items(categories) { c -> CategoryChip(c.label, category == c, palette) { category = c } }
+            }
         }
         AllAppsContent(
             apps = apps,
@@ -358,7 +364,7 @@ private fun SearchResults(query: String, state: LauncherUiState, controller: Lau
                     app = results.first(),
                     state = state,
                     controller = controller,
-                    iconSize = 44.dp,
+                    iconSize = state.layout.drawerIconSizeDp.dp,
                     labels = WindowsMenuLabels,
                     onLaunched = onLaunched,
                     modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(LocalPalette.current.tile),
