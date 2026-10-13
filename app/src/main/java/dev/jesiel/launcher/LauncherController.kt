@@ -76,9 +76,13 @@ class LauncherController(
 
     fun launch(app: AppInfo, bounds: Rect? = null) {
         try {
-            // Animação de abertura que cresce a partir do ícone tocado.
-            val options = bounds?.let {
-                android.app.ActivityOptions.makeScaleUpAnimation(activity.window.decorView, it.left, it.top, it.width(), it.height()).toBundle()
+            val options = if (viewModel.state.value.windowMode && freeformSupported()) {
+                windowOptions()
+            } else {
+                // Animação de abertura que cresce a partir do ícone tocado.
+                bounds?.let {
+                    android.app.ActivityOptions.makeScaleUpAnimation(activity.window.decorView, it.left, it.top, it.width(), it.height()).toBundle()
+                }
             }
             launcherApps.startMainActivity(app.component, app.user, bounds, options)
             viewModel.onAppLaunched(app)
@@ -183,6 +187,59 @@ class LauncherController(
         }
     }
 
+    // --- Modo janela -----------------------------------------------------------------------
+
+    /** Área ocupada pela dock / barra de tarefas na tela (atualizada pelos temas). */
+    var dockBounds: Rect? = null
+
+    /** O sistema tem o modo de janelas livres ("freeform") disponível? */
+    fun freeformSupported(): Boolean =
+        activity.packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_FREEFORM_WINDOW_MANAGEMENT) ||
+            runCatching { Settings.Global.getInt(activity.contentResolver, FREEFORM_SUPPORT) == 1 }.getOrDefault(false)
+
+    /** Liga as opções de desenvolvedor do modo janela (precisa de WRITE_SECURE_SETTINGS; reiniciar depois). */
+    fun enableFreeform(): Boolean = runCatching {
+        Settings.Global.putInt(activity.contentResolver, FREEFORM_SUPPORT, 1)
+        Settings.Global.putInt(activity.contentResolver, FORCE_RESIZABLE, 1)
+    }.isSuccess
+
+    /** Tela inteira menos a barra de status e a dock: onde a janela do app vai ficar. */
+    fun windowArea(): Rect {
+        val screen = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            Rect(activity.windowManager.currentWindowMetrics.bounds)
+        } else {
+            val metrics = android.util.DisplayMetrics()
+            @Suppress("DEPRECATION") activity.windowManager.defaultDisplay.getRealMetrics(metrics)
+            Rect(0, 0, metrics.widthPixels, metrics.heightPixels)
+        }
+        val insets = androidx.core.view.ViewCompat.getRootWindowInsets(activity.window.decorView)
+        val bars = insets?.getInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+        val area = Rect(screen.left, screen.top + (bars?.top ?: 0), screen.right, screen.bottom - (bars?.bottom ?: 0))
+        val gap = (4 * activity.resources.displayMetrics.density).toInt()
+        dockBounds?.let { dock ->
+            when {
+                dock.top > screen.height() / 2 -> area.bottom = minOf(area.bottom, dock.top - gap)
+                dock.right < screen.width() / 2 -> area.left = maxOf(area.left, dock.right + gap)
+                dock.left > screen.width() / 2 -> area.right = minOf(area.right, dock.left - gap)
+                dock.bottom < screen.height() / 2 -> area.top = maxOf(area.top, dock.bottom + gap)
+            }
+        }
+        return area
+    }
+
+    /**
+     * Opções para abrir o app numa janela livre do tamanho de [windowArea]. A API pública só
+     * define o tamanho; o modo "janela" vem de uma API interna, tentada se estiver acessível.
+     */
+    private fun windowOptions(): android.os.Bundle {
+        val options = android.app.ActivityOptions.makeBasic().setLaunchBounds(windowArea())
+        runCatching {
+            android.app.ActivityOptions::class.java.getMethod("setLaunchWindowingMode", Int::class.javaPrimitiveType)
+                .invoke(options, WINDOWING_MODE_FREEFORM)
+        }
+        return options.toBundle()
+    }
+
     // --- Gestos do HyperOS ----------------------------------------------------------------
 
     /** O usuário concedeu WRITE_SECURE_SETTINGS via ADB (pm grant)? */
@@ -277,6 +334,9 @@ class LauncherController(
     private companion object {
         const val GOOGLE_APP = "com.google.android.googlequicksearchbox"
         const val FORCE_FSG = "force_fsg_nav_bar"
+        const val FREEFORM_SUPPORT = "enable_freeform_support"
+        const val FORCE_RESIZABLE = "force_resizable_activities"
+        const val WINDOWING_MODE_FREEFORM = 5
         const val REQUEST_RECONFIGURE_WIDGET = 14
         const val REQUEST_BIND_WIDGET = 11
         const val REQUEST_CONFIGURE_WIDGET = 12

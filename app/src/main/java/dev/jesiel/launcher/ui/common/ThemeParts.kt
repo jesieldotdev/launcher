@@ -32,6 +32,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
@@ -81,7 +83,7 @@ fun AppDock(
             )
         }
     }
-    val base = modifier.dockPanel(state.layout.dockBackground, palette, shape).padding(6.dp)
+    val base = modifier.reportDockBounds(controller).dockPanel(state.layout.dockBackground, palette, shape).padding(6.dp)
     if (vertical) {
         Column(base, horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(2.dp)) {
             leading()
@@ -97,6 +99,16 @@ fun AppDock(
             Row(Modifier.weight(1f, fill = false).horizontalScroll(rememberScrollState()), verticalAlignment = Alignment.CenterVertically) { apps() }
             trailing()
         }
+    }
+}
+
+/** Informa ao controlador onde a dock está, para o modo janela abrir os apps acima dela. */
+@Composable
+fun Modifier.reportDockBounds(controller: LauncherController): Modifier {
+    androidx.compose.runtime.DisposableEffect(controller) { onDispose { controller.dockBounds = null } }
+    return onGloballyPositioned {
+        val r = it.boundsInWindow()
+        controller.dockBounds = android.graphics.Rect(r.left.toInt(), r.top.toInt(), r.right.toInt(), r.bottom.toInt())
     }
 }
 

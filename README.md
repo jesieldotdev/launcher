@@ -63,6 +63,11 @@ _Capturas geradas pelos testes de screenshot com apps de exemplo._
 - **Gestos do HyperOS/MIUI:** com a permissão `WRITE_SECURE_SETTINGS` concedida uma vez pelo ADB
   (`adb shell pm grant dev.jesiel.launcher android.permission.WRITE_SECURE_SETTINGS`), o Launcher
   libera os gestos de tela cheia sozinho (Personalizar → Gestos).
+- **Dock / barra de tarefas configurável:** hora (com ou sem data, Wi-Fi e bateria) em todos os
+  temas, tamanho dos ícones, máximo de apps, fundo, e no Windows alinhamento e botão de pesquisa.
+- **Modo janela (experimental):** os apps abertos pelo Launcher ficam numa janela livre acima da
+  barra, para ela não cobrir a navegação do app. Requer o modo de janelas do sistema
+  (`enable_freeform_support` e `force_resizable_activities`, nas Opções do desenvolvedor ou pelo ADB).
 - Widgets Android, pastas, dock configurável, busca sem acentos, launcher padrão.
 
 O Android não permite que apps liguem Wi-Fi ou Bluetooth diretamente; esses botões abrem o

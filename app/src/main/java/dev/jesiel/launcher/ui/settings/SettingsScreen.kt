@@ -275,6 +275,8 @@ fun SettingsScreen(state: LauncherUiState, controller: LauncherController, onClo
                             fontSize = 12.sp,
                             color = Color.Gray,
                         )
+                        Spacer(Modifier.height(14.dp))
+                        WindowModeSettings(state, controller)
                     } else {
                         Text(
                             "Sem a barra, deslize para cima para abrir os apps e para baixo para o painel de controle.",
@@ -367,6 +369,67 @@ fun SettingsScreen(state: LauncherUiState, controller: LauncherController, onClo
                 }
             }
         }
+    }
+}
+
+/**
+ * Modo janela: os apps abertos pelo Launcher ficam numa janela livre do tamanho da tela menos a
+ * barra, para que a barra nunca cubra a navegação do app. Depende do modo de janelas do sistema.
+ */
+@Composable
+private fun WindowModeSettings(state: LauncherUiState, controller: LauncherController) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    var supported by remember { mutableStateOf(controller.freeformSupported()) }
+    var granted by remember { mutableStateOf(controller.canWriteSecureSettings()) }
+    LifecycleResumeEffect(Unit) {
+        supported = controller.freeformSupported()
+        granted = controller.canWriteSecureSettings()
+        onPauseOrDispose { }
+    }
+    Text("Modo janela (experimental)", fontWeight = FontWeight.SemiBold)
+    SwitchRow("Abrir apps acima da barra", state.windowMode) { on -> controller.viewModel.setWindowMode(on) }
+    Text(
+        "Os apps abertos pela barra, pelo menu ou pela área de trabalho ficam numa janela que ocupa a tela inteira menos a barra, " +
+            "então a barra não cobre a navegação do app. Apps que já estavam abertos continuam em tela cheia até serem fechados " +
+            "nos recentes. O HyperOS pode ignorar a janela em alguns apps.",
+        fontSize = 12.sp,
+        color = Color.Gray,
+    )
+    if (supported) {
+        Text("Modo de janelas do sistema: ativo", fontSize = 12.sp, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 4.dp))
+    } else if (granted) {
+        Text("O modo de janelas do sistema está desligado.", fontSize = 12.sp, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 4.dp))
+        OutlinedButton(onClick = {
+            if (controller.enableFreeform()) controller.toast("Ativado. Reinicie o celular para aplicar.")
+            else controller.toast("Não foi possível ativar")
+            supported = controller.freeformSupported()
+        }) { Text("Ativar modo de janelas") }
+    } else {
+        val commands = "adb shell settings put global enable_freeform_support 1\n" +
+            "adb shell settings put global force_resizable_activities 1"
+        Text(
+            "O modo de janelas do sistema está desligado. Ative em Opções do desenvolvedor (\"Ativar janelas de formato livre\" e " +
+                "\"Forçar atividades a serem redimensionáveis\") e reinicie, ou rode pelo ADB:",
+            fontSize = 12.sp,
+            color = Color.Gray,
+            modifier = Modifier.padding(top = 4.dp),
+        )
+        Text(
+            commands,
+            fontSize = 12.sp,
+            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+            modifier = Modifier
+                .padding(vertical = 6.dp)
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(8.dp))
+                .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f))
+                .padding(10.dp),
+        )
+        OutlinedButton(onClick = {
+            val clipboard = context.getSystemService(android.content.ClipboardManager::class.java)
+            clipboard.setPrimaryClip(android.content.ClipData.newPlainText("comandos", commands))
+            controller.toast("Comandos copiados")
+        }) { Text("Copiar comandos") }
     }
 }
 

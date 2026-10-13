@@ -57,6 +57,7 @@ data class LauncherUiState(
     /** Muda quando a imagem personalizada do ícone do menu é trocada. */
     val menuIconVersion: Long = 0,
     val leftScreen: LeftScreen = LeftScreen.FEED,
+    val windowMode: Boolean = false,
 )
 
 class LauncherViewModel(application: Application) : AndroidViewModel(application) {
@@ -101,6 +102,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
             appsView = data.appsView,
             menuIconVersion = menuIconVersion.value,
             leftScreen = data.leftScreen,
+            windowMode = data.windowMode,
         )
     }
 
@@ -275,6 +277,8 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         val folderCount = imported.home.count { it is ImportedItem.Folder }
         return "Importado de ${imported.source}: ${imported.home.size - folderCount} apps, $folderCount pastas e ${imported.dock.size} no dock."
     }
+
+    fun setWindowMode(on: Boolean) = prefs.update { it.copy(windowMode = on) }
 
     fun setLeftScreen(screen: LeftScreen) = prefs.update { it.copy(leftScreen = screen) }
 

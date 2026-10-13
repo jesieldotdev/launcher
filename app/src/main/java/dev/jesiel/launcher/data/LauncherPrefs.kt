@@ -100,6 +100,8 @@ data class LauncherData(
     val transparency: Boolean,
     val appsView: AppsView,
     val leftScreen: LeftScreen,
+    /** Abrir apps em janela livre acima da barra, para a barra não cobrir o app. */
+    val windowMode: Boolean,
 ) {
     fun layoutFor(themeId: String) = layouts[themeId] ?: defaultLayout(themeId)
 
@@ -198,6 +200,7 @@ class LauncherPrefs(context: Context) {
             transparency = prefs.getBoolean(KEY_TRANSPARENCY, true),
             appsView = enumOr(prefs.getString(KEY_APPS_VIEW, null), AppsView.GRID),
             leftScreen = enumOr(prefs.getString(KEY_LEFT_SCREEN, null), LeftScreen.FEED),
+            windowMode = prefs.getBoolean(KEY_WINDOW_MODE, false),
         )
     }
 
@@ -266,6 +269,7 @@ class LauncherPrefs(context: Context) {
             .putBoolean(KEY_TRANSPARENCY, d.transparency)
             .putString(KEY_APPS_VIEW, d.appsView.name)
             .putString(KEY_LEFT_SCREEN, d.leftScreen.name)
+            .putBoolean(KEY_WINDOW_MODE, d.windowMode)
             .apply()
     }
 
@@ -292,5 +296,6 @@ class LauncherPrefs(context: Context) {
         const val KEY_TRANSPARENCY = "transparency"
         const val KEY_APPS_VIEW = "appsView"
         const val KEY_LEFT_SCREEN = "leftScreen"
+        const val KEY_WINDOW_MODE = "windowMode"
     }
 }

@@ -76,6 +76,7 @@ import dev.jesiel.launcher.ui.common.LocalPalette
 import dev.jesiel.launcher.ui.common.MenuButtonIcon
 import dev.jesiel.launcher.ui.common.backdrop
 import dev.jesiel.launcher.ui.common.dockPanel
+import dev.jesiel.launcher.ui.common.reportDockBounds
 import dev.jesiel.launcher.ui.common.forDock
 import dev.jesiel.launcher.ui.common.pressScale
 import dev.jesiel.launcher.ui.common.withTransparency
@@ -292,6 +293,7 @@ private fun Taskbar(
         modifier = modifier
             .fillMaxWidth()
             .height(TaskbarHeight)
+            .reportDockBounds(controller)
             .dockPanel(state.layout.dockBackground, palette, WindowsShape)
             .padding(horizontal = 6.dp),
     ) {

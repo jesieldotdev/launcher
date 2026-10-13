@@ -321,6 +321,17 @@ class ScreenshotTest {
     }
 
     @Test
+    fun windowAreaStopsAboveTheTaskbar() {
+        val controller = controller()
+        compose.setContent { WindowsLauncher(sampleState(), controller) }
+        compose.waitForIdle()
+        val dock = controller.dockBounds!!
+        val area = controller.windowArea()
+        org.junit.Assert.assertTrue("janela $area deve terminar acima da barra $dock", area.bottom < dock.top)
+        org.junit.Assert.assertTrue(area.height() > dock.height() * 5)
+    }
+
+    @Test
     fun noDockBackground() {
         val controller = controller()
         compose.setContent { WindowsLauncher(sampleState().copy(layout = ThemeLayout(dockBackground = false)), controller) }
