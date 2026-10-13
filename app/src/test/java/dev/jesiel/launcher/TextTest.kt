@@ -29,8 +29,9 @@ class DesktopGridTest {
     private val grid = dev.jesiel.launcher.data.DesktopGrid(columns = 4, rows = 6, multiPage = false, pageCount = 1)
 
     @Test
-    fun placesItemsRightBelowFractionalComponents() {
-        val placed = grid.resolve(
+    fun freeModePlacesItemsRightBelowFractionalComponents() {
+        val free = dev.jesiel.launcher.data.DesktopGrid(columns = 4, rows = 6, multiPage = false, pageCount = 1, free = true)
+        val placed = free.resolve(
             listOf(
                 "clock" to dev.jesiel.launcher.data.CellSize(4f, 1.4f),
                 "a" to dev.jesiel.launcher.data.CellSize(1f, 1f),
@@ -40,6 +41,18 @@ class DesktopGridTest {
         )
         assertEquals(1.4f, placed.getValue("a").y, 0.001f)
         assertEquals(1f, placed.getValue("b").x, 0.001f)
+    }
+
+    @Test
+    fun gridModeKeepsEverythingOnWholeCells() {
+        val placed = grid.resolve(
+            listOf("clock" to dev.jesiel.launcher.data.CellSize(4f, 1.4f), "a" to dev.jesiel.launcher.data.CellSize(1f, 1f)),
+            mapOf("b" to dev.jesiel.launcher.data.Placement(0, 0.3f, 2.6f, 1f, 1f)),
+        )
+        assertEquals(1f, placed.getValue("clock").h, 0.001f)
+        assertEquals(1f, placed.getValue("a").y, 0.001f)
+        val snapped = grid.resolve(listOf("b" to dev.jesiel.launcher.data.CellSize(1f, 1f)), mapOf("b" to dev.jesiel.launcher.data.Placement(0, 0.3f, 2.6f, 1f, 1f)))
+        assertEquals(dev.jesiel.launcher.data.Placement(0, 0f, 3f, 1f, 1f), snapped.getValue("b"))
     }
 
     @Test

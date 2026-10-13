@@ -18,6 +18,9 @@ import dev.jesiel.launcher.data.FolderData
 import dev.jesiel.launcher.data.HomeItem
 import dev.jesiel.launcher.data.LauncherData
 import dev.jesiel.launcher.data.LauncherPrefs
+import dev.jesiel.launcher.data.LeftScreen
+import dev.jesiel.launcher.data.NewsRepository
+import dev.jesiel.launcher.data.NewsState
 import dev.jesiel.launcher.data.RecentApp
 import dev.jesiel.launcher.data.ThemeLayout
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -50,6 +53,7 @@ data class LauncherUiState(
     val appsView: AppsView = AppsView.GRID,
     /** Muda quando a imagem personalizada do ícone do menu é trocada. */
     val menuIconVersion: Long = 0,
+    val leftScreen: LeftScreen = LeftScreen.FEED,
 )
 
 class LauncherViewModel(application: Application) : AndroidViewModel(application) {
@@ -93,6 +97,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
             transparency = data.transparency,
             appsView = data.appsView,
             menuIconVersion = menuIconVersion.value,
+            leftScreen = data.leftScreen,
         )
     }
 
@@ -202,6 +207,26 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     fun updateLayout(transform: (ThemeLayout) -> ThemeLayout) = prefs.update { d ->
         d.copy(layouts = d.layouts + (d.themeId to transform(d.layoutFor(d.themeId))))
     }
+
+    private val newsRepository = NewsRepository()
+    private val _news = MutableStateFlow<NewsState>(NewsState.Loading)
+    val news: StateFlow<NewsState> = _news
+
+    /** Atualiza o feed; sem [force], só se as notícias tiverem mais de 30 minutos. */
+    fun refreshNews(force: Boolean = false) {
+        val current = _news.value
+        if (!force && current is NewsState.Loaded && System.currentTimeMillis() - current.fetchedAt < 30 * 60_000) return
+        if (current !is NewsState.Loaded) _news.value = NewsState.Loading
+        viewModelScope.launch {
+            _news.value = runCatching { newsRepository.fetch() }
+                .fold(
+                    onSuccess = { NewsState.Loaded(it, System.currentTimeMillis()) },
+                    onFailure = { if (current is NewsState.Loaded) current else NewsState.Failed("Não foi possível carregar as notícias.") },
+                )
+        }
+    }
+
+    fun setLeftScreen(screen: LeftScreen) = prefs.update { it.copy(leftScreen = screen) }
 
     fun setTransparency(on: Boolean) = prefs.update { it.copy(transparency = on) }
 

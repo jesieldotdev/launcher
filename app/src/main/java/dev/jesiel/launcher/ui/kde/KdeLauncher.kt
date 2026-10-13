@@ -124,19 +124,21 @@ fun KdeLauncher(state: LauncherUiState, controller: LauncherController) {
                     onSearch = { openDrawer(search = true) },
                     modifier = Modifier.weight(1f).fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp),
                 )
-                AppDock(
-                    state = state,
-                    controller = controller,
-                    palette = palette,
-                    iconSize = 40.dp,
-                    shape = RoundedCornerShape(20.dp),
-                    labels = KdeLabels,
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp).fillMaxWidth(),
-                    leading = {
-                        MenuBarButton(state, controller, palette, "Lançador de aplicativos", Icons.Default.Apps, palette.onAccent, { openDrawer(search = false) }, size = 44.dp, background = palette.accent)
-                    },
-                    trailing = { Tray(palette) { controller.controlCenterOpen = !controller.controlCenterOpen } },
-                )
+                if (state.layout.showDock) {
+                    AppDock(
+                        state = state,
+                        controller = controller,
+                        palette = palette,
+                        iconSize = 40.dp,
+                        shape = RoundedCornerShape(20.dp),
+                        labels = KdeLabels,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp).fillMaxWidth(),
+                        leading = {
+                            MenuBarButton(state, controller, palette, "Lançador de aplicativos", Icons.Default.Apps, palette.onAccent, { openDrawer(search = false) }, size = 44.dp, background = palette.accent)
+                        },
+                        trailing = { Tray(palette) { controller.controlCenterOpen = !controller.controlCenterOpen } },
+                    )
+                }
             }
         }
         AppDrawer(

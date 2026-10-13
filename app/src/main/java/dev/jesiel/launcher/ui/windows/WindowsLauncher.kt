@@ -110,6 +110,8 @@ fun WindowsLauncher(state: LauncherUiState, controller: LauncherController) {
         startOpen = true
     }
 
+    val bar = if (state.layout.showDock) TaskbarHeight else 0.dp
+
     val builtins = remember(palette, state.recents) {
         listOf(
             BuiltinSpec("battery", "Bateria", { c -> CellSize((c / 2).toFloat(), 1.4f) }) { BatteryCard(palette, it) },
@@ -147,7 +149,7 @@ fun WindowsLauncher(state: LauncherUiState, controller: LauncherController) {
                         .fillMaxSize()
                         .statusBarsPadding()
                         .navigationBarsPadding()
-                        .padding(start = 8.dp, end = 8.dp, top = 8.dp, bottom = TaskbarHeight + 12.dp),
+                        .padding(start = 8.dp, end = 8.dp, top = 8.dp, bottom = bar + 12.dp),
                 )
                 }
 
@@ -175,29 +177,36 @@ fun WindowsLauncher(state: LauncherUiState, controller: LauncherController) {
                         modifier = Modifier
                             .statusBarsPadding()
                             .navigationBarsPadding()
-                            .padding(start = 10.dp, end = 10.dp, top = 12.dp, bottom = TaskbarHeight + 18.dp),
+                            .padding(start = 10.dp, end = 10.dp, top = 12.dp, bottom = bar + 18.dp),
                     )
                 }
 
-                ControlCenter(controller, palette, PanelPosition.BOTTOM_END, bottomInset = TaskbarHeight + 10.dp)
-
-                Taskbar(
-                    state = state,
-                    controller = controller,
-                    palette = palette,
-                    startOpen = startOpen,
-                    onStart = { if (startOpen) startOpen = false else openStart(search = false) },
-                    onSearch = { openStart(search = true) },
-                    onTray = {
-                        startOpen = false
-                        controller.controlCenterOpen = !controller.controlCenterOpen
-                    },
-                    onLaunched = { startOpen = false },
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .navigationBarsPadding()
-                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                ControlCenter(
+                    controller,
+                    palette,
+                    if (state.layout.showDock) PanelPosition.BOTTOM_END else PanelPosition.TOP,
+                    bottomInset = bar + 10.dp,
                 )
+
+                if (state.layout.showDock) {
+                    Taskbar(
+                        state = state,
+                        controller = controller,
+                        palette = palette,
+                        startOpen = startOpen,
+                        onStart = { if (startOpen) startOpen = false else openStart(search = false) },
+                        onSearch = { openStart(search = true) },
+                        onTray = {
+                            startOpen = false
+                            controller.controlCenterOpen = !controller.controlCenterOpen
+                        },
+                        onLaunched = { startOpen = false },
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .navigationBarsPadding()
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                    )
+                }
             }
         }
     }

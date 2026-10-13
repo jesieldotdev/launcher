@@ -17,7 +17,9 @@ import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.swipeDown
+import androidx.compose.ui.test.swipeRight
 import androidx.compose.ui.test.hasSetTextAction
 import com.github.takahirom.roborazzi.captureRoboImage
 import com.github.takahirom.roborazzi.roborazziSystemPropertyOutputDirectory
@@ -206,6 +208,39 @@ class ScreenshotTest {
         compose.mainClock.advanceTimeBy(1_500)
         compose.waitForIdle()
         compose.onRoot().captureRoboImage(shot("windows-start-dark"))
+    }
+
+    @Test
+    fun feed() {
+        val controller = controller()
+        compose.setContent { WindowsLauncher(sampleState(dark = true), controller) }
+        compose.onRoot().performTouchInput { swipeRight() }
+        compose.mainClock.advanceTimeBy(2_000)
+        compose.waitForIdle()
+        compose.onRoot().captureRoboImage(shot("windows-feed"))
+    }
+
+    @Test
+    fun longPressOnComponentShowsMenu() {
+        val controller = controller()
+        compose.setContent { WindowsLauncher(sampleState(), controller) }
+        compose.onNodeWithText("Bateria").performTouchInput { longClick() }
+        compose.waitForIdle()
+        compose.onNodeWithText("Remover").assertExists()
+        compose.onRoot().captureRoboImage(shot("windows-component-menu"))
+    }
+
+    @Test
+    fun editWithScreensAndNoTaskbar() {
+        val controller = controller()
+        controller.editMode = true
+        compose.setContent {
+            WindowsLauncher(
+                sampleState().copy(layout = ThemeLayout(multiPage = true, pageCount = 2, freePlacement = true, showDock = false)),
+                controller,
+            )
+        }
+        compose.onRoot().captureRoboImage(shot("windows-edit-free"))
     }
 
     @Test

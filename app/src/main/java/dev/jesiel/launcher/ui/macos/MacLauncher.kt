@@ -115,11 +115,13 @@ fun MacLauncher(state: LauncherUiState, controller: LauncherController) {
         Box(Modifier.fillMaxSize().backdrop(controller, launchpadOpen || controller.controlCenterOpen, state.transparency)) {
             if (state.layout.useThemeWallpaper) MacWallpaper(dark, Modifier.fillMaxSize())
             Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
-                MenuBar(
-                    palette = palette,
-                    onSpotlight = { openLaunchpad(search = true) },
-                    onControlCenter = { controller.controlCenterOpen = !controller.controlCenterOpen },
-                )
+                if (state.layout.showTopBar) {
+                    MenuBar(
+                        palette = palette,
+                        onSpotlight = { openLaunchpad(search = true) },
+                        onControlCenter = { controller.controlCenterOpen = !controller.controlCenterOpen },
+                    )
+                }
                 DesktopCanvas(
                     state = state,
                     controller = controller,
@@ -129,19 +131,21 @@ fun MacLauncher(state: LauncherUiState, controller: LauncherController) {
                     onSearch = { openLaunchpad(search = true) },
                     modifier = Modifier.weight(1f).fillMaxWidth().padding(horizontal = 10.dp, vertical = 6.dp),
                 )
-                Box(Modifier.fillMaxWidth().padding(bottom = 8.dp), contentAlignment = Alignment.Center) {
-                    AppDock(
-                        state = state,
-                        controller = controller,
-                        palette = palette,
-                        iconSize = 48.dp,
-                        shape = RoundedCornerShape(26.dp),
-                        modifier = Modifier.padding(horizontal = 12.dp),
-                        trailing = {
-                            DockDivider(palette.dockStroke, vertical = false)
-                            MenuBarButton(state, controller, palette, "Launchpad", Icons.Default.Apps, Color.White, { openLaunchpad(search = false) }, size = 48.dp, background = Color(0x4D8E8E93))
-                        },
-                    )
+                if (state.layout.showDock) {
+                    Box(Modifier.fillMaxWidth().padding(bottom = 8.dp), contentAlignment = Alignment.Center) {
+                        AppDock(
+                            state = state,
+                            controller = controller,
+                            palette = palette,
+                            iconSize = 48.dp,
+                            shape = RoundedCornerShape(26.dp),
+                            modifier = Modifier.padding(horizontal = 12.dp),
+                            trailing = {
+                                DockDivider(palette.dockStroke, vertical = false)
+                                MenuBarButton(state, controller, palette, "Launchpad", Icons.Default.Apps, Color.White, { openLaunchpad(search = false) }, size = 48.dp, background = Color(0x4D8E8E93))
+                            },
+                        )
+                    }
                 }
             }
         }

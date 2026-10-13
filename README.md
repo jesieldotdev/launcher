@@ -52,6 +52,11 @@ _Capturas geradas pelos testes de screenshot com apps de exemplo._
 - **Animações:** toque nos ícones, abertura de apps a partir do ícone, entrada escalonada nos
   menus, páginas do Iniciar deslizando, itens que tremem e deslizam no modo de edição, troca de
   tema com transição e tela de ajustes deslizando.
+- **Tela à esquerda:** feed com as principais notícias do Google Notícias, ou atalho para o
+  Discover do app do Google.
+- **Toque longo em widgets e cartões:** remover, mover/redimensionar e configurar widget.
+- **Barras opcionais:** ocultar a barra de tarefas/dock e a barra superior (Personalizar ou toque
+  longo no fundo).
 - Widgets Android, pastas, dock configurável, busca sem acentos, launcher padrão.
 
 O Android não permite que apps liguem Wi-Fi ou Bluetooth diretamente; esses botões abrem o

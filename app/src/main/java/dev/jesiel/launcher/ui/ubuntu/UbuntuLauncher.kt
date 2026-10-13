@@ -116,27 +116,31 @@ fun UbuntuLauncher(state: LauncherUiState, controller: LauncherController) {
             if (state.layout.useThemeWallpaper) UbuntuWallpaper(dark, Modifier.fillMaxSize())
 
             Box(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
-                TopBar(
-                    palette = palette,
-                    onActivities = { openDrawer(search = false) },
-                    onSystem = { controller.controlCenterOpen = !controller.controlCenterOpen },
-                    modifier = Modifier.fillMaxWidth().height(32.dp),
-                )
-                Row(Modifier.fillMaxSize().padding(top = 36.dp, bottom = 8.dp)) {
-                    AppDock(
-                        state = state,
-                        controller = controller,
+                if (state.layout.showTopBar) {
+                    TopBar(
                         palette = palette,
-                        vertical = true,
-                        iconSize = 40.dp,
-                        shape = RoundedCornerShape(topEnd = 22.dp, bottomEnd = 22.dp),
-                        labels = UbuntuLabels,
-                        modifier = Modifier.fillMaxHeight(0.82f).align(Alignment.CenterVertically),
-                        trailing = {
-                            DockDivider(palette.cardTextSecondary.copy(alpha = 0.4f), vertical = true)
-                            MenuBarButton(state, controller, palette, "Mostrar aplicativos", Icons.Default.Apps, palette.panelText, { openDrawer(search = false) }, size = 44.dp)
-                        },
+                        onActivities = { openDrawer(search = false) },
+                        onSystem = { controller.controlCenterOpen = !controller.controlCenterOpen },
+                        modifier = Modifier.fillMaxWidth().height(32.dp),
                     )
+                }
+                Row(Modifier.fillMaxSize().padding(top = if (state.layout.showTopBar) 36.dp else 4.dp, bottom = 8.dp)) {
+                    if (state.layout.showDock) {
+                        AppDock(
+                            state = state,
+                            controller = controller,
+                            palette = palette,
+                            vertical = true,
+                            iconSize = 40.dp,
+                            shape = RoundedCornerShape(topEnd = 22.dp, bottomEnd = 22.dp),
+                            labels = UbuntuLabels,
+                            modifier = Modifier.fillMaxHeight(0.82f).align(Alignment.CenterVertically),
+                            trailing = {
+                                DockDivider(palette.cardTextSecondary.copy(alpha = 0.4f), vertical = true)
+                                MenuBarButton(state, controller, palette, "Mostrar aplicativos", Icons.Default.Apps, palette.panelText, { openDrawer(search = false) }, size = 44.dp)
+                            },
+                        )
+                    }
                     DesktopCanvas(
                         state = state,
                         controller = controller,

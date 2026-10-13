@@ -184,7 +184,7 @@ private fun DrawerContent(
                 contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 8.dp),
             ) {
                 items(apps, key = { it.key }) { app ->
-                    Box(Modifier.animateItem(), contentAlignment = Alignment.TopCenter) {
+                    Box(contentAlignment = Alignment.TopCenter) {
                         AppTile(
                             app = app,
                             state = state,

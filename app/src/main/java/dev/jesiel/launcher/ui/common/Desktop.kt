@@ -15,6 +15,8 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
@@ -59,6 +61,7 @@ import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInWindow
@@ -76,6 +79,7 @@ import dev.jesiel.launcher.LauncherViewModel
 import dev.jesiel.launcher.data.CellSize
 import dev.jesiel.launcher.data.DesktopGrid
 import dev.jesiel.launcher.data.HomeItem
+import dev.jesiel.launcher.data.LeftScreen
 import dev.jesiel.launcher.data.Placement
 import kotlinx.coroutines.launch
 import kotlin.math.ceil
@@ -127,10 +131,14 @@ fun DesktopCanvas(
             state.widgetIds.map(DesktopEntry::Widget)
     }
 
+    // Tela à esquerda (feed) vem antes das telas da área de trabalho.
+    val feedOffset = if (state.leftScreen != LeftScreen.NONE) 1 else 0
+    var onFeed by remember { mutableStateOf(false) }
+
     val swipe = remember(state.swipeDown, onSwipeUp, onSearch) {
         object : NestedScrollConnection {
             override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
-                if (!controller.editMode) {
+                if (!controller.editMode && !onFeed) {
                     if (available.y < -SWIPE_VELOCITY) onSwipeUp()
                     if (available.y > SWIPE_VELOCITY) controller.onSwipeDown(state.swipeDown, onSearch)
                 }
@@ -141,13 +149,13 @@ fun DesktopCanvas(
 
     BoxWithConstraints(modifier.nestedScroll(swipe)) {
         val columns = layout.gridColumns
-        val indicatorSpace = if (layout.multiPage) 20.dp else 0.dp
+        val indicatorSpace = 20.dp
         val cellW = maxWidth / columns
         val cellH = (layout.iconSizeDp + if (layout.showLabels) 40 else 16).dp
         val cellWpx = with(density) { cellW.toPx() }
         val cellHpx = with(density) { cellH.toPx() }
         val rows = DesktopGrid.rowsFor(with(density) { (maxHeight - indicatorSpace).toPx() }, cellHpx)
-        val grid = DesktopGrid(columns, rows, layout.multiPage, layout.pageCount)
+        val grid = DesktopGrid(columns, rows, layout.multiPage, layout.pageCount, free = layout.freePlacement)
 
         val sizes = entries.map { entry ->
             entry.id to when (entry) {
@@ -161,22 +169,41 @@ fun DesktopCanvas(
                 } ?: CellSize(columns.toFloat(), 2f)
             }
         }
-        val resolved = remember(sizes, state.placements, columns, rows, layout.multiPage, layout.pageCount) {
+        val resolved = remember(sizes, state.placements, columns, rows, layout.multiPage, layout.pageCount, layout.freePlacement) {
             grid.resolve(sizes, state.placements)
         }
-        // Grava as posições que acabaram de ser calculadas, para que fiquem estáveis.
+        // Grava as posições calculadas (novos itens, ou encaixe ao voltar para a grade).
         LaunchedEffect(resolved) {
             val changed = resolved.filter { (id, p) -> state.placements[id] != p }
             if (changed.isNotEmpty()) vm.savePlacements(changed)
         }
 
-        val pages = if (layout.multiPage) maxOf(layout.pageCount, (resolved.values.maxOfOrNull { it.page } ?: 0) + 1) else 1
-        val pager = rememberPagerState { pages }
-        LaunchedEffect(pager, pages) {
-            snapshotFlow { pager.currentPage + pager.currentPageOffsetFraction }
-                .collect { controller.setWallpaperScroll(it, pages) }
-        }
+        val desktopPages = if (layout.multiPage) maxOf(layout.pageCount, (resolved.values.maxOfOrNull { it.page } ?: 0) + 1) else 1
+        // No modo de edição com várias telas, uma tela extra à direita permite criar outra.
+        val addPage = if (edit && layout.multiPage) 1 else 0
+        val totalPages = feedOffset + desktopPages + addPage
+        val usePager = totalPages > 1
+        val pager = rememberPagerState(initialPage = feedOffset) { totalPages }
         val scope = rememberCoroutineScope()
+        val currentDesktopPage = (pager.currentPage - feedOffset).coerceIn(0, desktopPages - 1)
+        onFeed = feedOffset == 1 && pager.currentPage == 0
+
+        LaunchedEffect(pager, totalPages) {
+            snapshotFlow { pager.currentPage + pager.currentPageOffsetFraction }
+                .collect { controller.setWallpaperScroll(it, totalPages) }
+        }
+        // Botão Home volta para a primeira tela da área de trabalho.
+        LaunchedEffect(controller.homePresses) { if (usePager && pager.currentPage != feedOffset) pager.animateScrollToPage(feedOffset) }
+        // "App do Google": ao chegar na tela à esquerda, abre o Discover e volta.
+        LaunchedEffect(pager, state.leftScreen) {
+            if (state.leftScreen != LeftScreen.GOOGLE) return@LaunchedEffect
+            snapshotFlow { pager.settledPage }.collect { page ->
+                if (page == 0) {
+                    controller.openGoogleApp()
+                    pager.scrollToPage(1)
+                }
+            }
+        }
 
         fun move(id: String, target: Placement) {
             val placed = if (layout.freePlacement) grid.clamp(target) else grid.nearestFree(target, id, resolved)
@@ -196,6 +223,12 @@ fun DesktopCanvas(
             selected = null
         }
 
+        fun addScreen() {
+            if (!layout.multiPage) vm.updateLayout { it.copy(multiPage = true, pageCount = maxOf(2, it.pageCount)) }
+            else vm.addPage()
+            scope.launch { pager.animateScrollToPage(feedOffset + desktopPages) }
+        }
+
         @Composable
         fun Page(page: Int) {
             val onPage = entries.filter { resolved[it.id]?.page == page }
@@ -207,8 +240,9 @@ fun DesktopCanvas(
                         .fillMaxWidth()
                         .height(maxOf(cellH * pageRows, this@BoxWithConstraints.maxHeight - indicatorSpace)),
                 ) {
-                    DesktopBackground(controller, edit, onTap = { selected = null }, modifier = Modifier.matchParentSize())
-                    if (edit) GridGuides(columns, pageRows.toInt(), cellW, cellH, palette.onWallpaper)
+                    DesktopBackground(controller, edit, onTap = { selected = null }, onAddScreen = ::addScreen, modifier = Modifier.matchParentSize())
+                    // Guias só aparecem no modo grade, deixando claro qual modo está ativo.
+                    if (edit && !layout.freePlacement) GridGuides(columns, pageRows.toInt(), cellW, cellH, palette.onWallpaper)
                     onPage.forEach { entry ->
                         val placement = resolved.getValue(entry.id)
                         PlacedItem(
@@ -222,7 +256,7 @@ fun DesktopCanvas(
                             onSelect = { selected = entry.id },
                             onMove = { move(entry.id, it) },
                         ) {
-                            EntryContent(entry, state, controller, palette, labels, cellW, cellH * placement.h)
+                            EntryContent(entry, state, controller, palette, labels, onRemove = { remove(entry.id) })
                         }
                     }
                 }
@@ -230,9 +264,18 @@ fun DesktopCanvas(
         }
 
         Column(Modifier.fillMaxSize()) {
-            if (layout.multiPage) {
-                HorizontalPager(state = pager, beyondViewportPageCount = 1, modifier = Modifier.weight(1f).fillMaxWidth()) { Page(it) }
-                PageDots(pages, pager.currentPage, palette.onWallpaper, Modifier.fillMaxWidth().height(indicatorSpace))
+            if (usePager) {
+                HorizontalPager(state = pager, beyondViewportPageCount = 1, modifier = Modifier.weight(1f).fillMaxWidth()) { index ->
+                    when {
+                        index < feedOffset -> when (state.leftScreen) {
+                            LeftScreen.FEED -> FeedScreen(controller, palette)
+                            else -> Box(Modifier.fillMaxSize())
+                        }
+                        index - feedOffset >= desktopPages -> NewScreenPage(palette, onAdd = ::addScreen)
+                        else -> Page(index - feedOffset)
+                    }
+                }
+                PageDots(totalPages, pager.currentPage, feedOffset, palette.onWallpaper, Modifier.fillMaxWidth().height(indicatorSpace))
             } else {
                 Box(Modifier.weight(1f)) { Page(0) }
             }
@@ -245,18 +288,38 @@ fun DesktopCanvas(
                 palette = palette,
                 builtins = builtins,
                 selected = selected,
-                currentPage = if (layout.multiPage) pager.currentPage else 0,
-                pages = pages,
+                currentPage = currentDesktopPage,
+                pages = desktopPages,
                 onMoveToPage = { id, page ->
                     resolved[id]?.let { p ->
                         if (page >= layout.pageCount) vm.addPage()
                         move(id, p.copy(page = page))
-                        scope.launch { pager.animateScrollToPage(page) }
+                        scope.launch { pager.animateScrollToPage(page + feedOffset) }
                     }
                 },
+                onAddScreen = ::addScreen,
                 onRemove = ::remove,
                 modifier = Modifier.align(Alignment.TopCenter).padding(top = 4.dp),
             )
+        }
+    }
+}
+
+/** Tela vazia à direita no modo de edição: toque para criar uma nova tela. */
+@Composable
+private fun NewScreenPage(palette: LauncherPalette, onAdd: () -> Unit) {
+    Box(Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier
+                .clip(RoundedCornerShape(24.dp))
+                .border(2.dp, palette.onWallpaper.copy(alpha = 0.6f), RoundedCornerShape(24.dp))
+                .background(palette.onWallpaper.copy(alpha = 0.08f))
+                .clickable(onClick = onAdd)
+                .padding(horizontal = 36.dp, vertical = 28.dp),
+        ) {
+            Text("+", color = palette.onWallpaper, fontSize = 44.sp, fontWeight = FontWeight.Light)
+            Text("Nova tela", color = palette.onWallpaper, fontSize = 15.sp)
         }
     }
 }
@@ -265,7 +328,7 @@ private const val SWIPE_VELOCITY = 1200f
 
 /** Fundo da tela: toque longo abre o menu da área de trabalho; um toque desfaz a seleção. */
 @Composable
-private fun DesktopBackground(controller: LauncherController, edit: Boolean, onTap: () -> Unit, modifier: Modifier) {
+private fun DesktopBackground(controller: LauncherController, edit: Boolean, onTap: () -> Unit, onAddScreen: () -> Unit, modifier: Modifier) {
     var menuAt by remember { mutableStateOf<DpOffset?>(null) }
     var origin by remember { mutableStateOf(Offset.Zero) }
     val density = LocalDensity.current
@@ -281,16 +344,22 @@ private fun DesktopBackground(controller: LauncherController, edit: Boolean, onT
             )
         },
     ) {
-        DesktopMenu(menuAt, onDismiss = { menuAt = null }, controller = controller)
+        DesktopMenu(menuAt, onDismiss = { menuAt = null }, controller = controller, onAddScreen = onAddScreen)
     }
 }
 
 @Composable
-private fun DesktopMenu(at: DpOffset?, onDismiss: () -> Unit, controller: LauncherController) {
+private fun DesktopMenu(at: DpOffset?, onDismiss: () -> Unit, controller: LauncherController, onAddScreen: () -> Unit) {
     Box(Modifier.offset(at?.x ?: 0.dp, at?.y ?: 0.dp)) {
         DropdownMenu(expanded = at != null, onDismissRequest = onDismiss, shape = RoundedCornerShape(12.dp)) {
             DropdownMenuItem(text = { Text("Organizar área de trabalho") }, onClick = { onDismiss(); controller.editMode = true })
             DropdownMenuItem(text = { Text("Adicionar widget") }, onClick = { onDismiss(); controller.widgetPickerOpen = true })
+            DropdownMenuItem(text = { Text("Adicionar tela") }, onClick = { onDismiss(); onAddScreen() })
+            val showDock = controller.viewModel.state.value.layout.showDock
+            DropdownMenuItem(
+                text = { Text(if (showDock) "Ocultar barra / dock" else "Mostrar barra / dock") },
+                onClick = { onDismiss(); controller.viewModel.updateLayout { it.copy(showDock = !showDock) } },
+            )
             DropdownMenuItem(text = { Text("Papel de parede") }, onClick = { onDismiss(); controller.openWallpaperPicker() })
             DropdownMenuItem(text = { Text("Personalizar launcher") }, onClick = { onDismiss(); controller.settingsOpen = true })
         }
@@ -436,16 +505,24 @@ private fun EntryContent(
     controller: LauncherController,
     palette: LauncherPalette,
     labels: AppMenuLabels,
-    cellW: Dp,
-    height: Dp,
+    onRemove: () -> Unit,
 ) {
     when (entry) {
-        is DesktopEntry.Builtin -> entry.spec.content(Modifier.fillMaxSize().padding(5.dp))
-        is DesktopEntry.Widget -> AppWidget(
-            id = entry.widgetId,
-            widgets = controller.widgets,
-            modifier = Modifier.fillMaxSize().padding(4.dp).clip(RoundedCornerShape(16.dp)),
-        )
+        is DesktopEntry.Builtin -> ComponentWithMenu(entry.spec.name, controller, onRemove) {
+            entry.spec.content(Modifier.fillMaxSize().padding(5.dp))
+        }
+        is DesktopEntry.Widget -> ComponentWithMenu(
+            "Widget",
+            controller,
+            onRemove,
+            onConfigure = controller.widgets.info(entry.widgetId)?.configure?.let { { controller.reconfigureWidget(entry.widgetId) } },
+        ) {
+            AppWidget(
+                id = entry.widgetId,
+                widgets = controller.widgets,
+                modifier = Modifier.fillMaxSize().padding(4.dp).clip(RoundedCornerShape(16.dp)),
+            )
+        }
         is DesktopEntry.Item -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
             when (val item = entry.item) {
                 is HomeItem.App -> AppTile(
@@ -471,17 +548,79 @@ private fun EntryContent(
     }
 }
 
+/**
+ * Widgets e componentes do tema com menu de toque longo (remover, organizar, configurar).
+ * O toque longo é detectado antes do conteúdo, porque widgets Android consomem os toques.
+ */
 @Composable
-private fun PageDots(count: Int, current: Int, color: Color, modifier: Modifier) {
+private fun ComponentWithMenu(
+    name: String,
+    controller: LauncherController,
+    onRemove: () -> Unit,
+    onConfigure: (() -> Unit)? = null,
+    content: @Composable () -> Unit,
+) {
+    var menuAt by remember { mutableStateOf<DpOffset?>(null) }
+    val density = LocalDensity.current
+    val haptics = androidx.compose.ui.platform.LocalHapticFeedback.current
+    Box(
+        Modifier
+            .fillMaxSize()
+            .longPressFirst(enabled = !controller.editMode) { pos ->
+                haptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
+                menuAt = with(density) { DpOffset(pos.x.toDp(), pos.y.toDp()) }
+            },
+    ) {
+        content()
+        Box(Modifier.offset(menuAt?.x ?: 0.dp, menuAt?.y ?: 0.dp)) {
+            DropdownMenu(expanded = menuAt != null, onDismissRequest = { menuAt = null }, shape = RoundedCornerShape(12.dp)) {
+                Text(name, fontSize = 13.sp, color = Color.Gray, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+                DropdownMenuItem(text = { Text("Remover") }, onClick = { menuAt = null; onRemove() })
+                DropdownMenuItem(text = { Text("Mover ou redimensionar") }, onClick = { menuAt = null; controller.editMode = true })
+                if (onConfigure != null) DropdownMenuItem(text = { Text("Configurar widget") }, onClick = { menuAt = null; onConfigure() })
+            }
+        }
+    }
+}
+
+/** Detecta toque longo na passagem inicial (antes dos filhos) e, se disparar, consome o gesto. */
+private fun Modifier.longPressFirst(enabled: Boolean, onLongPress: (Offset) -> Unit): Modifier =
+    if (!enabled) this else pointerInput(Unit) {
+        awaitEachGesture {
+            val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+            val released = withTimeoutOrNull(viewConfiguration.longPressTimeoutMillis) {
+                while (true) {
+                    val event = awaitPointerEvent(PointerEventPass.Initial)
+                    val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                    if (!change.pressed || change.isConsumed) break
+                    if ((change.position - down.position).getDistance() > viewConfiguration.touchSlop) break
+                }
+                true
+            }
+            if (released == null) {
+                onLongPress(down.position)
+                do {
+                    val event = awaitPointerEvent(PointerEventPass.Initial)
+                    event.changes.forEach { it.consume() }
+                } while (event.changes.any { it.pressed })
+            }
+        }
+    }
+
+@Composable
+private fun PageDots(count: Int, current: Int, feedOffset: Int, color: Color, modifier: Modifier) {
     if (count <= 1) return Box(modifier)
     Row(modifier, horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
         repeat(count) { i ->
+            val active = i == current
+            val size by animateDpAsState(if (active) 8.dp else 6.dp, label = "ponto")
+            val alpha by animateFloatAsState(if (active) 0.95f else 0.45f, label = "ponto")
             Box(
                 Modifier
                     .padding(horizontal = 3.dp)
-                        .size(animateDpAsState(if (i == current) 8.dp else 6.dp, label = "ponto").value)
+                    .size(width = if (i < feedOffset) size * 1.6f else size, height = size)
                     .clip(CircleShape)
-                    .background(color.copy(alpha = animateFloatAsState(if (i == current) 0.95f else 0.45f, label = "ponto").value)),
+                    .background(color.copy(alpha = alpha)),
             )
         }
     }
@@ -497,6 +636,7 @@ private fun EditBar(
     currentPage: Int,
     pages: Int,
     onMoveToPage: (String, Int) -> Unit,
+    onAddScreen: () -> Unit,
     onRemove: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -522,8 +662,11 @@ private fun EditBar(
             }
             Pill("Remover", palette) { onRemove(selected) }
         } else {
-            Pill("Grade", palette, filled = !layout.freePlacement) { vm.updateLayout { it.copy(freePlacement = false) } }
-            Pill("Livre", palette, filled = layout.freePlacement) { vm.updateLayout { it.copy(freePlacement = true) } }
+            // Um único botão mostra o modo atual; tocar alterna entre grade e livre.
+            Pill(if (layout.freePlacement) "Posição: Livre" else "Posição: Grade ▦", palette) {
+                vm.updateLayout { it.copy(freePlacement = !it.freePlacement) }
+                controller.toast(if (layout.freePlacement) "Grade: os itens se encaixam nas células" else "Livre: os itens ficam onde você soltar")
+            }
             Box {
                 Pill("+ Adicionar", palette) { addOpen = true }
                 DropdownMenu(expanded = addOpen, onDismissRequest = { addOpen = false }, shape = RoundedCornerShape(12.dp)) {
@@ -533,10 +676,8 @@ private fun EditBar(
                     }
                 }
             }
-            if (layout.multiPage) {
-                Pill("+ Tela", palette) { vm.addPage() }
-                if (pages > 1) Pill("Remover tela", palette) { vm.removePage(currentPage) }
-            }
+            Pill("+ Tela", palette, onClick = onAddScreen)
+            if (layout.multiPage && pages > 1) Pill("Remover tela", palette) { vm.removePage(currentPage) }
         }
     }
 }

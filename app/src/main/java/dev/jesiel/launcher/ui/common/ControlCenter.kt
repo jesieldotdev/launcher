@@ -23,6 +23,10 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -72,6 +76,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -236,19 +242,33 @@ fun BoxScope.ControlCenter(
     ) {
         val controls = rememberSystemControls(controller)
         LaunchedEffect(Unit) { controls.refresh() }
+        // Arrastar o painel na direção de onde veio (ou tocar na alça) fecha.
+        var dragged by remember { mutableFloatStateOf(0f) }
         Box(
             Modifier
                 .then(if (fromTop) Modifier.statusBarsPadding() else Modifier.navigationBarsPadding())
                 .padding(start = 10.dp, end = 10.dp, top = 8.dp, bottom = 8.dp + bottomInset)
-                .widthIn(max = 460.dp),
+                .widthIn(max = 460.dp)
+                .offset { androidx.compose.ui.unit.IntOffset(0, dragged.toInt()) }
+                .draggable(
+                    orientation = Orientation.Vertical,
+                    state = rememberDraggableState { delta ->
+                        dragged = if (fromTop) (dragged + delta).coerceAtMost(0f) else (dragged + delta).coerceAtLeast(0f)
+                    },
+                    onDragStopped = { velocity ->
+                        val closing = if (fromTop) dragged < -120f || velocity < -800f else dragged > 120f || velocity > 800f
+                        if (closing) controller.controlCenterOpen = false
+                        dragged = 0f
+                    },
+                ),
         ) {
-            ControlPanelContent(controls, controller, palette)
+            ControlPanelContent(controls, controller, palette, fromTop)
         }
     }
 }
 
 @Composable
-private fun ControlPanelContent(controls: SystemControls, controller: LauncherController, palette: LauncherPalette) {
+private fun ControlPanelContent(controls: SystemControls, controller: LauncherController, palette: LauncherPalette, fromTop: Boolean) {
     val now = rememberNow()
     val battery = rememberBatteryState()
     val locale = remember { Locale.getDefault() }
@@ -265,7 +285,7 @@ private fun ControlPanelContent(controls: SystemControls, controller: LauncherCo
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text("Painel de controle", color = palette.panelText, fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+                Text(if (fromTop) "Painel de controle" else "Configurações rápidas", color = palette.panelText, fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
                 Text(date, color = palette.panelTextSecondary, fontSize = 12.sp)
             }
             battery?.let {
@@ -303,6 +323,17 @@ private fun ControlPanelContent(controls: SystemControls, controller: LauncherCo
         }
         LevelSlider(Icons.Default.BrightnessMedium, "Brilho", controls.brightness, palette, controls::setBrightnessLevel)
         LevelSlider(Icons.AutoMirrored.Filled.VolumeUp, "Volume", controls.volume, palette, controls::setVolumeLevel)
+        // Alça: indica que o painel pode ser arrastado para fechar; tocar também fecha.
+        Box(
+            Modifier
+                .align(Alignment.CenterHorizontally)
+                .semantics { contentDescription = "Fechar painel" }
+                .clip(RoundedCornerShape(12.dp))
+                .clickable { controller.controlCenterOpen = false }
+                .padding(horizontal = 24.dp, vertical = 8.dp),
+        ) {
+            Box(Modifier.size(width = 40.dp, height = 5.dp).clip(CircleShape).background(palette.panelTextSecondary.copy(alpha = 0.6f)))
+        }
     }
 }
 

@@ -20,6 +20,10 @@ data class ThemeLayout(
     val pageCount: Int = 1,
     /** Ícone do botão que abre o menu de apps (Iniciar, Launchpad…). */
     val menuIcon: MenuIcon = MenuIcon.DEFAULT,
+    /** Barra de tarefas / dock / painel inferior visível. */
+    val showDock: Boolean = true,
+    /** Barra superior (Ubuntu e macOS) visível. */
+    val showTopBar: Boolean = true,
 )
 
 enum class MenuIcon(val label: String) {
@@ -28,6 +32,13 @@ enum class MenuIcon(val label: String) {
     ORB("Orbe"),
     GRID("Grade de apps"),
     CUSTOM("Imagem da galeria"),
+}
+
+/** O que aparece ao deslizar para a direita a partir da primeira tela. */
+enum class LeftScreen(val label: String) {
+    NONE("Nenhuma"),
+    FEED("Feed de notícias"),
+    GOOGLE("App do Google (Discover)"),
 }
 
 /** Como "Todos os apps" é exibido. */
@@ -69,6 +80,7 @@ data class LauncherData(
     /** Painéis translúcidos com o fundo desfocado, como os efeitos de transparência do Windows. */
     val transparency: Boolean,
     val appsView: AppsView,
+    val leftScreen: LeftScreen,
 ) {
     fun layoutFor(themeId: String) = layouts[themeId] ?: defaultLayout(themeId)
 
@@ -120,6 +132,8 @@ class LauncherPrefs(context: Context) {
                     multiPage = l.optBoolean("multiPage", false),
                     pageCount = l.optInt("pages", 1),
                     menuIcon = enumOr(l.optString("menuIcon"), MenuIcon.DEFAULT),
+                    showDock = l.optBoolean("dock", true),
+                    showTopBar = l.optBoolean("topBar", true),
                 )
             }
         }
@@ -150,6 +164,7 @@ class LauncherPrefs(context: Context) {
             hiddenBuiltins = hidden,
             transparency = prefs.getBoolean(KEY_TRANSPARENCY, true),
             appsView = enumOr(prefs.getString(KEY_APPS_VIEW, null), AppsView.GRID),
+            leftScreen = enumOr(prefs.getString(KEY_LEFT_SCREEN, null), LeftScreen.FEED),
         )
     }
 
@@ -174,7 +189,9 @@ class LauncherPrefs(context: Context) {
                         .put("free", l.freePlacement)
                         .put("multiPage", l.multiPage)
                         .put("pages", l.pageCount)
-                        .put("menuIcon", l.menuIcon.name),
+                        .put("menuIcon", l.menuIcon.name)
+                        .put("dock", l.showDock)
+                        .put("topBar", l.showTopBar),
                 )
             }
         }
@@ -203,6 +220,7 @@ class LauncherPrefs(context: Context) {
             .putString(KEY_HIDDEN, hidden.toString())
             .putBoolean(KEY_TRANSPARENCY, d.transparency)
             .putString(KEY_APPS_VIEW, d.appsView.name)
+            .putString(KEY_LEFT_SCREEN, d.leftScreen.name)
             .apply()
     }
 
@@ -228,5 +246,6 @@ class LauncherPrefs(context: Context) {
         const val KEY_HIDDEN = "hiddenBuiltins"
         const val KEY_TRANSPARENCY = "transparency"
         const val KEY_APPS_VIEW = "appsView"
+        const val KEY_LEFT_SCREEN = "leftScreen"
     }
 }

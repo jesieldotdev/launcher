@@ -109,14 +109,16 @@ fun IosLauncher(state: LauncherUiState, controller: LauncherController) {
                         modifier = Modifier.width(140.dp).height(36.dp),
                     )
                 }
-                AppDock(
-                    state = state,
-                    controller = controller,
-                    palette = palette,
-                    iconSize = 54.dp,
-                    shape = RoundedCornerShape(32.dp),
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp).fillMaxWidth(),
-                )
+                if (state.layout.showDock) {
+                    AppDock(
+                        state = state,
+                        controller = controller,
+                        palette = palette,
+                        iconSize = 54.dp,
+                        shape = RoundedCornerShape(32.dp),
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp).fillMaxWidth(),
+                    )
+                }
             }
         }
         AppDrawer(

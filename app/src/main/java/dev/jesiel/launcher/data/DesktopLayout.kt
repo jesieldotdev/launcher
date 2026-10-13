@@ -37,6 +37,8 @@ class DesktopGrid(
     val rows: Int,
     val multiPage: Boolean,
     val pageCount: Int,
+    /** Posição livre; na grade, posições e tamanhos são sempre células inteiras. */
+    val free: Boolean = false,
 ) {
     /** Página única: ela cresce para baixo com rolagem; várias páginas: tamanho fixo. */
     private val rowLimit: Int get() = if (multiPage) rows else Int.MAX_VALUE / 4
@@ -55,17 +57,23 @@ class DesktopGrid(
 
     /**
      * Devolve a posição de todos os [items] (id → tamanho padrão), reaproveitando [saved] e
-     * encaixando os que ainda não têm posição no primeiro espaço livre.
+     * encaixando os que ainda não têm posição no primeiro espaço livre. Na grade, posições
+     * fracionárias (vindas do modo livre) são encaixadas na célula livre mais próxima.
      */
     fun resolve(items: List<Pair<String, CellSize>>, saved: Map<String, Placement>): Map<String, Placement> {
         val result = LinkedHashMap<String, Placement>()
         val missing = mutableListOf<Pair<String, CellSize>>()
         for ((id, size) in items) {
             val p = saved[id]
-            if (p == null || (!multiPage && p.page > 0)) missing += id to size else result[id] = clamp(p)
+            when {
+                p == null || (!multiPage && p.page > 0) -> missing += id to size
+                free -> result[id] = clamp(p)
+                else -> result[id] = nearestFreeAmong(p, result.values)
+            }
         }
         for ((id, size) in missing) {
-            result[id] = firstFree(size, result.values)
+            val s = if (free) size else CellSize(max(1, size.w.roundToInt()).toFloat(), max(1, size.h.roundToInt()).toFloat())
+            result[id] = firstFree(s, result.values)
         }
         return result
     }
@@ -79,7 +87,8 @@ class DesktopGrid(
             // Além das linhas inteiras, tenta logo abaixo de cada item, para não deixar vãos
             // quando há componentes com altura fracionária.
             val maxRow = if (multiPage) rows else (onPage.maxOfOrNull { ceil(it.y + it.h).toInt() } ?: 0) + 2
-            val ys = ((0..maxRow).map { it.toFloat() } + onPage.map { it.y + it.h }).distinct().sorted()
+            val integerRows = (0..maxRow).map { it.toFloat() }
+            val ys = if (free) (integerRows + onPage.map { it.y + it.h }).distinct().sorted() else integerRows
             for (y in ys) {
                 if (y + h > rowLimit + EPSILON) continue
                 var x = 0f
@@ -96,11 +105,13 @@ class DesktopGrid(
     }
 
     /** Espaço livre mais próximo de [target] (no modo grade), ignorando o próprio item [selfId]. */
-    fun nearestFree(target: Placement, selfId: String, all: Map<String, Placement>): Placement {
-        val others = all.filterKeys { it != selfId }.values
+    fun nearestFree(target: Placement, selfId: String, all: Map<String, Placement>): Placement =
+        nearestFreeAmong(target, all.filterKeys { it != selfId }.values, fallback = all[selfId])
+
+    private fun nearestFreeAmong(target: Placement, others: Collection<Placement>, fallback: Placement? = null): Placement {
         val snapped = clamp(target.snapped())
         if (others.none { it.overlaps(snapped) }) return snapped
-        val maxY = if (multiPage) rows - snapped.h.toInt() else (others.maxOfOrNull { (it.y + it.h).toInt() } ?: 0) + 1
+        val maxY = if (multiPage) rows - snapped.h.toInt() else (others.maxOfOrNull { ceil(it.y + it.h).toInt() } ?: 0) + 1
         var best: Placement? = null
         var bestDist = Float.MAX_VALUE
         for (y in 0..max(0, maxY)) for (x in 0..(columns - snapped.w.toInt())) {
@@ -112,7 +123,7 @@ class DesktopGrid(
                 best = c
             }
         }
-        return best ?: all[selfId] ?: snapped
+        return best ?: fallback ?: firstFree(CellSize(snapped.w, snapped.h), others)
     }
 
     companion object {

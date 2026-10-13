@@ -145,7 +145,6 @@ private fun AlphabeticalApps(
     gridState: LazyGridState,
 ) {
     val grouped = remember(apps) { apps.groupBy(::letterOf) }
-    var index = 0
     LazyVerticalGrid(
         columns = GridCells.Fixed(if (grid) columns else 1),
         state = gridState,
@@ -162,16 +161,15 @@ private fun AlphabeticalApps(
                 )
             }
             items(group, key = { it.key }) { app ->
-                val i = index++
                 if (grid) {
-                    Box(Modifier.entrance(i), contentAlignment = Alignment.TopCenter) {
+                    Box(contentAlignment = Alignment.TopCenter) {
                         AppTile(
                             app = app, state = state, controller = controller, iconSize = 44.dp, showLabel = true,
                             labelStyle = palette.panelLabel, labels = labels, iconBackground = palette.iconBackground, onLaunched = onLaunched,
                         )
                     }
                 } else {
-                    AppListRow(app = app, state = state, controller = controller, labels = labels, onLaunched = onLaunched, modifier = Modifier.entrance(i)) {
+                    AppListRow(app = app, state = state, controller = controller, labels = labels, onLaunched = onLaunched) {
                         Text(app.label, color = palette.panelText, fontSize = 14.sp)
                     }
                 }
@@ -214,7 +212,6 @@ private fun CategoryApps(
             val (category, list) = byCategory[i]
             Column(
                 Modifier
-                    .entrance(i)
                     .clip(RoundedCornerShape(16.dp))
                     .background(palette.tile)
                     .padding(10.dp),

@@ -53,6 +53,7 @@ import dev.jesiel.launcher.LauncherController
 import dev.jesiel.launcher.LauncherUiState
 import dev.jesiel.launcher.data.AppsView
 import dev.jesiel.launcher.data.ColorMode
+import dev.jesiel.launcher.data.LeftScreen
 import dev.jesiel.launcher.data.MenuIcon
 import dev.jesiel.launcher.data.SwipeAction
 import dev.jesiel.launcher.theme.LauncherThemeSpec
@@ -211,6 +212,32 @@ fun SettingsScreen(state: LauncherUiState, controller: LauncherController, onClo
                     Button(onClick = { onClose(); controller.editMode = true }) { Text("Organizar área de trabalho") }
                     Text(
                         "Arraste para mover, use o ponto no canto para redimensionar e toque em um item para movê-lo de tela ou removê-lo.",
+                        fontSize = 12.sp,
+                        color = Color.Gray,
+                        modifier = Modifier.padding(top = 6.dp),
+                    )
+                }
+
+                SectionTitle("Barras e telas")
+                Card {
+                    SwitchRow(if (state.themeId == "windows") "Mostrar barra de tarefas" else "Mostrar dock / painel", layout.showDock) { on ->
+                        vm.updateLayout { it.copy(showDock = on) }
+                    }
+                    if (state.themeId == "ubuntu" || state.themeId == "macos") {
+                        SwitchRow("Mostrar barra superior", layout.showTopBar) { on -> vm.updateLayout { it.copy(showTopBar = on) } }
+                    }
+                    Text(
+                        "Sem a barra, deslize para cima para abrir os apps e para baixo para o painel de controle.",
+                        fontSize = 12.sp,
+                        color = Color.Gray,
+                        modifier = Modifier.padding(top = 4.dp, bottom = 12.dp),
+                    )
+                    Text("Tela à esquerda", fontWeight = FontWeight.SemiBold)
+                    Spacer(Modifier.height(6.dp))
+                    Choices(LeftScreen.entries, state.leftScreen, { it.label }) { vm.setLeftScreen(it) }
+                    Text(
+                        "Deslize para a direita na primeira tela. O feed mostra as principais notícias do Google Notícias; " +
+                            "\"App do Google\" abre o Discover.",
                         fontSize = 12.sp,
                         color = Color.Gray,
                         modifier = Modifier.padding(top = 6.dp),

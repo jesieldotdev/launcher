@@ -101,6 +101,16 @@ class LauncherController(
         }
     }
 
+    fun openUrl(url: String) {
+        start(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+    }
+
+    /** Abre o app do Google (onde fica o Discover) ou, sem ele, o Google Notícias no navegador. */
+    fun openGoogleApp(): Boolean {
+        val intent = activity.packageManager.getLaunchIntentForPackage(GOOGLE_APP)
+        return if (intent != null) start(intent) else start(Intent(Intent.ACTION_VIEW, Uri.parse("https://news.google.com")))
+    }
+
     fun openWallpaperPicker() {
         start(Intent.createChooser(Intent(Intent.ACTION_SET_WALLPAPER), "Escolher papel de parede"))
     }
@@ -234,7 +244,15 @@ class LauncherController(
 
     fun toast(message: String) = Toast.makeText(activity, message, Toast.LENGTH_SHORT).show()
 
+    /** Abre a tela de configuração de um widget já adicionado, quando ele oferece uma. */
+    fun reconfigureWidget(id: Int) {
+        runCatching { widgets.host.startAppWidgetConfigureActivityForResult(activity, id, 0, REQUEST_RECONFIGURE_WIDGET, null) }
+            .onFailure { toast("Este widget não pode ser configurado") }
+    }
+
     private companion object {
+        const val GOOGLE_APP = "com.google.android.googlequicksearchbox"
+        const val REQUEST_RECONFIGURE_WIDGET = 14
         const val REQUEST_BIND_WIDGET = 11
         const val REQUEST_CONFIGURE_WIDGET = 12
         const val REQUEST_ROLE = 13
