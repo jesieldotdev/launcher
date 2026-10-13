@@ -9,3 +9,7 @@ build/
 .cxx
 .kotlin/
 *.apk
+
+.claude/ntfy-topic
+.claude/settings.local.json
+.claude/ntfy-errors.log

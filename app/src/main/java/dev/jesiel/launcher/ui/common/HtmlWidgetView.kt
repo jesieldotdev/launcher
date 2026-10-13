@@ -11,6 +11,7 @@ import android.webkit.WebViewClient
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -23,6 +24,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import dev.jesiel.launcher.LauncherController
+import dev.jesiel.launcher.data.ClaudeLink
 import dev.jesiel.launcher.data.HtmlVariables
 import dev.jesiel.launcher.data.HtmlWidget
 import org.json.JSONObject
@@ -42,7 +44,8 @@ fun rememberHtmlValues(palette: LauncherPalette, used: Set<String>): Map<String,
     val locale = remember { Locale.getDefault() }
     val battery = if ("bateria" in used || "carregando" in used) rememberBatteryState() else null
     val memory = if ("memoria" in used || "armazenamento" in used) rememberMemoryState() else null
-    return remember(now, battery, memory, palette, used) {
+    val ntfy = if ("ntfy" in used) ClaudeLink.topic(context).collectAsState().value.orEmpty() else ""
+    return remember(now, battery, memory, palette, used, ntfy) {
         val date = Date(now)
         fun fmt(p: String) = SimpleDateFormat(p, locale).format(date)
         val hour = Calendar.getInstance().apply { timeInMillis = now }.get(Calendar.HOUR_OF_DAY)
@@ -66,6 +69,7 @@ fun rememberHtmlValues(palette: LauncherPalette, used: Set<String>): Map<String,
             put("armazenamento", memory?.let { "%.0f".format(it.storageFreeGb) } ?: "0")
             put("tema", if (palette.dark) "escuro" else "claro")
             put("cor", "#%06X".format(palette.accent.toArgb() and 0xFFFFFF))
+            put("ntfy", ntfy)
         }
     }
 }
@@ -104,8 +108,9 @@ fun HtmlWidgetView(
         val view = webView
         val observer = LifecycleEventObserver { _, event ->
             when (event) {
-                Lifecycle.Event.ON_PAUSE -> view?.onPause()
-                Lifecycle.Event.ON_RESUME -> view?.onResume()
+                // pauseTimers também para setInterval/fetch em JS enquanto a tela inicial não aparece.
+                Lifecycle.Event.ON_PAUSE -> view?.run { onPause(); pauseTimers() }
+                Lifecycle.Event.ON_RESUME -> view?.run { onResume(); resumeTimers() }
                 else -> Unit
             }
         }

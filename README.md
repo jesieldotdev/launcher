@@ -116,3 +116,16 @@ Requer JDK 17+ e Android SDK 35.
 ./gradlew testDebugUnitTest      # testes
 ./gradlew recordRoborazziDebug   # regenera docs/screenshots
 ```
+
+## Widget Claude Code
+
+![Widget Claude Code](docs/screenshots/claude_code_widget.png)
+
+O widget HTML **Claude Code** (estilo âmbar retrô, fundo translúcido) mostra o último evento do Claude Code
+(build ok / falhou, execução concluída, "sua vez"), um histórico curto das últimas 24 h e o status do GitHub Actions.
+
+- Os hooks em `.claude/settings.json` chamam `.claude/hooks/ntfy-notify.sh`, que publica no ntfy.sh.
+- O canal vem da variável `CLAUDE_NTFY_TOPIC` (ou do arquivo `.claude/ntfy-topic`, fora do git). Sem canal, nada é enviado.
+- Opcionais: `CLAUDE_NTFY_TOKEN` (conta ntfy, com cota própria) e `CLAUDE_NTFY_SERVER`.
+- No Launcher: **Personalizar › Claude Code** → Gerar / Salvar o mesmo canal e **Testar**.
+- O widget só consulta a rede com a tela inicial visível (ntfy a cada 45 s, GitHub a cada 5 min).

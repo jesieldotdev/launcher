@@ -29,6 +29,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.runtime.collectAsState
+import dev.jesiel.launcher.data.ClaudeLink
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
@@ -393,6 +395,9 @@ fun SettingsScreen(state: LauncherUiState, controller: LauncherController, onClo
                     }
                 }
 
+                SectionTitle("Claude Code")
+                ClaudeCodeCard(controller)
+
                 SectionTitle("Sistema")
                 Card {
                     OutlinedButton(onClick = controller::requestDefaultLauncher) {
@@ -701,5 +706,51 @@ private fun ThemePreview(theme: LauncherThemeSpec, selected: Boolean, onSelect: 
         Spacer(Modifier.height(6.dp))
         Text(theme.name, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal, fontSize = 14.sp)
         Text(theme.description, fontSize = 11.sp, color = Color.Gray, maxLines = 2, lineHeight = 13.sp)
+    }
+}
+
+/** Canal do ntfy.sh usado pelos hooks do Claude Code e pelo widget "Claude Code". */
+@Composable
+private fun ClaudeCodeCard(controller: LauncherController) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val saved by ClaudeLink.topic(context).collectAsState()
+    var text by remember(saved) { mutableStateOf(saved.orEmpty()) }
+    Card {
+        Text("Avisos do Claude Code", fontWeight = FontWeight.SemiBold)
+        Text(
+            "Os hooks do repositório publicam fim de build, fim de execução e \"esperando você\" neste canal do ntfy.sh. " +
+                "O widget Claude Code lê o mesmo canal. Use um nome difícil de adivinhar: quem souber o canal vê as mensagens.",
+            fontSize = 12.sp,
+            color = Color.Gray,
+        )
+        Spacer(Modifier.height(8.dp))
+        androidx.compose.material3.OutlinedTextField(
+            value = text,
+            onValueChange = { text = ClaudeLink.sanitize(it) },
+            label = { Text("Canal") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Spacer(Modifier.height(8.dp))
+        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(onClick = { ClaudeLink.setTopic(context, text); controller.toast("Canal salvo") }, enabled = text != saved.orEmpty()) {
+                Text("Salvar")
+            }
+            OutlinedButton(onClick = { text = ClaudeLink.randomTopic() }) { Text("Gerar") }
+            OutlinedButton(enabled = text.isNotEmpty(), onClick = {
+                val cm = context.getSystemService(android.content.ClipboardManager::class.java)
+                cm?.setPrimaryClip(android.content.ClipData.newPlainText("Canal ntfy", text))
+                controller.toast("Canal copiado")
+            }) { Text("Copiar") }
+            OutlinedButton(enabled = saved.orEmpty().isNotEmpty(), onClick = {
+                ClaudeLink.sendTest(saved.orEmpty()) { ok -> controller.toast(if (ok) "Teste enviado" else "Falha ao enviar o teste") }
+            }) { Text("Testar") }
+        }
+        Text(
+            "No ambiente do Claude Code, guarde o mesmo canal na variável CLAUDE_NTFY_TOPIC.",
+            fontSize = 12.sp,
+            color = Color.Gray,
+            modifier = Modifier.padding(top = 6.dp),
+        )
     }
 }

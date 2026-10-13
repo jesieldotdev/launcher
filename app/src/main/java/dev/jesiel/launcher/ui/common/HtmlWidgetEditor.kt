@@ -128,6 +128,7 @@ fun HtmlWidgetEditor(
                     Chip(label) {
                         html = code
                         interactive = code.contains("<script")
+                        network = code.contains("fetch(") || code.contains("https://fonts.")
                     }
                 }
                 Chip("Importar .html") { controller.importHtmlFile?.invoke() }

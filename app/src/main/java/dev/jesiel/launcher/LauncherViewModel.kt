@@ -79,6 +79,11 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     /** Uma única vez: cria os widgets Retrô futurista e Cyberpunk na área de trabalho. */
     private fun addStarterHtmlWidgets() {
         val flags = getApplication<Application>().getSharedPreferences("launcher_flags", android.content.Context.MODE_PRIVATE)
+        if (!flags.getBoolean("starterClaudeWidget", false)) {
+            flags.edit().putBoolean("starterClaudeWidget", true).apply()
+            val (name, html) = dev.jesiel.launcher.data.HtmlTemplates.CLAUDE
+            saveHtmlWidget(HtmlWidget(id = UUID.randomUUID().toString().take(8), name = name, html = html, interactive = true, network = true))
+        }
         if (flags.getBoolean("starterHtmlWidgets", false)) return
         flags.edit().putBoolean("starterHtmlWidgets", true).apply()
         listOf(dev.jesiel.launcher.data.HtmlTemplates.RETRO, dev.jesiel.launcher.data.HtmlTemplates.CYBERPUNK).forEach { (name, html) ->
