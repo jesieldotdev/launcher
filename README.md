@@ -71,7 +71,11 @@ _Capturas geradas pelos testes de screenshot com apps de exemplo._
 - **Widgets HTML:** crie widgets com HTML/CSS (e JavaScript, se quiser) com variáveis como
   `{{hora}}`, `{{bateria}}` e `{{saudacao}}`, links `launcher://app/<pacote>`, modelos prontos e
   prévia ao vivo. Ficam pausados fora da tela inicial; o modo leve não usa JavaScript e só
-  redesenha quando um valor muda.
+  redesenha quando um valor muda. Modelos incluídos, entre eles:
+
+  | Retrô futurista | Cyberpunk |
+  | --- | --- |
+  | ![](docs/screenshots/html-widget-retro.png) | ![](docs/screenshots/html-widget-cyberpunk.png) |
 - **Backup:** automático antes de trocar de tema, importar, remover telas ou desfazer pastas (e
   diário), com restauração em Personalizar → Backup; exportar/importar arquivo JSON.
 - Widgets Android, pastas, dock configurável, busca sem acentos, launcher padrão.

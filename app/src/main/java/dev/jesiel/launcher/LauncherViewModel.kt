@@ -73,6 +73,17 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
 
     init {
         viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) { backups.dailySnapshot() }
+        addStarterHtmlWidgets()
+    }
+
+    /** Uma única vez: cria os widgets Retrô futurista e Cyberpunk na área de trabalho. */
+    private fun addStarterHtmlWidgets() {
+        val flags = getApplication<Application>().getSharedPreferences("launcher_flags", android.content.Context.MODE_PRIVATE)
+        if (flags.getBoolean("starterHtmlWidgets", false)) return
+        flags.edit().putBoolean("starterHtmlWidgets", true).apply()
+        listOf(dev.jesiel.launcher.data.HtmlTemplates.RETRO, dev.jesiel.launcher.data.HtmlTemplates.CYBERPUNK).forEach { (name, html) ->
+            saveHtmlWidget(HtmlWidget(id = UUID.randomUUID().toString().take(8), name = name, html = html))
+        }
     }
 
     /** Remove widgets que não existem mais neste aparelho (ex.: depois de restaurar um backup). */
