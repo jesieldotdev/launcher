@@ -167,7 +167,7 @@ fun WindowsLauncher(state: LauncherUiState, controller: LauncherController) {
                 }
                 AnimatedVisibility(
                     visible = startOpen,
-                    enter = slideInVertically(tween(220)) { it / 3 } + fadeIn(tween(180)),
+                    enter = slideInVertically(tween(200, easing = androidx.compose.animation.core.LinearOutSlowInEasing)) { it / 4 } + fadeIn(tween(140)),
                     exit = slideOutVertically(tween(180)) { it / 3 } + fadeOut(tween(150)),
                     modifier = Modifier.align(Alignment.BottomCenter),
                 ) {

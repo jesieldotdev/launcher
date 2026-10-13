@@ -183,6 +183,22 @@ class LauncherController(
         }
     }
 
+    // --- Gestos do HyperOS ----------------------------------------------------------------
+
+    /** O usuário concedeu WRITE_SECURE_SETTINGS via ADB (pm grant)? */
+    fun canWriteSecureSettings(): Boolean =
+        activity.checkSelfPermission(android.Manifest.permission.WRITE_SECURE_SETTINGS) == android.content.pm.PackageManager.PERMISSION_GRANTED
+
+    fun hyperOsGesturesForced(): Boolean =
+        runCatching { Settings.Global.getInt(activity.contentResolver, FORCE_FSG) == 1 }.getOrDefault(false)
+
+    /** Libera os gestos de tela cheia do HyperOS/MIUI com este launcher como padrão. */
+    fun setHyperOsGestures(on: Boolean): Boolean = runCatching {
+        Settings.Global.putInt(activity.contentResolver, FORCE_FSG, if (on) 1 else 0)
+    }.getOrDefault(false)
+
+    fun openUsageAccessSettings() = start(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
+
     /** Definido pela Activity: abre o seletor de imagens para o ícone do menu. */
     var pickImage: (() -> Unit)? = null
 
@@ -260,6 +276,7 @@ class LauncherController(
 
     private companion object {
         const val GOOGLE_APP = "com.google.android.googlequicksearchbox"
+        const val FORCE_FSG = "force_fsg_nav_bar"
         const val REQUEST_RECONFIGURE_WIDGET = 14
         const val REQUEST_BIND_WIDGET = 11
         const val REQUEST_CONFIGURE_WIDGET = 12

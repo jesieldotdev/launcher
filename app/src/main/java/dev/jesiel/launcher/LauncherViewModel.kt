@@ -17,6 +17,8 @@ import dev.jesiel.launcher.data.SwipeAction
 import dev.jesiel.launcher.data.FolderData
 import dev.jesiel.launcher.data.HomeItem
 import dev.jesiel.launcher.data.LauncherData
+import dev.jesiel.launcher.data.HomeImporter
+import dev.jesiel.launcher.data.ImportedItem
 import dev.jesiel.launcher.data.LauncherPrefs
 import dev.jesiel.launcher.data.LeftScreen
 import dev.jesiel.launcher.data.NewsRepository
@@ -226,6 +228,52 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
             )
             _news.value += topic to next
         }
+    }
+
+    private val importer = HomeImporter(application)
+
+    fun hasUsageAccess() = importer.hasUsageAccess()
+
+    /**
+     * Importa a tela inicial do launcher do sistema (ou, se ele não permitir, os apps mais
+     * usados) e substitui favoritos, pastas, dock e posições do tema atual.
+     * Devolve uma descrição do resultado para mostrar ao usuário.
+     */
+    fun importHome(mostUsed: Boolean): String {
+        val apps = repository.apps.value
+        val imported = (if (mostUsed) importer.importMostUsed(apps) else importer.importFromSystemLauncher(apps))
+            ?: return if (mostUsed) "Permita o acesso ao uso de apps para importar os mais usados."
+            else "O launcher do sistema não permite ler a tela inicial. Tente importar os apps mais usados."
+        prefs.update { d ->
+            val folders = LinkedHashMap<String, FolderData>()
+            val order = mutableListOf<String>()
+            val placements = LinkedHashMap<String, Placement>()
+            val columns = d.layoutFor(d.themeId).gridColumns
+            imported.home.forEach { item ->
+                val id = when (item) {
+                    is ImportedItem.App -> item.key.takeIf { it !in order }
+                    is ImportedItem.Folder -> {
+                        val folderId = UUID.randomUUID().toString().take(8)
+                        folders[folderId] = FolderData(folderId, item.name, item.keys)
+                        FOLDER_PREFIX + folderId
+                    }
+                } ?: return@forEach
+                order += id
+                if (item.x < columns) placements[id] = Placement(item.page, item.x.toFloat(), item.y.toFloat(), 1f, 1f)
+            }
+            val pages = (imported.home.maxOfOrNull { it.page } ?: 0) + 1
+            val layout = d.layoutFor(d.themeId).let { if (pages > 1) it.copy(multiPage = true, pageCount = maxOf(it.pageCount, pages)) else it }
+            d.copy(
+                initialized = true,
+                homeOrder = order,
+                folders = folders,
+                dock = imported.dock.take(MAX_DOCK).ifEmpty { d.dock },
+                placements = d.placements + (d.themeId to placements),
+                layouts = d.layouts + (d.themeId to layout),
+            )
+        }
+        val folderCount = imported.home.count { it is ImportedItem.Folder }
+        return "Importado de ${imported.source}: ${imported.home.size - folderCount} apps, $folderCount pastas e ${imported.dock.size} no dock."
     }
 
     fun setLeftScreen(screen: LeftScreen) = prefs.update { it.copy(leftScreen = screen) }

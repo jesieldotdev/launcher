@@ -60,6 +60,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
@@ -135,13 +136,31 @@ fun DesktopCanvas(
     val feedOffset = if (state.leftScreen != LeftScreen.NONE) 1 else 0
     var onFeed by remember { mutableStateOf(false) }
 
-    val swipe = remember(state.swipeDown, onSwipeUp, onSearch) {
+    // Gestos verticais: disparam já durante o arrasto (sem esperar soltar o dedo), ou num
+    // movimento rápido ao soltar.
+    val swipeThreshold = with(density) { 56.dp.toPx() }
+    val swipe = remember(state.swipeDown, onSwipeUp, onSearch, swipeThreshold) {
         object : NestedScrollConnection {
-            override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
-                if (!controller.editMode && !onFeed) {
+            var total = 0f
+            var fired = false
+
+            override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
+                if (source != NestedScrollSource.UserInput || controller.editMode || onFeed || fired) return Offset.Zero
+                total += available.y
+                when {
+                    total < -swipeThreshold -> { fired = true; onSwipeUp() }
+                    total > swipeThreshold -> { fired = true; controller.onSwipeDown(state.swipeDown, onSearch) }
+                }
+                return Offset.Zero
+            }
+
+            override suspend fun onPreFling(available: Velocity): Velocity {
+                if (!fired && !controller.editMode && !onFeed) {
                     if (available.y < -SWIPE_VELOCITY) onSwipeUp()
                     if (available.y > SWIPE_VELOCITY) controller.onSwipeDown(state.swipeDown, onSearch)
                 }
+                total = 0f
+                fired = false
                 return Velocity.Zero
             }
         }

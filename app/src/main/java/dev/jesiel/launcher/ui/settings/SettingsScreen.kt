@@ -265,12 +265,33 @@ fun SettingsScreen(state: LauncherUiState, controller: LauncherController, onClo
                     Spacer(Modifier.height(6.dp))
                     Choices(SwipeAction.entries, state.swipeDown, { it.label }) { vm.setSwipeDown(it) }
                     Text(
-                        "Deslizar para cima abre o menu de apps. A navegação do sistema (gestos ou botões) é definida pelo Android; " +
-                            "em alguns aparelhos, como os Xiaomi, os gestos só funcionam com o launcher de fábrica.",
+                        "Deslizar para cima abre o menu de apps.",
                         fontSize = 12.sp,
                         color = Color.Gray,
                         modifier = Modifier.padding(top = 8.dp),
                     )
+                    Spacer(Modifier.height(14.dp))
+                    HyperOsGestures(controller)
+                }
+
+                SectionTitle("Importar")
+                Card {
+                    var importResult by remember { mutableStateOf<String?>(null) }
+                    Text(
+                        "Traz os apps, pastas e o dock da tela inicial do launcher do sistema. A organização atual deste tema é substituída.",
+                        fontSize = 12.sp,
+                        color = Color.Gray,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Button(onClick = { importResult = vm.importHome(mostUsed = false) }) { Text("Importar da tela inicial do sistema") }
+                    OutlinedButton(onClick = {
+                        if (vm.hasUsageAccess()) importResult = vm.importHome(mostUsed = true)
+                        else {
+                            importResult = "Ative o acesso ao uso para o Launcher e toque de novo."
+                            controller.openUsageAccessSettings()
+                        }
+                    }) { Text("Importar apps mais usados") }
+                    importResult?.let { Text(it, fontSize = 13.sp, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 6.dp)) }
                 }
 
                 SectionTitle("Widgets")
@@ -314,6 +335,59 @@ fun SettingsScreen(state: LauncherUiState, controller: LauncherController, onClo
                 }
             }
         }
+    }
+}
+
+/**
+ * No HyperOS/MIUI os gestos de tela cheia ficam bloqueados com outro launcher. Com a permissão
+ * WRITE_SECURE_SETTINGS (concedida uma vez pelo ADB), o Launcher consegue liberá-los sozinho.
+ */
+@Composable
+private fun HyperOsGestures(controller: LauncherController) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    var granted by remember { mutableStateOf(controller.canWriteSecureSettings()) }
+    var forced by remember { mutableStateOf(controller.hyperOsGesturesForced()) }
+    LifecycleResumeEffect(Unit) {
+        granted = controller.canWriteSecureSettings()
+        forced = controller.hyperOsGesturesForced()
+        onPauseOrDispose { }
+    }
+    val command = "adb shell pm grant ${context.packageName} android.permission.WRITE_SECURE_SETTINGS"
+    Text("Gestos de navegação do HyperOS / MIUI", fontWeight = FontWeight.SemiBold)
+    if (granted) {
+        SwitchRow("Liberar gestos de tela cheia", forced) { on ->
+            if (controller.setHyperOsGestures(on)) forced = on
+        }
+        Text(
+            "Depois de ligar, escolha \"Gestos\" em Configurações → Tela inicial → Navegação do sistema.",
+            fontSize = 12.sp,
+            color = Color.Gray,
+        )
+        OutlinedButton(onClick = { controller.start(android.content.Intent(android.provider.Settings.ACTION_SETTINGS)) }) { Text("Abrir configurações") }
+    } else {
+        Text(
+            "O sistema só libera os gestos com o launcher de fábrica. Para o Launcher liberar sozinho, conceda uma vez esta permissão " +
+                "pelo ADB (do computador, ou pelo próprio celular com Termux ou Shizuku):",
+            fontSize = 12.sp,
+            color = Color.Gray,
+            modifier = Modifier.padding(top = 4.dp),
+        )
+        Text(
+            command,
+            fontSize = 12.sp,
+            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+            modifier = Modifier
+                .padding(vertical = 6.dp)
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(8.dp))
+                .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f))
+                .padding(10.dp),
+        )
+        OutlinedButton(onClick = {
+            val clipboard = context.getSystemService(android.content.ClipboardManager::class.java)
+            clipboard.setPrimaryClip(android.content.ClipData.newPlainText("comando", command))
+            controller.toast("Comando copiado")
+        }) { Text("Copiar comando") }
     }
 }
 

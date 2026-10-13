@@ -3,6 +3,18 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Leitura da tela inicial de outros launchers, para importar a organização. -->
+    <uses-permission android:name="com.miui.home.launcher.permission.READ_SETTINGS" />
+    <uses-permission android:name="com.android.launcher3.permission.READ_SETTINGS" />
+    <uses-permission android:name="com.android.launcher.permission.READ_SETTINGS" />
+    <uses-permission android:name="com.google.android.apps.nexuslauncher.permission.READ_SETTINGS" />
+    <uses-permission
+        android:name="android.permission.PACKAGE_USAGE_STATS"
+        tools:ignore="ProtectedPermissions" />
+    <!-- Concedida só via ADB (pm grant); permite ligar os gestos de tela cheia do HyperOS. -->
+    <uses-permission
+        android:name="android.permission.WRITE_SECURE_SETTINGS"
+        tools:ignore="ProtectedPermissions" />
     <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
     <uses-permission android:name="android.permission.SET_WALLPAPER" />
     <uses-permission android:name="android.permission.EXPAND_STATUS_BAR" />
@@ -14,6 +26,9 @@
         tools:ignore="ProtectedPermissions" />
 
     <queries>
+        <package android:name="com.miui.home" />
+        <package android:name="com.android.launcher3" />
+        <package android:name="com.google.android.apps.nexuslauncher" />
         <intent>
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.LAUNCHER" />

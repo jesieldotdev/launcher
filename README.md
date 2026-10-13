@@ -58,6 +58,11 @@ _Capturas geradas pelos testes de screenshot com apps de exemplo._
 - **Toque longo em widgets e cartões:** remover, mover/redimensionar e configurar widget.
 - **Barras opcionais:** ocultar a barra de tarefas/dock, só o fundo dela, ou a barra superior
   (Personalizar ou toque longo no fundo).
+- **Importar a tela inicial do launcher do sistema** (apps, pastas, telas e dock), ou os apps
+  mais usados quando o fabricante bloqueia a leitura.
+- **Gestos do HyperOS/MIUI:** com a permissão `WRITE_SECURE_SETTINGS` concedida uma vez pelo ADB
+  (`adb shell pm grant dev.jesiel.launcher android.permission.WRITE_SECURE_SETTINGS`), o Launcher
+  libera os gestos de tela cheia sozinho (Personalizar → Gestos).
 - Widgets Android, pastas, dock configurável, busca sem acentos, launcher padrão.
 
 O Android não permite que apps liguem Wi-Fi ou Bluetooth diretamente; esses botões abrem o
@@ -66,9 +71,10 @@ painel do sistema. Brilho e rotação pedem a permissão "Alterar configuraçõe
 
 ### Gestos de navegação do sistema
 
-A navegação por gestos ou por botões é controlada pelo Android, não pelo launcher. Em alguns
-aparelhos (por exemplo, Xiaomi/HyperOS) os gestos de tela cheia só ficam disponíveis com o
-launcher de fábrica, e o sistema volta para os botões quando outro launcher é o padrão.
+A navegação por gestos ou por botões é controlada pelo Android, não pelo launcher. No
+Xiaomi/HyperOS os gestos de tela cheia só ficam disponíveis com o launcher de fábrica. Para
+liberar, conceda a permissão acima pelo ADB (do computador, ou do próprio celular com Termux +
+depuração sem fio, ou Shizuku) e ligue a opção em Personalizar → Gestos.
 
 ## Arquitetura
 

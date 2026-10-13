@@ -99,7 +99,7 @@ fun AppDrawer(
     BackHandler(enabled = visible, onBack = onClose)
     AnimatedVisibility(
         visible,
-        enter = slideInVertically(tween(240)) { it / 4 } + fadeIn(tween(200)),
+        enter = slideInVertically(tween(200, easing = androidx.compose.animation.core.LinearOutSlowInEasing)) { it / 5 } + fadeIn(tween(140)),
         exit = slideOutVertically(tween(200)) { it / 4 } + fadeOut(tween(160)),
     ) {
         DrawerContent(state, controller, palette, style, focusSearch, onClose, labels)
