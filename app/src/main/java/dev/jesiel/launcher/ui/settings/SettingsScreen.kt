@@ -1,0 +1,287 @@
+package dev.jesiel.launcher.ui.settings
+
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material3.Button
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Slider
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
+import androidx.compose.material3.Text
+import androidx.compose.material3.lightColorScheme
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.LifecycleResumeEffect
+import dev.jesiel.launcher.LauncherController
+import dev.jesiel.launcher.LauncherUiState
+import dev.jesiel.launcher.theme.LauncherThemeSpec
+import dev.jesiel.launcher.theme.ThemeRegistry
+import kotlin.math.roundToInt
+
+private val SettingsColors = lightColorScheme(
+    primary = Color(0xFF0067C0),
+    surface = Color(0xFFF6F8FB),
+    background = Color(0xFFF6F8FB),
+)
+
+@Composable
+fun SettingsScreen(state: LauncherUiState, controller: LauncherController, onClose: () -> Unit) {
+    val vm = controller.viewModel
+    val layout = state.layout
+    var isDefault by remember { mutableStateOf(controller.isDefaultLauncher()) }
+    LifecycleResumeEffect(Unit) {
+        isDefault = controller.isDefaultLauncher()
+        onPauseOrDispose { }
+    }
+
+    MaterialTheme(colorScheme = SettingsColors) {
+        Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+            Column(
+                Modifier
+                    .fillMaxSize()
+                    .statusBarsPadding()
+                    .navigationBarsPadding()
+                    .verticalScroll(rememberScrollState())
+                    .padding(bottom = 24.dp),
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(8.dp)) {
+                    IconButton(onClick = onClose) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Voltar") }
+                    Text("Personalizar", fontSize = 22.sp, fontWeight = FontWeight.SemiBold)
+                }
+
+                if (!isDefault) {
+                    Card {
+                        Text("Usar como launcher padrão", fontWeight = FontWeight.SemiBold)
+                        Text(
+                            "Defina este app como tela inicial para que o botão Home abra o launcher.",
+                            fontSize = 13.sp,
+                            color = Color.Gray,
+                        )
+                        Spacer(Modifier.height(10.dp))
+                        Button(onClick = controller::requestDefaultLauncher) { Text("Definir como padrão") }
+                    }
+                }
+
+                SectionTitle("Tema")
+                Row(
+                    Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    ThemeRegistry.all.forEach { theme ->
+                        ThemePreview(theme, selected = theme.id == state.themeId) { vm.setTheme(theme.id) }
+                    }
+                }
+                Text(
+                    "Favoritos, pastas, dock e widgets são mantidos ao trocar de tema. Os ajustes abaixo valem só para o tema atual.",
+                    fontSize = 12.sp,
+                    color = Color.Gray,
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+                )
+
+                SectionTitle("Aparência")
+                Card {
+                    SwitchRow("Papel de parede do tema", layout.useThemeWallpaper) { on ->
+                        vm.updateLayout { it.copy(useThemeWallpaper = on) }
+                    }
+                    Text(
+                        if (layout.useThemeWallpaper) "Desative para ver o papel de parede do sistema."
+                        else "Mostrando o papel de parede do sistema.",
+                        fontSize = 12.sp,
+                        color = Color.Gray,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedButton(onClick = controller::openWallpaperPicker) { Text("Escolher papel de parede do sistema") }
+
+                    Spacer(Modifier.height(16.dp))
+                    SliderRow("Tamanho dos ícones", "${layout.iconSizeDp} dp", layout.iconSizeDp.toFloat(), 40f..72f, 7) { v ->
+                        vm.updateLayout { it.copy(iconSizeDp = v.roundToInt()) }
+                    }
+                    SliderRow("Colunas da grade", "${layout.gridColumns}", layout.gridColumns.toFloat(), 3f..6f, 2) { v ->
+                        vm.updateLayout { it.copy(gridColumns = v.roundToInt()) }
+                    }
+                    SwitchRow("Mostrar nomes dos apps", layout.showLabels) { on ->
+                        vm.updateLayout { it.copy(showLabels = on) }
+                    }
+                }
+
+                SectionTitle("Widgets")
+                Card {
+                    if (state.widgetIds.isEmpty()) {
+                        Text("Nenhum widget na tela inicial.", fontSize = 13.sp, color = Color.Gray)
+                    }
+                    state.widgetIds.forEach { id ->
+                        val label = remember(id) {
+                            controller.widgets.info(id)?.let { info ->
+                                runCatching { info.loadLabel(controller.widgets.packageManager) }.getOrNull()
+                            } ?: "Widget"
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(label, modifier = Modifier.weight(1f))
+                            IconButton(onClick = { controller.removeWidget(id) }) { Icon(Icons.Default.Delete, "Remover") }
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    Button(onClick = { controller.widgetPickerOpen = true }) { Text("Adicionar widget") }
+                }
+
+                SectionTitle("Dock")
+                Card {
+                    Text(
+                        "Toque e segure um app e escolha \"Fixar na barra de tarefas\". Até 5 apps.",
+                        fontSize = 13.sp,
+                        color = Color.Gray,
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    Text(state.dock.joinToString { it.label }.ifEmpty { "Vazio" })
+                }
+
+                SectionTitle("Sistema")
+                Card {
+                    OutlinedButton(onClick = controller::requestDefaultLauncher) {
+                        Text(if (isDefault) "Trocar launcher padrão" else "Definir como launcher padrão")
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedButton(onClick = controller::openSystemSettings) { Text("Configurações do Android") }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SectionTitle(text: String) {
+    Text(
+        text,
+        fontSize = 14.sp,
+        fontWeight = FontWeight.SemiBold,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 8.dp),
+    )
+}
+
+@Composable
+private fun Card(content: @Composable () -> Unit) {
+    Column(
+        Modifier
+            .padding(horizontal = 16.dp, vertical = 4.dp)
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(Color.White)
+            .padding(16.dp),
+    ) { content() }
+}
+
+@Composable
+private fun SwitchRow(label: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable { onChange(!checked) }) {
+        Text(label, modifier = Modifier.weight(1f))
+        Switch(checked = checked, onCheckedChange = onChange)
+    }
+}
+
+@Composable
+private fun SliderRow(
+    label: String,
+    value: String,
+    current: Float,
+    range: ClosedFloatingPointRange<Float>,
+    steps: Int,
+    onChange: (Float) -> Unit,
+) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(label, modifier = Modifier.weight(1f))
+        Text(value, color = Color.Gray, fontSize = 13.sp)
+    }
+    Slider(value = current, onValueChange = onChange, valueRange = range, steps = steps)
+}
+
+/** Miniatura do tema: gradiente com as cores dele e um esboço de dock. */
+@Composable
+private fun ThemePreview(theme: LauncherThemeSpec, selected: Boolean, onSelect: () -> Unit) {
+    val border = if (selected) BorderStroke(3.dp, MaterialTheme.colorScheme.primary) else BorderStroke(1.dp, Color(0x22000000))
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .width(112.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .clickable(enabled = theme.available, onClick = onSelect)
+            .padding(4.dp),
+    ) {
+        Box(
+            Modifier
+                .size(width = 100.dp, height = 170.dp)
+                .clip(RoundedCornerShape(14.dp))
+                .background(Brush.linearGradient(theme.previewColors))
+                .border(border, RoundedCornerShape(14.dp)),
+        ) {
+            Column(Modifier.align(Alignment.TopCenter).padding(top = 18.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                repeat(2) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        repeat(3) { Box(Modifier.size(18.dp).clip(RoundedCornerShape(5.dp)).background(Color(0x99FFFFFF))) }
+                    }
+                }
+            }
+            Box(
+                Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(8.dp)
+                    .fillMaxWidth()
+                    .height(16.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(Color(0xAAFFFFFF)),
+            )
+            if (!theme.available) {
+                Text(
+                    "Em breve",
+                    fontSize = 11.sp,
+                    color = Color.White,
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Color(0x99000000))
+                        .padding(horizontal = 8.dp, vertical = 3.dp),
+                )
+            }
+        }
+        Spacer(Modifier.height(6.dp))
+        Text(theme.name, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal, fontSize = 14.sp)
+        Text(theme.description, fontSize = 11.sp, color = Color.Gray, maxLines = 2, lineHeight = 13.sp)
+    }
+}

@@ -1,0 +1,363 @@
+package dev.jesiel.launcher.ui.windows
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import dev.jesiel.launcher.LauncherController
+import dev.jesiel.launcher.LauncherUiState
+import dev.jesiel.launcher.data.AppInfo
+import dev.jesiel.launcher.data.HomeItem
+import dev.jesiel.launcher.ui.common.AppListRow
+import dev.jesiel.launcher.ui.common.AppTile
+import dev.jesiel.launcher.ui.common.FolderTile
+import dev.jesiel.launcher.ui.common.relativeTime
+import dev.jesiel.launcher.ui.common.search
+
+private enum class StartPage { Pinned, AllApps }
+
+@Composable
+fun StartMenu(
+    state: LauncherUiState,
+    controller: LauncherController,
+    focusSearch: Boolean,
+    onClose: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var query by rememberSaveable { mutableStateOf("") }
+    var page by rememberSaveable { mutableStateOf(StartPage.Pinned) }
+    val keyboard = LocalSoftwareKeyboardController.current
+
+    fun closeAll() {
+        keyboard?.hide()
+        query = ""
+        page = StartPage.Pinned
+        onClose()
+    }
+
+    Column(
+        modifier
+            .fillMaxWidth()
+            .fillMaxHeight()
+            .acrylic(WinColors.Panel, RoundedCornerShape(24.dp))
+            .padding(top = 18.dp),
+    ) {
+        StartSearchField(
+            query = query,
+            onQueryChange = { query = it },
+            focus = focusSearch,
+            onSubmit = {
+                val best = state.apps.search(query).firstOrNull()
+                if (best != null) controller.launch(best) else controller.webSearch(query)
+                closeAll()
+            },
+            modifier = Modifier.padding(horizontal = 18.dp),
+        )
+        Spacer(Modifier.height(14.dp))
+
+        Box(Modifier.weight(1f)) {
+            when {
+                query.isNotBlank() -> SearchResults(query, state, controller, ::closeAll)
+                page == StartPage.AllApps -> AllApps(state, controller, onBack = { page = StartPage.Pinned }, onLaunched = ::closeAll)
+                else -> PinnedPage(state, controller, onAllApps = { page = StartPage.AllApps }, onLaunched = ::closeAll)
+            }
+        }
+
+        HorizontalDivider(color = WinColors.Divider)
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth().background(Color(0x0A000000)).padding(horizontal = 12.dp, vertical = 8.dp),
+        ) {
+            FooterButton(Icons.Default.Edit, "Personalizar") {
+                closeAll()
+                controller.settingsOpen = true
+            }
+            Spacer(Modifier.weight(1f))
+            FooterButton(Icons.Default.Settings, "Configurações") {
+                closeAll()
+                controller.openSystemSettings()
+            }
+        }
+    }
+}
+
+@Composable
+private fun StartSearchField(
+    query: String,
+    onQueryChange: (String) -> Unit,
+    focus: Boolean,
+    onSubmit: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val focusRequester = remember { FocusRequester() }
+    LaunchedEffect(focus) { if (focus) runCatching { focusRequester.requestFocus() } }
+
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = modifier
+            .fillMaxWidth()
+            .height(46.dp)
+            .clip(RoundedCornerShape(23.dp))
+            .background(Color.White)
+            .padding(horizontal = 16.dp),
+    ) {
+        Icon(Icons.Default.Search, contentDescription = null, tint = WinColors.Text, modifier = Modifier.size(22.dp))
+        Spacer(Modifier.width(12.dp))
+        Box(Modifier.weight(1f)) {
+            if (query.isEmpty()) Text("Buscar apps", color = WinColors.TextSecondary, fontSize = 15.sp)
+            BasicTextField(
+                value = query,
+                onValueChange = onQueryChange,
+                singleLine = true,
+                textStyle = TextStyle(color = WinColors.Text, fontSize = 15.sp),
+                cursorBrush = SolidColor(WinColors.Accent),
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                keyboardActions = KeyboardActions(onSearch = { if (query.isNotBlank()) onSubmit() }),
+                modifier = Modifier.fillMaxWidth().focusRequester(focusRequester),
+            )
+        }
+        if (query.isNotEmpty()) {
+            Icon(
+                Icons.Default.Close,
+                contentDescription = "Limpar",
+                tint = WinColors.TextSecondary,
+                modifier = Modifier.size(20.dp).clip(RoundedCornerShape(10.dp)).clickable { onQueryChange("") },
+            )
+        }
+    }
+}
+
+@Composable
+private fun SectionHeader(title: String, action: String?, actionIcon: ImageVector?, leading: Boolean = false, onAction: () -> Unit = {}) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 22.dp, vertical = 4.dp),
+    ) {
+        Text(title, color = WinColors.Text, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, modifier = Modifier.weight(1f))
+        if (action != null) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(Color(0x0F000000))
+                    .clickable(onClick = onAction)
+                    .padding(start = if (leading) 4.dp else 10.dp, end = if (leading) 10.dp else 4.dp, top = 4.dp, bottom = 4.dp),
+            ) {
+                if (leading && actionIcon != null) Icon(actionIcon, null, tint = WinColors.Text, modifier = Modifier.size(18.dp))
+                Text(action, color = WinColors.Text, fontSize = 13.sp)
+                if (!leading && actionIcon != null) Icon(actionIcon, null, tint = WinColors.Text, modifier = Modifier.size(18.dp))
+            }
+        }
+    }
+}
+
+@Composable
+private fun PinnedPage(state: LauncherUiState, controller: LauncherController, onAllApps: () -> Unit, onLaunched: () -> Unit) {
+    // Os "Fixados" do Iniciar são os mesmos favoritos da área de trabalho, para que a
+    // organização seja preservada entre temas.
+    val pinned = state.home.ifEmpty { state.apps.take(12).map(HomeItem::App) }
+    Column(Modifier.verticalScroll(rememberScrollState()).padding(bottom = 12.dp)) {
+        SectionHeader("Fixados", "Todos os apps", Icons.AutoMirrored.Filled.KeyboardArrowRight, onAction = onAllApps)
+        Spacer(Modifier.height(6.dp))
+        Column(Modifier.padding(horizontal = 10.dp)) {
+            pinned.chunked(4).forEach { row ->
+                Row(Modifier.fillMaxWidth()) {
+                    row.forEach { item ->
+                        Box(Modifier.weight(1f), contentAlignment = Alignment.TopCenter) {
+                            when (item) {
+                                is HomeItem.App -> AppTile(
+                                    app = item.app,
+                                    state = state,
+                                    controller = controller,
+                                    iconSize = 44.dp,
+                                    showLabel = true,
+                                    labelStyle = PanelLabel,
+                                    labels = WindowsMenuLabels,
+                                    onLaunched = onLaunched,
+                                )
+                                is HomeItem.Folder -> FolderTile(
+                                    folder = item,
+                                    state = state,
+                                    controller = controller,
+                                    background = Color(0x14000000),
+                                    iconSize = 44.dp,
+                                    labelStyle = PanelLabel,
+                                    panelColor = WinColors.Panel,
+                                    panelTextColor = WinColors.Text,
+                                    labels = WindowsMenuLabels,
+                                )
+                            }
+                        }
+                    }
+                    repeat(4 - row.size) { Spacer(Modifier.weight(1f)) }
+                }
+            }
+        }
+
+        Spacer(Modifier.height(14.dp))
+        SectionHeader("Recomendados", null, null)
+        Spacer(Modifier.height(4.dp))
+        val now = rememberNow()
+        Column(Modifier.padding(horizontal = 12.dp)) {
+            if (state.recents.isEmpty()) {
+                Text(
+                    "Os apps que você abrir recentemente aparecerão aqui.",
+                    color = WinColors.TextSecondary,
+                    fontSize = 13.sp,
+                    modifier = Modifier.padding(10.dp),
+                )
+            }
+            state.recents.take(4).forEach { recent ->
+                RecentRow(recent.app, relativeTime(recent.launchedAt, now), state, controller, onLaunched)
+            }
+        }
+    }
+}
+
+@Composable
+private fun AllApps(state: LauncherUiState, controller: LauncherController, onBack: () -> Unit, onLaunched: () -> Unit) {
+    Column {
+        SectionHeader("Todos os apps", "Voltar", Icons.AutoMirrored.Filled.KeyboardArrowLeft, leading = true, onAction = onBack)
+        Spacer(Modifier.height(6.dp))
+        val grouped = remember(state.apps) { state.apps.groupBy { it.label.firstOrNull()?.uppercaseChar()?.takeIf(Char::isLetter) ?: '#' } }
+        LazyColumn(Modifier.padding(horizontal = 12.dp)) {
+            grouped.forEach { (letter, apps) ->
+                item(key = "header-$letter") {
+                    Text(
+                        letter.toString(),
+                        color = WinColors.Accent,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(start = 10.dp, top = 10.dp, bottom = 2.dp),
+                    )
+                }
+                items(apps, key = { it.key }) { app -> AppRow(app, state, controller, onLaunched) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SearchResults(query: String, state: LauncherUiState, controller: LauncherController, onLaunched: () -> Unit) {
+    val results = remember(query, state.apps) { state.apps.search(query) }
+    LazyColumn(Modifier.padding(horizontal = 12.dp)) {
+        if (results.isNotEmpty()) {
+            item { ResultHeader("Melhor correspondência") }
+            item(key = "best") {
+                AppListRow(
+                    app = results.first(),
+                    state = state,
+                    controller = controller,
+                    iconSize = 44.dp,
+                    labels = WindowsMenuLabels,
+                    onLaunched = onLaunched,
+                    modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(Color(0x14000000)),
+                ) {
+                    Column {
+                        Text(results.first().label, color = WinColors.Text, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                        Text("Aplicativo", color = WinColors.TextSecondary, fontSize = 12.sp)
+                    }
+                }
+            }
+            if (results.size > 1) {
+                item { ResultHeader("Aplicativos") }
+                items(results.drop(1), key = { it.key }) { app -> AppRow(app, state, controller, onLaunched) }
+            }
+        }
+        item { ResultHeader("Pesquisar na Web") }
+        item {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable {
+                        controller.webSearch(query)
+                        onLaunched()
+                    }
+                    .padding(horizontal = 8.dp, vertical = 10.dp),
+            ) {
+                Icon(Icons.Default.Search, null, tint = WinColors.Accent, modifier = Modifier.size(28.dp))
+                Spacer(Modifier.width(14.dp))
+                Text("\"$query\" — ver resultados da Web", color = WinColors.Text, fontSize = 14.sp)
+            }
+        }
+    }
+}
+
+@Composable
+private fun ResultHeader(text: String) {
+    Text(
+        text,
+        color = WinColors.TextSecondary,
+        fontSize = 12.sp,
+        fontWeight = FontWeight.SemiBold,
+        modifier = Modifier.padding(start = 10.dp, top = 10.dp, bottom = 4.dp),
+    )
+}
+
+@Composable
+private fun AppRow(app: AppInfo, state: LauncherUiState, controller: LauncherController, onLaunched: () -> Unit) {
+    AppListRow(app = app, state = state, controller = controller, labels = WindowsMenuLabels, onLaunched = onLaunched) {
+        Text(app.label, color = WinColors.Text, fontSize = 14.sp)
+    }
+}
+
+@Composable
+private fun FooterButton(icon: ImageVector, label: String, onClick: () -> Unit) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable(onClick = onClick).padding(horizontal = 10.dp, vertical = 8.dp),
+    ) {
+        Icon(icon, contentDescription = null, tint = WinColors.Text, modifier = Modifier.size(20.dp))
+        Text(label, color = WinColors.Text, fontSize = 13.sp)
+    }
+}
