@@ -256,6 +256,54 @@ class LauncherController(
 
     fun openUsageAccessSettings() = start(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
 
+    // --- Widgets HTML -----------------------------------------------------------------------
+
+    /** Paleta do tema em uso (para telas fora do tema, como o editor de widgets). */
+    var palette: dev.jesiel.launcher.ui.common.LauncherPalette? = null
+
+    /** Widget HTML aberto no editor (novo ou existente); nulo quando o editor está fechado. */
+    var htmlEditing by mutableStateOf<dev.jesiel.launcher.data.HtmlWidget?>(null)
+
+    /** Definidos pela área de trabalho do tema, para os links launcher://apps e launcher://busca. */
+    var openAppsMenu: (() -> Unit)? = null
+    var openSearch: (() -> Unit)? = null
+
+    /** Definido pela Activity: escolher um arquivo .html para o editor. */
+    var importHtmlFile: (() -> Unit)? = null
+
+    fun newHtmlWidget() {
+        htmlEditing = dev.jesiel.launcher.data.HtmlWidget(
+            id = java.util.UUID.randomUUID().toString().take(8),
+            name = "Widget HTML",
+            html = dev.jesiel.launcher.data.HtmlTemplates.all.first().second,
+        )
+    }
+
+    fun launchPackage(packageName: String) {
+        val app = viewModel.state.value.apps.firstOrNull { it.packageName == packageName }
+        if (app != null) launch(app)
+        else activity.packageManager.getLaunchIntentForPackage(packageName)?.let { start(it) } ?: toast("App não encontrado: $packageName")
+    }
+
+    /** Trata os links dos widgets HTML. Devolve verdadeiro se o link foi consumido. */
+    fun handleWidgetLink(url: String): Boolean {
+        val uri = Uri.parse(url)
+        when (uri.scheme) {
+            "launcher" -> when (uri.host) {
+                "app" -> uri.lastPathSegment?.let(::launchPackage)
+                "painel" -> controlCenterOpen = true
+                "apps" -> openAppsMenu?.invoke()
+                "busca" -> openSearch?.invoke()
+                "ajustes" -> settingsOpen = true
+                "notificacoes" -> expandNotifications()
+                "url" -> uri.getQueryParameter("u")?.let(::openUrl)
+            }
+            "http", "https" -> openUrl(url)
+            else -> start(Intent(Intent.ACTION_VIEW, uri), silent = true)
+        }
+        return true
+    }
+
     // --- Backup ---------------------------------------------------------------------------
 
     /** Definidos pela Activity: escolher onde salvar / qual arquivo importar. */

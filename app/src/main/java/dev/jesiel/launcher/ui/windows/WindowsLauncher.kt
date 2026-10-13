@@ -135,6 +135,7 @@ fun WindowsLauncher(state: LauncherUiState, controller: LauncherController) {
         )
     }
 
+    androidx.compose.runtime.SideEffect { controller.palette = palette }
     CompositionLocalProvider(LocalPalette provides palette) {
         MaterialTheme(colorScheme = palette.colorScheme) {
             Box(Modifier.fillMaxSize()) {

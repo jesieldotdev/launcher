@@ -19,6 +19,7 @@ import dev.jesiel.launcher.data.FolderData
 import dev.jesiel.launcher.data.HomeItem
 import dev.jesiel.launcher.data.LauncherData
 import dev.jesiel.launcher.data.HomeImporter
+import dev.jesiel.launcher.data.HtmlWidget
 import dev.jesiel.launcher.data.ImportedItem
 import dev.jesiel.launcher.data.LauncherPrefs
 import dev.jesiel.launcher.data.LeftScreen
@@ -60,6 +61,7 @@ data class LauncherUiState(
     val leftScreen: LeftScreen = LeftScreen.FEED,
     val windowMode: Boolean = false,
     val sharedLayout: Boolean = true,
+    val htmlWidgets: List<HtmlWidget> = emptyList(),
 )
 
 class LauncherViewModel(application: Application) : AndroidViewModel(application) {
@@ -117,6 +119,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
             leftScreen = data.leftScreen,
             windowMode = data.windowMode,
             sharedLayout = data.sharedLayout,
+            htmlWidgets = data.htmlWidgets,
         )
     }
 
@@ -312,6 +315,17 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         }
         val folderCount = imported.home.count { it is ImportedItem.Folder }
         return "Importado de ${imported.source}: ${imported.home.size - folderCount} apps, $folderCount pastas e ${imported.dock.size} no dock."
+    }
+
+    /** Cria ou atualiza um widget HTML (todos ficam na área de trabalho). */
+    fun saveHtmlWidget(widget: HtmlWidget) = prefs.update { d ->
+        val exists = d.htmlWidgets.any { it.id == widget.id }
+        d.copy(htmlWidgets = if (exists) d.htmlWidgets.map { if (it.id == widget.id) widget else it } else d.htmlWidgets + widget)
+    }
+
+    fun removeHtmlWidget(id: String) {
+        backups.snapshot("Antes de remover um widget HTML")
+        prefs.update { d -> d.copy(htmlWidgets = d.htmlWidgets.filter { it.id != id }) }
     }
 
     fun setWindowMode(on: Boolean) = prefs.update { it.copy(windowMode = on) }

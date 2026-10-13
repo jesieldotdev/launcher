@@ -102,6 +102,10 @@ private sealed interface DesktopEntry {
     data class Builtin(val spec: BuiltinSpec) : DesktopEntry {
         override val id: String = "builtin:${spec.id}"
     }
+
+    data class Html(val widget: dev.jesiel.launcher.data.HtmlWidget) : DesktopEntry {
+        override val id: String = "html:${widget.id}"
+    }
 }
 
 /**
@@ -127,10 +131,16 @@ fun DesktopCanvas(
     var selected by remember { mutableStateOf<String?>(null) }
     if (!edit && selected != null) selected = null
 
-    val entries = remember(builtins, state.hiddenBuiltins, state.home, state.widgetIds) {
+    val entries = remember(builtins, state.hiddenBuiltins, state.home, state.widgetIds, state.htmlWidgets) {
         builtins.filter { it.id !in state.hiddenBuiltins }.map(DesktopEntry::Builtin) +
             state.home.map(DesktopEntry::Item) +
-            state.widgetIds.map(DesktopEntry::Widget)
+            state.widgetIds.map(DesktopEntry::Widget) +
+            state.htmlWidgets.map(DesktopEntry::Html)
+    }
+    // Links launcher://apps e launcher://busca dos widgets HTML usam o menu deste tema.
+    androidx.compose.runtime.SideEffect {
+        controller.openAppsMenu = onSwipeUp
+        controller.openSearch = onSearch
     }
 
     // Tela à esquerda (feed) vem antes das telas da área de trabalho.
@@ -181,6 +191,7 @@ fun DesktopCanvas(
             entry.id to when (entry) {
                 is DesktopEntry.Item -> CellSize(1f, 1f)
                 is DesktopEntry.Builtin -> entry.spec.defaultSize(columns)
+                is DesktopEntry.Html -> CellSize(columns.toFloat(), 2f)
                 is DesktopEntry.Widget -> controller.widgets.info(entry.widgetId)?.let { info ->
                     CellSize(
                         ceil(info.minWidth / cellWpx).coerceIn(1f, columns.toFloat()),
@@ -257,6 +268,7 @@ fun DesktopCanvas(
             when (val entry = entries.firstOrNull { it.id == id }) {
                 is DesktopEntry.Builtin -> vm.setBuiltinHidden(entry.spec.id, true)
                 is DesktopEntry.Widget -> controller.removeWidget(entry.widgetId)
+                is DesktopEntry.Html -> vm.removeHtmlWidget(entry.widget.id)
                 is DesktopEntry.Item -> when (val item = entry.item) {
                     is HomeItem.App -> vm.toggleFavorite(item.app)
                     is HomeItem.Folder -> vm.deleteFolder(item.id)
@@ -415,6 +427,7 @@ private fun DesktopMenu(at: DpOffset?, onDismiss: () -> Unit, controller: Launch
         DropdownMenu(expanded = at != null, onDismissRequest = onDismiss, shape = RoundedCornerShape(12.dp)) {
             DropdownMenuItem(text = { Text("Organizar área de trabalho") }, onClick = { onDismiss(); controller.editMode = true })
             DropdownMenuItem(text = { Text("Adicionar widget") }, onClick = { onDismiss(); controller.widgetPickerOpen = true })
+            DropdownMenuItem(text = { Text("Criar widget HTML") }, onClick = { onDismiss(); controller.newHtmlWidget() })
             DropdownMenuItem(text = { Text("Adicionar tela") }, onClick = { onDismiss(); onAddScreen() })
             val dockLayout = controller.viewModel.state.value.layout
             val showDock = dockLayout.showDock
@@ -599,6 +612,14 @@ private fun EntryContent(
         is DesktopEntry.Builtin -> ComponentWithMenu(entry.spec.name, controller, onRemove) {
             entry.spec.content(Modifier.fillMaxSize().padding(5.dp))
         }
+        is DesktopEntry.Html -> ComponentWithMenu(
+            entry.widget.name,
+            controller,
+            onRemove,
+            onEdit = { controller.htmlEditing = entry.widget },
+        ) {
+            HtmlWidgetView(entry.widget, controller, palette, Modifier.fillMaxSize().padding(4.dp))
+        }
         is DesktopEntry.Widget -> ComponentWithMenu(
             "Widget",
             controller,
@@ -646,6 +667,7 @@ private fun ComponentWithMenu(
     controller: LauncherController,
     onRemove: () -> Unit,
     onConfigure: (() -> Unit)? = null,
+    onEdit: (() -> Unit)? = null,
     content: @Composable () -> Unit,
 ) {
     var menuAt by remember { mutableStateOf<DpOffset?>(null) }
@@ -666,6 +688,7 @@ private fun ComponentWithMenu(
                 DropdownMenuItem(text = { Text("Remover") }, onClick = { menuAt = null; onRemove() })
                 DropdownMenuItem(text = { Text("Mover ou redimensionar") }, onClick = { menuAt = null; controller.editMode = true })
                 if (onConfigure != null) DropdownMenuItem(text = { Text("Configurar widget") }, onClick = { menuAt = null; onConfigure() })
+                if (onEdit != null) DropdownMenuItem(text = { Text("Editar HTML") }, onClick = { menuAt = null; onEdit() })
             }
         }
     }
@@ -759,6 +782,7 @@ private fun EditBar(
                 Pill("+ Adicionar", palette) { addOpen = true }
                 DropdownMenu(expanded = addOpen, onDismissRequest = { addOpen = false }, shape = RoundedCornerShape(12.dp)) {
                     DropdownMenuItem(text = { Text("Widget Android…") }, onClick = { addOpen = false; controller.widgetPickerOpen = true })
+                    DropdownMenuItem(text = { Text("Widget HTML…") }, onClick = { addOpen = false; controller.newHtmlWidget() })
                     builtins.filter { it.id in state.hiddenBuiltins }.forEach { spec ->
                         DropdownMenuItem(text = { Text(spec.name) }, onClick = { addOpen = false; vm.setBuiltinHidden(spec.id, false) })
                     }

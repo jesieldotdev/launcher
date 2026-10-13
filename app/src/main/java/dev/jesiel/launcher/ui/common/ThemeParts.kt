@@ -46,6 +46,7 @@ import dev.jesiel.launcher.LauncherUiState
 fun ThemeRoot(controller: LauncherController, palette: LauncherPalette, content: @Composable BoxScope.() -> Unit) {
     BackHandler(enabled = controller.controlCenterOpen) { controller.controlCenterOpen = false }
     BackHandler(enabled = controller.editMode) { controller.editMode = false }
+    androidx.compose.runtime.SideEffect { controller.palette = palette }
     CompositionLocalProvider(LocalPalette provides palette) {
         MaterialTheme(colorScheme = palette.colorScheme) {
             Box(Modifier.fillMaxSize(), content = content)

@@ -368,6 +368,20 @@ fun SettingsScreen(state: LauncherUiState, controller: LauncherController, onClo
                     }
                     Spacer(Modifier.height(8.dp))
                     Button(onClick = { controller.widgetPickerOpen = true }) { Text("Adicionar widget") }
+                    Spacer(Modifier.height(14.dp))
+                    Text("Widgets HTML", fontWeight = FontWeight.SemiBold)
+                    Text(
+                        "Crie widgets com HTML e CSS, com variáveis como {{hora}} e {{bateria}}. Ficam pausados fora da tela inicial.",
+                        fontSize = 12.sp,
+                        color = Color.Gray,
+                    )
+                    state.htmlWidgets.forEach { w ->
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(w.name + if (w.interactive) " · interativo" else " · leve", modifier = Modifier.weight(1f))
+                            androidx.compose.material3.TextButton(onClick = { onClose(); controller.htmlEditing = w }) { Text("Editar") }
+                        }
+                    }
+                    OutlinedButton(onClick = { onClose(); controller.newHtmlWidget() }) { Text("Criar widget HTML") }
                 }
 
                 SectionTitle("Sistema")

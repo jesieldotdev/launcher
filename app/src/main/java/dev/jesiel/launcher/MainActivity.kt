@@ -18,6 +18,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import dev.jesiel.launcher.ui.common.ArticleViewer
 import dev.jesiel.launcher.ui.common.isDark
 import androidx.activity.compose.setContent
@@ -46,6 +48,12 @@ class MainActivity : ComponentActivity() {
             .onSuccess { controller.afterRestore() }
             .onFailure { controller.toast(it.message ?: "Arquivo inválido") }
     }
+    private var importedHtml by mutableStateOf<String?>(null)
+    private val importHtml = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) runCatching {
+            contentResolver.openInputStream(uri)!!.use { it.readBytes().decodeToString() }
+        }.onSuccess { importedHtml = it }.onFailure { controller.toast("Não foi possível ler o arquivo") }
+    }
     private val pickImage = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) viewModel.setCustomMenuIcon(uri)
     }
@@ -63,6 +71,7 @@ class MainActivity : ComponentActivity() {
             val date = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())
             exportBackup.launch("launcher-backup-$date.json")
         }
+        controller.importHtmlFile = { importHtml.launch(arrayOf("text/html", "text/plain", "*/*")) }
         controller.importBackupFile = { importBackup.launch(arrayOf("application/json", "text/plain", "*/*")) }
 
         setContent {
@@ -89,6 +98,28 @@ class MainActivity : ComponentActivity() {
                 val url = remember { controller.articleUrl }
                 MaterialTheme(colorScheme = if (isDark(state.colorMode)) darkColorScheme() else lightColorScheme()) {
                     url?.let { ArticleViewer(it, onClose = { controller.articleUrl = null }, onOpenExternal = controller::openUrl) }
+                }
+            }
+
+            // Editor de widgets HTML.
+            BackHandler(enabled = controller.htmlEditing != null) { controller.htmlEditing = null }
+            AnimatedVisibility(
+                visible = controller.htmlEditing != null,
+                enter = slideInVertically(tween(260)) { it / 3 } + fadeIn(tween(200)),
+                exit = slideOutVertically(tween(200)) { it / 3 } + fadeOut(tween(160)),
+            ) {
+                val editing = remember { controller.htmlEditing }
+                val palette = controller.palette ?: dev.jesiel.launcher.ui.windows.windowsPalette(isDark(state.colorMode))
+                MaterialTheme(colorScheme = palette.colorScheme) {
+                    editing?.let {
+                        dev.jesiel.launcher.ui.common.HtmlWidgetEditor(
+                            initial = it,
+                            controller = controller,
+                            palette = palette,
+                            importedHtml = importedHtml,
+                            onImportedConsumed = { importedHtml = null },
+                        )
+                    }
                 }
             }
 

@@ -104,6 +104,7 @@ data class LauncherData(
     val windowMode: Boolean,
     /** Apps, pastas e widgets ficam na mesma posição em todos os temas. */
     val sharedLayout: Boolean,
+    val htmlWidgets: List<HtmlWidget>,
 ) {
     fun layoutFor(themeId: String) = layouts[themeId] ?: defaultLayout(themeId)
 
@@ -251,6 +252,7 @@ class LauncherPrefs(context: Context) {
             leftScreen = enumOr(prefs.getString(KEY_LEFT_SCREEN, null), LeftScreen.FEED),
             windowMode = prefs.getBoolean(KEY_WINDOW_MODE, false),
             sharedLayout = prefs.getBoolean(KEY_SHARED_LAYOUT, true),
+            htmlWidgets = HtmlWidget.listFromJson(prefs.getString(KEY_HTML_WIDGETS, null)),
         )
     }
 
@@ -321,6 +323,7 @@ class LauncherPrefs(context: Context) {
             .putString(KEY_LEFT_SCREEN, d.leftScreen.name)
             .putBoolean(KEY_WINDOW_MODE, d.windowMode)
             .putBoolean(KEY_SHARED_LAYOUT, d.sharedLayout)
+            .putString(KEY_HTML_WIDGETS, HtmlWidget.listToJson(d.htmlWidgets))
             .apply()
     }
 
@@ -349,5 +352,6 @@ class LauncherPrefs(context: Context) {
         const val KEY_LEFT_SCREEN = "leftScreen"
         const val KEY_WINDOW_MODE = "windowMode"
         const val KEY_SHARED_LAYOUT = "sharedLayout"
+        const val KEY_HTML_WIDGETS = "htmlWidgets"
     }
 }
