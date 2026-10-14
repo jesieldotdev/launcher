@@ -70,6 +70,7 @@ import dev.jesiel.launcher.ui.common.AppListRow
 import dev.jesiel.launcher.ui.common.LauncherPalette
 import dev.jesiel.launcher.ui.common.asFixedSp
 import dev.jesiel.launcher.ui.common.glass
+import dev.jesiel.launcher.ui.common.initialOf
 import dev.jesiel.launcher.ui.common.rememberBatteryState
 import dev.jesiel.launcher.ui.common.rememberMemoryState
 import dev.jesiel.launcher.ui.common.rememberNow
@@ -249,12 +250,13 @@ private fun TerminalContent(
     LaunchedEffect(focusSearch) { if (focusSearch) runCatching { focus.requestFocus() } }
     val apps = remember(state.apps, query) { if (query.isBlank()) state.apps else state.apps.search(query) }
     val rows = remember(apps, state.layout.showLetters, query) {
+        // Cada letra entra uma vez só: com acentos, a ordem do Collator pode intercalar iniciais,
+        // e uma chave repetida derruba a lista.
+        val seen = HashSet<Char>()
         buildList<Any> {
-            var last: Char? = null
             apps.forEachIndexed { i, app ->
-                val letter = app.label.firstOrNull()?.uppercaseChar()?.takeIf(Char::isLetter) ?: '#'
-                if (state.layout.showLetters && query.isBlank() && letter != last) add(letter)
-                last = letter
+                val letter = initialOf(app.label)
+                if (state.layout.showLetters && query.isBlank() && seen.add(letter)) add(letter)
                 add(i to app)
             }
         }
@@ -320,7 +322,7 @@ private fun TerminalContent(
         }
         Spacer(Modifier.height(6.dp))
         LazyColumn(state = listState, modifier = Modifier.weight(1f).fillMaxWidth()) {
-            items(rows, key = { r -> if (r is Char) "h-$r" else (r as Pair<*, *>).let { "a-" + (it.second as dev.jesiel.launcher.data.AppInfo).key } }, contentType = { if (it is Char) "letra" else "app" }) { r ->
+            items(rows, key = { r -> if (r is Char) "h-$r" else (r as Pair<*, *>).let { "a-${it.first}-" + (it.second as dev.jesiel.launcher.data.AppInfo).key } }, contentType = { if (it is Char) "letra" else "app" }) { r ->
                 if (r is Char) {
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 10.dp, bottom = 2.dp)) {
                         Text("── $r ", style = Hud.copy(color = AmberBright, fontWeight = FontWeight.Bold, fontSize = 13.sp))

@@ -19,6 +19,7 @@ import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.swipeDown
+import androidx.compose.ui.test.swipeUp
 import androidx.compose.ui.test.swipeRight
 import androidx.compose.ui.test.hasSetTextAction
 import com.github.takahirom.roborazzi.captureRoboImage
@@ -164,6 +165,22 @@ class ScreenshotTest {
         compose.waitForIdle()
         org.junit.Assert.assertTrue(controller.controlCenterOpen)
     }
+
+    /** Desliza para cima e fotografa: a gaveta de apps tem que aparecer. */
+    private fun swipeUpShot(name: String, content: @androidx.compose.runtime.Composable (LauncherUiState, LauncherController) -> Unit) {
+        val controller = controller()
+        compose.setContent { content(sampleState(dark = true), controller) }
+        compose.mainClock.advanceTimeBy(2_000)
+        compose.waitForIdle()
+        compose.onRoot().performTouchInput { swipeUp(startY = centerY + 300f, endY = centerY - 300f, durationMillis = 120) }
+        compose.mainClock.advanceTimeBy(1_000)
+        compose.waitForIdle()
+        compose.onRoot().captureRoboImage(shot(name))
+    }
+
+    @Test fun retroSwipeUp() = swipeUpShot("check-retro-swipe-up") { s, c -> RetroLauncher(s, c) }
+    @Test fun iosSwipeUp() = swipeUpShot("check-ios-swipe-up") { s, c -> IosLauncher(s, c) }
+    @Test fun kdeSwipeUp() = swipeUpShot("check-kde-swipe-up") { s, c -> KdeLauncher(s, c) }
 
     @Test
     fun startMenu() {
@@ -383,6 +400,15 @@ class ScreenshotTest {
             compose.waitForIdle()
         }
         compose.onRoot().captureRoboImage(shot(name))
+    }
+
+    /** Nomes acentuados intercalam as iniciais (E, É, E) na ordem do Collator; a lista não pode repetir a letra. */
+    @Test fun retroAppsAccents() {
+        val s = sampleState(dark = true)
+        val extra = listOf("Edge", "Élan", "Email", "Ônibus", "Opera", "ônix").mapIndexed { i, l -> fakeApp(l, 0xFF336699.toInt() + i) }
+        val collator = java.text.Collator.getInstance()
+        val apps = (s.apps + extra).sortedWith { a, b -> collator.compare(a.label, b.label) }
+        retroShot("check-retro-accents", open = "Programas", state = s.copy(apps = apps))
     }
 
     @Test fun retro() = retroShot("retro-home")

@@ -146,7 +146,14 @@ fun AllAppsContent(
     }
 }
 
-private fun letterOf(app: AppInfo) = app.label.firstOrNull()?.uppercaseChar()?.takeIf(Char::isLetter) ?: '#'
+private fun letterOf(app: AppInfo) = initialOf(app.label)
+
+/** Inicial para agrupar a lista: sem acento (É fica em E) e "#" para o que não é letra. */
+fun initialOf(label: String): Char {
+    val first = label.trimStart().firstOrNull() ?: return '#'
+    val plain = java.text.Normalizer.normalize(first.toString(), java.text.Normalizer.Form.NFD).firstOrNull() ?: first
+    return plain.uppercaseChar().takeIf(Char::isLetter) ?: '#'
+}
 
 @Composable
 private fun AlphabeticalApps(
