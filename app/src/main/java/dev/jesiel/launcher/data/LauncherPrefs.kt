@@ -113,6 +113,10 @@ data class LauncherData(
     val htmlWidgets: List<HtmlWidget>,
     /** Widget HTML usado no lugar da lista de apps do tema (nulo = a do tema). */
     val appsHtmlId: String? = null,
+    /** Pacote de ícones (nome do pacote) ou nulo para os ícones do sistema. */
+    val iconPack: String? = null,
+    /** Apps que o pacote não cobre ganham o fundo e a máscara do pacote. */
+    val iconPackStyleUnthemed: Boolean = true,
 ) {
     fun layoutFor(themeId: String) = layouts[themeId] ?: defaultLayout(themeId)
 
@@ -265,6 +269,8 @@ class LauncherPrefs(context: Context) {
             sharedLayout = prefs.getBoolean(KEY_SHARED_LAYOUT, true),
             htmlWidgets = HtmlWidget.listFromJson(prefs.getString(KEY_HTML_WIDGETS, null)),
             appsHtmlId = prefs.getString(KEY_APPS_HTML, null),
+            iconPack = prefs.getString(KEY_ICON_PACK, null),
+            iconPackStyleUnthemed = prefs.getBoolean(KEY_ICON_PACK_STYLE, true),
         )
     }
 
@@ -340,6 +346,8 @@ class LauncherPrefs(context: Context) {
             .putBoolean(KEY_SHARED_LAYOUT, d.sharedLayout)
             .putString(KEY_HTML_WIDGETS, HtmlWidget.listToJson(d.htmlWidgets))
             .putString(KEY_APPS_HTML, d.appsHtmlId)
+            .putString(KEY_ICON_PACK, d.iconPack)
+            .putBoolean(KEY_ICON_PACK_STYLE, d.iconPackStyleUnthemed)
             .apply()
     }
 
@@ -371,5 +379,7 @@ class LauncherPrefs(context: Context) {
         const val KEY_SHARED_LAYOUT = "sharedLayout"
         const val KEY_HTML_WIDGETS = "htmlWidgets"
         const val KEY_APPS_HTML = "appsHtml"
+        const val KEY_ICON_PACK = "iconPack"
+        const val KEY_ICON_PACK_STYLE = "iconPackStyle"
     }
 }

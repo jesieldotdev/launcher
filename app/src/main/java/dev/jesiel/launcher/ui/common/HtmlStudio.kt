@@ -185,20 +185,17 @@ fun HtmlStudio(controller: LauncherController, palette: LauncherPalette) {
                             onOpen = { controller.editHtmlWidget(w) },
                         ) { close ->
                             DropdownMenuItem(text = { Text("Editar") }, onClick = { close(); controller.editHtmlWidget(w) })
+                            DropdownMenuItem(text = { Text("Testar") }, onClick = { close(); controller.testHtml(w) })
                             DropdownMenuItem(
                                 text = { Text(if (w.onDesktop) "Tirar da área de trabalho" else "Pôr na área de trabalho") },
                                 onClick = { close(); vm.setHtmlWidgetOnDesktop(w.id, !w.onDesktop) },
                             )
                             if (HtmlRole.LOCK in roles) {
-                                DropdownMenuItem(text = { Text("Testar tela de bloqueio") }, onClick = { close(); LockScreen.show(context) })
+                                DropdownMenuItem(text = { Text("Abrir a tela de bloqueio de verdade") }, onClick = { close(); LockScreen.show(context) })
                             } else {
                                 DropdownMenuItem(text = { Text("Usar na tela de bloqueio") }, onClick = { close(); controller.useOnLockScreen(w) })
                             }
                             if (HtmlRole.APPS in roles) {
-                                DropdownMenuItem(
-                                    text = { Text("Testar lista de apps") },
-                                    onClick = { close(); controller.htmlLibraryOpen = false; controller.openHtmlDrawer(search = false) },
-                                )
                                 DropdownMenuItem(text = { Text("Voltar à lista do tema") }, onClick = { close(); vm.setAppsHtml(null) })
                             } else {
                                 DropdownMenuItem(text = { Text("Usar como lista de apps") }, onClick = { close(); controller.useAsAppList(w) })

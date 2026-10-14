@@ -142,6 +142,9 @@ fun SettingsScreen(state: LauncherUiState, controller: LauncherController, onClo
                             modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
                         )
 
+                        SectionTitle("Ícones")
+                        IconPackCard(state, controller)
+
                         SectionTitle("Aparência")
                         Card {
                             Text("Modo de cor", fontWeight = FontWeight.SemiBold)
@@ -955,5 +958,79 @@ private fun SettingsTabs(selected: Int, onSelect: (Int) -> Unit) {
                 text = { Text(label, fontWeight = if (i == selected) FontWeight.SemiBold else FontWeight.Normal) },
             )
         }
+    }
+}
+
+/** Escolha do pacote de ícones, como no Microsoft Launcher: do sistema ou de um pacote instalado. */
+@Composable
+private fun IconPackCard(state: LauncherUiState, controller: LauncherController) {
+    val vm = controller.viewModel
+    val context = androidx.compose.ui.platform.LocalContext.current
+    var packs by remember { mutableStateOf(dev.jesiel.launcher.data.IconPacks.installed(context)) }
+    // Ao voltar da Play Store, a lista já mostra o pacote recém-instalado.
+    LifecycleResumeEffect(Unit) {
+        packs = dev.jesiel.launcher.data.IconPacks.installed(context)
+        onPauseOrDispose { }
+    }
+    Card {
+        Text("Pacote de ícones", fontWeight = FontWeight.SemiBold)
+        Spacer(Modifier.height(8.dp))
+        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            IconPackOption("Do sistema", null, state.iconPack == null) { vm.setIconPack(null) }
+            packs.forEach { pack ->
+                IconPackOption(pack.label, pack.icon, state.iconPack == pack.packageName) { vm.setIconPack(pack.packageName) }
+            }
+        }
+        if (state.iconPack != null && packs.none { it.packageName == state.iconPack }) {
+            Text("O pacote escolhido não está mais instalado; usando os ícones do sistema.", fontSize = 12.sp, color = MaterialTheme.colorScheme.error)
+        }
+        if (packs.isEmpty()) {
+            Text(
+                "Nenhum pacote de ícones instalado. Funcionam os pacotes feitos para Nova, ADW, Apex ou Microsoft Launcher.",
+                fontSize = 12.sp,
+                color = Color.Gray,
+                modifier = Modifier.padding(top = 6.dp),
+            )
+        }
+        Spacer(Modifier.height(8.dp))
+        SwitchRow("Aplicar o estilo do pacote aos outros apps", state.iconPackStyleUnthemed) { vm.setIconPackStyleUnthemed(it) }
+        Text(
+            "Apps que o pacote não cobre ganham o fundo e o formato dele, quando o pacote traz esse estilo.",
+            fontSize = 12.sp,
+            color = Color.Gray,
+        )
+        androidx.compose.material3.TextButton(onClick = { controller.start(dev.jesiel.launcher.data.IconPacks.storeIntent()) }) {
+            Text("Buscar pacotes na Play Store")
+        }
+    }
+}
+
+@Composable
+private fun IconPackOption(label: String, icon: androidx.compose.ui.graphics.ImageBitmap?, selected: Boolean, onClick: () -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .width(84.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .background(if (selected) colors.primary.copy(alpha = 0.14f) else Color.Transparent)
+            .border(if (selected) 2.dp else 1.dp, if (selected) colors.primary else colors.outlineVariant, RoundedCornerShape(14.dp))
+            .clickable(onClick = onClick)
+            .padding(vertical = 10.dp, horizontal = 6.dp),
+    ) {
+        if (icon != null) {
+            androidx.compose.foundation.Image(icon, contentDescription = null, modifier = Modifier.size(44.dp))
+        } else {
+            // Do sistema: uma grade de quatro "ícones".
+            Column(Modifier.size(44.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                repeat(2) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        repeat(2) { Box(Modifier.size(20.dp).clip(RoundedCornerShape(6.dp)).background(colors.primary.copy(alpha = 0.6f))) }
+                    }
+                }
+            }
+        }
+        Spacer(Modifier.height(6.dp))
+        Text(label, fontSize = 12.sp, maxLines = 2, textAlign = androidx.compose.ui.text.style.TextAlign.Center, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
     }
 }

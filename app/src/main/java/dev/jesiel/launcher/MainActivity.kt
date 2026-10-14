@@ -146,6 +146,18 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
+            // Testador de widgets HTML, por cima do editor e do Estúdio.
+            BackHandler(enabled = controller.htmlTesting != null) { controller.htmlTesting = null }
+            AnimatedVisibility(
+                visible = controller.htmlTesting != null,
+                enter = fadeIn(tween(180)),
+                exit = fadeOut(tween(160)),
+            ) {
+                val testing = remember { controller.htmlTesting }
+                val palette = controller.palette ?: dev.jesiel.launcher.ui.windows.windowsPalette(isDark(state.colorMode))
+                testing?.let { dev.jesiel.launcher.ui.common.HtmlTester(it, controller.htmlTestingRole, controller, palette) }
+            }
+
             BackHandler(enabled = controller.settingsOpen) { controller.settingsOpen = false }
             AnimatedVisibility(
                 visible = controller.settingsOpen,

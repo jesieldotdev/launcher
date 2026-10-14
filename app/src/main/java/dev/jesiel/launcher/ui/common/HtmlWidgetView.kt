@@ -164,6 +164,8 @@ fun HtmlWidgetView(
     onStatus: ((String) -> Unit)? = null,
     /** Valores a mais (ex.: modoBusca na lista de apps). */
     extra: Map<String, String> = emptyMap(),
+    /** Todas as mensagens do console da página (log, aviso, erro), para o testador. */
+    onConsole: ((level: String, message: String, line: Int) -> Unit)? = null,
 ) {
     val used = remember(widget.html) { HtmlVariables.used(widget.html) }
     val values = rememberHtmlValues(palette, used, controller, extra)
@@ -237,6 +239,7 @@ fun HtmlWidgetView(
                 }
                 webChromeClient = object : android.webkit.WebChromeClient() {
                     override fun onConsoleMessage(message: android.webkit.ConsoleMessage): Boolean {
+                        onConsole?.invoke(message.messageLevel().name.lowercase(), message.message(), message.lineNumber())
                         if (message.messageLevel() == android.webkit.ConsoleMessage.MessageLevel.ERROR) {
                             onStatus?.invoke("Erro no script (linha ${message.lineNumber()}): ${message.message()}")
                         }

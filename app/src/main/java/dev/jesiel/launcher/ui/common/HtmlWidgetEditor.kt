@@ -104,6 +104,8 @@ fun HtmlWidgetEditor(
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp)) {
             IconButton(onClick = { controller.htmlEditing = null }) { Icon(Icons.Default.Close, "Fechar", tint = colors.onBackground) }
             Text(if (isNew) "Novo widget HTML" else "Editar widget HTML", fontSize = 18.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f), color = colors.onBackground)
+            OutlinedButton(onClick = { controller.testHtml(draft, role) }) { Text("Testar") }
+            Spacer(Modifier.width(6.dp))
             Button(onClick = {
                 // Novo widget vai só para onde foi escolhido; um existente continua onde já estava.
                 val saved = if (isNew) draft.copy(onDesktop = role == dev.jesiel.launcher.data.HtmlRole.DESKTOP)

@@ -53,9 +53,12 @@ fun LockScreenContent(
     state: LauncherUiState,
     controller: LauncherController,
     palette: LauncherPalette,
+    /** Widget a mostrar no lugar do configurado (o testador usa o rascunho do editor). */
+    widgetOverride: dev.jesiel.launcher.data.HtmlWidget? = null,
+    onConsole: ((level: String, message: String, line: Int) -> Unit)? = null,
     onUnlock: () -> Unit,
 ) {
-    val widget = if (settings.style == LockStyle.HTML) state.htmlWidgets.firstOrNull { it.id == settings.htmlWidgetId } else null
+    val widget = widgetOverride ?: if (settings.style == LockStyle.HTML) state.htmlWidgets.firstOrNull { it.id == settings.htmlWidgetId } else null
     val density = LocalDensity.current
     val scope = rememberCoroutineScope()
     val lift = remember { Animatable(0f) }
@@ -85,7 +88,7 @@ fun LockScreenContent(
                 },
         ) {
             if (widget != null) {
-                HtmlWidgetView(widget, controller, palette, Modifier.fillMaxSize())
+                HtmlWidgetView(widget, controller, palette, Modifier.fillMaxSize(), onConsole = onConsole)
             } else {
                 Box(Modifier.fillMaxSize().then(swipe)) { ThemeLock(state, palette) }
             }

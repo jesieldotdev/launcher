@@ -65,12 +65,19 @@ data class LauncherUiState(
     val htmlWidgets: List<HtmlWidget> = emptyList(),
     /** Widget HTML que substitui a lista de apps do tema, se houver. */
     val appsHtml: HtmlWidget? = null,
+    val iconPack: String? = null,
+    val iconPackStyleUnthemed: Boolean = true,
 )
 
 class LauncherViewModel(application: Application) : AndroidViewModel(application) {
 
     private val prefs = LauncherPrefs(application)
-    private val repository = AppRepository(application, viewModelScope)
+    private val repository = AppRepository(application, viewModelScope).also { repo ->
+        // O pacote de ícones vem das preferências; trocar recarrega os ícones.
+        viewModelScope.launch {
+            prefs.data.collect { d -> repo.setIconPack(d.iconPack, d.iconPackStyleUnthemed) }
+        }
+    }
     private val menuIconVersion = MutableStateFlow(0L)
     val backups = Backups(application, prefs)
 
@@ -141,6 +148,8 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
             sharedLayout = data.sharedLayout,
             htmlWidgets = data.htmlWidgets,
             appsHtml = data.appsHtmlId?.let { id -> data.htmlWidgets.firstOrNull { it.id == id } },
+            iconPack = data.iconPack,
+            iconPackStyleUnthemed = data.iconPackStyleUnthemed,
         )
     }
 
@@ -368,6 +377,9 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
 
     /** Usa o widget [id] como lista de apps (nulo volta à do tema). */
     fun setAppsHtml(id: String?) = prefs.update { it.copy(appsHtmlId = id) }
+
+    fun setIconPack(packageName: String?) = prefs.update { it.copy(iconPack = packageName) }
+    fun setIconPackStyleUnthemed(on: Boolean) = prefs.update { it.copy(iconPackStyleUnthemed = on) }
 
     fun setWindowMode(on: Boolean) = prefs.update { it.copy(windowMode = on) }
 

@@ -289,6 +289,15 @@ class LauncherController(
     /** Onde o widget em edição vai ser usado ao salvar (área de trabalho, bloqueio, lista de apps). */
     var htmlEditingRole by mutableStateOf(dev.jesiel.launcher.data.HtmlRole.DESKTOP)
 
+    /** Widget aberto no testador (rascunho do editor ou salvo) e em que formato testar. */
+    var htmlTesting by mutableStateOf<dev.jesiel.launcher.data.HtmlWidget?>(null)
+    var htmlTestingRole by mutableStateOf(dev.jesiel.launcher.data.HtmlRole.DESKTOP)
+
+    fun testHtml(widget: dev.jesiel.launcher.data.HtmlWidget, role: dev.jesiel.launcher.data.HtmlRole = roleOf(widget)) {
+        htmlTestingRole = role
+        htmlTesting = widget
+    }
+
     /** Lista de apps em HTML aberta (no lugar da gaveta do tema). */
     var htmlDrawerOpen by mutableStateOf(false)
     var htmlDrawerSearch by mutableStateOf(false)
@@ -310,14 +319,16 @@ class LauncherController(
         override fun sizeOf(key: String, value: ByteArray) = value.size
     }
     fun appIconPng(packageName: String): ByteArray? {
-        iconCache.get(packageName)?.let { return it }
         val app = viewModel.state.value.apps.firstOrNull { it.packageName == packageName } ?: return null
+        // A chave muda quando o ícone muda (ex.: troca do pacote de ícones).
+        val key = packageName + "@" + System.identityHashCode(app.icon)
+        iconCache.get(key)?.let { return it }
         val bytes = runCatching {
             val out = java.io.ByteArrayOutputStream()
             app.icon.asAndroidBitmap().compress(android.graphics.Bitmap.CompressFormat.PNG, 100, out)
             out.toByteArray()
         }.getOrNull() ?: return null
-        iconCache.put(packageName, bytes)
+        iconCache.put(key, bytes)
         return bytes
     }
 

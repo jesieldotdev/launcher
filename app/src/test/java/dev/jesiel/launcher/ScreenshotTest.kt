@@ -623,4 +623,50 @@ class ScreenshotTest {
         controller.htmlDrawerOpen = false
         org.junit.Assert.assertFalse(controller.openHtmlDrawer(search = false))
     }
+
+    /** Testador: roda o rascunho, mostra as variáveis usadas e o console. */
+    @Test
+    fun htmlTester() {
+        val controller = controller()
+        val widget = dev.jesiel.launcher.data.HtmlWidget("t1", "Teste", "<b>{{hora}}</b> {{bateria}}% <script>console.log('oi')</script>", interactive = true)
+        compose.setContent {
+            val palette = dev.jesiel.launcher.ui.windows.windowsPalette(true)
+            dev.jesiel.launcher.ui.common.HtmlTester(widget, dev.jesiel.launcher.data.HtmlRole.DESKTOP, controller, palette)
+        }
+        compose.onNodeWithText("Variáveis").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText("hora").assertExists()
+        compose.onNodeWithText("bateria").assertExists()
+        compose.onRoot().captureRoboImage(shot("html-tester-vars"))
+        compose.onNodeWithText("Console (1)").performClick()
+        compose.waitForIdle()
+        compose.onRoot().captureRoboImage(shot("html-tester-console"))
+        // Links tocados na página passam pelo testador e ficam no console.
+        controller.handleWidgetLink("launcher://fechar")
+        compose.waitForIdle()
+        compose.onNodeWithText("launcher://fechar", substring = true).assertExists()
+    }
+
+    /** Ajustes › Visual: escolha do pacote de ícones, com um pacote instalado. */
+    @Test
+    fun iconPackPicker() {
+        val activity = compose.activity
+        val info = android.content.pm.ResolveInfo().apply {
+            activityInfo = android.content.pm.ActivityInfo().apply {
+                packageName = "com.exemplo.icones"
+                name = "com.exemplo.icones.Main"
+                applicationInfo = android.content.pm.ApplicationInfo().apply {
+                    packageName = "com.exemplo.icones"
+                    nonLocalizedLabel = "Whicons"
+                }
+            }
+        }
+        org.robolectric.Shadows.shadowOf(activity.packageManager).addResolveInfoForIntent(Intent("com.novalauncher.THEME"), info)
+        org.junit.Assert.assertEquals(listOf("com.exemplo.icones"), dev.jesiel.launcher.data.IconPacks.installed(activity).map { it.packageName })
+        val controller = controller()
+        compose.setContent { SettingsScreen(sampleState(), controller, onClose = {}) }
+        compose.onNodeWithText("Whicons").assertExists()
+        compose.onNodeWithText("Pacote de ícones").performScrollTo()
+        compose.onRoot().captureRoboImage(shot("settings-icon-pack"))
+    }
 }

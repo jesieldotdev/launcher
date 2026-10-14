@@ -36,20 +36,57 @@ class AppRepository(context: Context, private val scope: CoroutineScope) {
         override fun onPackagesUnavailable(packageNames: Array<out String>, user: UserHandle, replacing: Boolean) = reload()
     }
 
+    private val appContext = context.applicationContext
+    private var iconPack: IconPackLoader? = null
+    private var iconPackName: String? = null
+    private var styleUnthemed = true
+    private var configured = false
+
     init {
         launcherApps.registerCallback(callback)
-        reload()
     }
 
-    fun reload() {
+    /**
+     * Escolhe o pacote de ícones (nulo = do sistema) e recarrega os apps. A primeira chamada faz
+     * o primeiro carregamento, para não montar os ícones duas vezes ao abrir o launcher.
+     */
+    fun setIconPack(packageName: String?, styleUnthemed: Boolean) {
+        if (configured && packageName == iconPackName && styleUnthemed == this.styleUnthemed) return
+        configured = true
+        iconPackName = packageName
+        this.styleUnthemed = styleUnthemed
         loadJob?.cancel()
         loadJob = scope.launch(Dispatchers.IO) {
-            val collator = Collator.getInstance()
-            val list = userManager.userProfiles
-                .flatMap { user -> launcherApps.getActivityList(null, user).map { it.toAppInfo(user) } }
-                .sortedWith { a, b -> collator.compare(a.label, b.label) }
-            _apps.value = list
+            iconPack = packageName?.let { IconPackLoader.load(appContext, it) }
+            _apps.value = loadApps()
         }
+    }
+
+    /** Pacote em uso e quantos apps ele cobre (0 se não carregou). */
+    fun iconPackSize(): Int = iconPack?.size ?: 0
+
+    fun reload() {
+        if (!configured) return
+        loadJob?.cancel()
+        loadJob = scope.launch(Dispatchers.IO) { _apps.value = loadApps() }
+    }
+
+    private fun loadApps(): List<AppInfo> {
+        val collator = Collator.getInstance()
+        return userManager.userProfiles
+            .flatMap { user -> launcherApps.getActivityList(null, user).map { it.toAppInfo(user) } }
+            .sortedWith { a, b -> collator.compare(a.label, b.label) }
+    }
+
+    /** Ícone do pacote escolhido (com o selo de trabalho, se for o caso) ou o do sistema. */
+    private fun LauncherActivityInfo.iconBitmap(user: UserHandle): android.graphics.Bitmap {
+        val packed = iconPack?.iconFor(componentName, { getIcon(0) }, iconSizePx, styleUnthemed)
+        if (packed != null) {
+            if (user == android.os.Process.myUserHandle()) return packed
+            val pm = appContext.packageManager
+            return pm.getUserBadgedIcon(android.graphics.drawable.BitmapDrawable(appContext.resources, packed), user).toBitmap(iconSizePx, iconSizePx)
+        }
+        return getBadgedIcon(0).toBitmap(iconSizePx, iconSizePx)
     }
 
     fun keyFor(info: LauncherActivityInfo, user: UserHandle): String =
@@ -60,7 +97,7 @@ class AppRepository(context: Context, private val scope: CoroutineScope) {
         label = label.toString(),
         component = componentName,
         user = user,
-        icon = getBadgedIcon(0).toBitmap(iconSizePx, iconSizePx).asImageBitmap(),
+        icon = iconBitmap(user).asImageBitmap(),
         category = categoryOf(applicationInfo, componentName.packageName),
     )
 
