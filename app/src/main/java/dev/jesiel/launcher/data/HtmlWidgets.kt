@@ -209,55 +209,60 @@ object HtmlTemplates {
     val CLAUDE = "Claude Code" to """
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&display=swap">
 <style>
-.k{position:relative;height:100%;box-sizing:border-box;padding:4.5% 6% 4%;border-radius:min(9vh,34px);overflow:hidden;
+.k{position:relative;height:100%;box-sizing:border-box;padding:4% 5.5% 3.5%;border-radius:min(9vh,34px);overflow:hidden;
   display:flex;flex-direction:column;color:#e9c27a;font-family:Orbitron,"Eurostile","Courier New",monospace;
   background:radial-gradient(120% 90% at 50% 45%,rgba(40,30,12,.38) 0%,rgba(16,13,7,.46) 60%,rgba(10,8,5,.58) 100%);
   box-shadow:inset 0 0 0 2px #7d6136,inset 0 0 30px rgba(255,170,60,.10),inset 0 0 40px rgba(0,0,0,.35);
   text-shadow:0 1px 3px rgba(0,0,0,.6)}
 .k::after{content:"";position:absolute;inset:0;pointer-events:none;
   background:repeating-linear-gradient(180deg,rgba(255,200,120,.035) 0 1px,transparent 1px 4px)}
-.row{display:flex;justify-content:space-between;align-items:center;gap:10px;white-space:nowrap}
-.hd{font-size:min(7vh,3.6vw);letter-spacing:.12em;font-weight:500;text-transform:uppercase}
+.row{display:flex;justify-content:space-between;align-items:center;gap:8px;white-space:nowrap}
+.hd{font-size:min(4.6vh,2.6vw);letter-spacing:.12em;font-weight:500;text-transform:uppercase;text-decoration:none;color:inherit}
 .hd i{display:inline-block;width:.75em;height:.6em;background:#e9c27a;margin-right:.55em;vertical-align:.05em}
-.hr{height:1px;background:linear-gradient(90deg,#6b5330,#4a3a22);margin:3.2% 0}
-.mid{flex:1;display:flex;flex-direction:column;justify-content:center;min-height:0}
-.big{text-shadow:none;font-weight:900;font-size:min(26vh,15vw);line-height:1.05;text-align:center;white-space:nowrap;letter-spacing:.02em;
-  background:repeating-linear-gradient(180deg,#ffd98c 0 3px,rgba(255,206,120,.45) 3px 4.5px);
+.hr{height:1px;flex:none;background:linear-gradient(90deg,#6b5330,#4a3a22);margin:2.2% 0}
+.st{align-items:flex-end}
+.big{text-shadow:none;font-weight:900;font-size:min(15vh,8.5vw);line-height:1;white-space:nowrap;letter-spacing:.02em;
+  background:repeating-linear-gradient(180deg,#ffd98c 0 2px,rgba(255,206,120,.45) 2px 3px);
   -webkit-background-clip:text;background-clip:text;color:transparent;
-  filter:drop-shadow(0 0 6px rgba(255,190,90,.55)) drop-shadow(0 0 22px rgba(255,170,60,.25));transform-origin:center}
-.big.err{background:repeating-linear-gradient(180deg,#ff8a6a 0 3px,rgba(255,110,80,.45) 3px 4.5px);-webkit-background-clip:text;background-clip:text;
-  filter:drop-shadow(0 0 8px rgba(255,90,60,.6))}
+  filter:drop-shadow(0 0 5px rgba(255,190,90,.55)) drop-shadow(0 0 16px rgba(255,170,60,.25));transform-origin:left bottom}
+.big.err{background:repeating-linear-gradient(180deg,#ff8a6a 0 2px,rgba(255,110,80,.45) 2px 3px);-webkit-background-clip:text;background-clip:text;
+  filter:drop-shadow(0 0 6px rgba(255,90,60,.6))}
 .big.wait{animation:pulse 1.4s ease-in-out infinite}
 @keyframes pulse{50%{opacity:.45}}
-.sub{font-size:min(7.5vh,3.9vw);letter-spacing:.02em}
-.sub .m{overflow:hidden;text-overflow:ellipsis;max-width:70%}
-.sub .a{color:#c9a464}
-.log{font-size:min(5.6vh,2.9vw);color:#a88a55;margin-top:2%;line-height:1.5;overflow:hidden}
-.log div{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.ft{font-size:min(6.4vh,3.3vw);letter-spacing:.1em;color:#c9a464;text-transform:uppercase}
+.when{text-align:right;font-size:min(4.2vh,2.4vw);color:#c9a464;line-height:1.35}
+.when b{display:block;font-size:min(5.4vh,3vw);color:#e9c27a;font-weight:700}
+.msg{font-size:min(4.6vh,2.6vw);line-height:1.35;margin-top:1.6%;color:#f0d49a;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.log{flex:1;min-height:0;overflow-y:auto;font-size:min(3.9vh,2.2vw);line-height:1.55;color:#a88a55;scrollbar-width:none;
+  -webkit-mask:linear-gradient(180deg,#000 80%,transparent);mask:linear-gradient(180deg,#000 80%,transparent);padding-bottom:6%}
+.log::-webkit-scrollbar{display:none}
+.log div{display:flex;gap:.6em;white-space:nowrap}
+.log span:last-child{overflow:hidden;text-overflow:ellipsis}
+.log .t{color:#7d6136;flex:none}
+.log .l{flex:none;width:5.6em;font-weight:700}
+.log .ok .l{color:#e9c27a}.log .bad .l{color:#ff7a5a}.log .wait .l{color:#fff0c0}.log .stop .l{color:#b8955a}
+.ft{font-size:min(4.2vh,2.4vw);letter-spacing:.1em;color:#c9a464;text-transform:uppercase}
 .dot{display:inline-block;width:.8em;height:.8em;border-radius:50%;background:#c9a464;margin-right:.6em;vertical-align:-.05em}
 .dot.run{animation:pulse 1s infinite}.dot.bad{background:#ff6a4a;box-shadow:0 0 8px #ff6a4a}.dot.ok{background:#ffd98c;box-shadow:0 0 8px #ffbe5a}
-.cells{display:inline-flex;gap:3px;margin-left:.6em;vertical-align:middle}
-.cells b{width:min(3vh,1.6vw);height:min(4vh,2.2vw);border:1px solid #6b5330}
+.cells{display:inline-flex;gap:2px;margin-left:.6em;vertical-align:middle}
+.cells b{width:min(2.2vh,1.2vw);height:min(3vh,1.7vw);border:1px solid #6b5330}
 .cells b.ok{background:#e9c27a}.cells b.bad{background:#ff6a4a}.cells b.stop{background:#7d6136}.cells b.wait{background:#fff0c0}
-a{position:absolute;inset:0;z-index:2}
 </style>
 <div class="k">
-  <a href="launcher://url?u=https%3A%2F%2Fclaude.ai%2Fcode"></a>
-  <div class="row hd"><span><i></i>Claude Code</span><span id="repo">cc_01</span></div>
+  <a class="row hd" href="launcher://url?u=https%3A%2F%2Fclaude.ai%2Fcode"><span><i></i>Claude Code</span><span id="repo">cc_01</span></a>
   <div class="hr"></div>
-  <div class="mid">
-    <div class="big" id="big">----</div>
-    <div class="row sub"><span class="m" id="msg">Conectando…</span><span class="a" id="ago"></span></div>
-    <div class="log" id="log"></div>
-  </div>
+  <div class="row st"><div class="big" id="big">----</div><div class="when"><b id="hm"></b><span id="ago"></span></div></div>
+  <div class="msg" id="msg">Conectando…</div>
   <div class="hr"></div>
-  <div class="row ft"><span><span class="dot" id="cid"></span><span id="ci">CI —</span></span><span>24H<span class="cells" id="cells"></span></span></div>
+  <div class="log" id="log"></div>
+  <div class="row ft"><span><span class="dot" id="cid"></span><span id="ci">CI —</span></span><span><span id="n">0</span> em 24h<span class="cells" id="cells"></span></span></div>
 </div>
 <script>
-var SERVER = 'https://ntfy.sh';            // servidor ntfy
-var REPO = 'jesieldotdev/launcher';        // repositório do status do GitHub Actions
-var events = [], lastNtfy = 0, lastCi = 0, ntfyFail = false;
+var TOPIC = (window.launcher && launcher.ntfy) || '';      // canal salvo em Personalizar › Claude Code
+var SERVER = 'https://ntfy.sh';
+var REPO = 'jesieldotdev/launcher';
+function onLauncherData(d){ if ((d.ntfy || '') != TOPIC) { TOPIC = d.ntfy || ''; events = []; sig = ''; lastNtfy = 0; } }
+var events = [], lastNtfy = 0, lastCi = 0, ntfyFail = false, sig = '';
 
 function kind(e){
   var t = e.tags || [];
@@ -274,42 +279,49 @@ function ago(t){
   return 'há ' + Math.floor(s/86400) + ' d';
 }
 function hhmm(t){ var d = new Date(t*1000); return ('0'+d.getHours()).slice(-2) + ':' + ('0'+d.getMinutes()).slice(-2); }
+function esc(s){ return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
 function el(id){ return document.getElementById(id); }
 function fit(){
   var b = el('big'); b.style.transform = 'none';
-  var w = b.parentNode.clientWidth, sw = b.scrollWidth;
-  if (sw > w) b.style.transform = 'scale(' + (w / sw) + ')';
+  var w = b.parentNode.clientWidth - el('hm').parentNode.offsetWidth - 10, sw = b.scrollWidth;
+  if (sw > w && w > 0) b.style.transform = 'scale(' + (w / sw) + ')';
 }
 function draw(){
-  var topic = (window.launcher && launcher.ntfy) || '';
-  var big = el('big'), msg = el('msg');
+  var big = el('big');
   big.className = 'big';
-  if (!topic) {
-    big.textContent = 'SEM CANAL'; msg.textContent = 'Personalizar › Claude Code'; el('ago').textContent = '';
+  if (!TOPIC) {
+    big.textContent = 'SEM CANAL'; el('msg').textContent = 'Defina o canal em Personalizar › Claude Code';
+    el('hm').textContent = ''; el('ago').textContent = '';
   } else if (!events.length) {
     big.textContent = ntfyFail ? 'OFFLINE' : 'OCIOSO';
-    msg.textContent = ntfyFail ? 'Sem conexão com o ntfy' : 'Nada nas últimas 24 h'; el('ago').textContent = '';
+    el('msg').textContent = ntfyFail ? 'Sem conexão com o ntfy' : 'Nada nas últimas 24 h';
+    el('hm').textContent = ''; el('ago').textContent = '';
   } else {
     var e = events[events.length-1], k = kind(e);
     big.textContent = LABEL[k];
     if (k == 'bad') big.className = 'big err';
     if (k == 'wait') big.className = 'big wait';
-    msg.textContent = e.message || e.title || '';
-    el('ago').textContent = ago(e.time);
+    el('msg').textContent = e.message || e.title || '';
+    el('hm').textContent = hhmm(e.time); el('ago').textContent = ago(e.time);
     var t = (e.tags || []); var repo = t[t.length-1];
     if (repo && repo != 'stop' && repo != 'wait' && repo != 'build') el('repo').textContent = repo + ' / cc';
   }
-  var log = events.slice(-3, -1).reverse().map(function(e){
-    return '<div>' + hhmm(e.time) + ' · ' + LABEL[kind(e)] + ' · ' + String(e.message || '').replace(/</g,'&lt;') + '</div>';
-  }).join('');
-  el('log').innerHTML = log;
-  el('cells').innerHTML = events.slice(-8).map(function(e){ return '<b class="' + kind(e) + '"></b>'; }).join('');
+  // A lista só é refeita quando chegam eventos novos, para não perder a rolagem.
+  var s = events.length + ':' + (events.length ? events[events.length-1].id : '');
+  if (s != sig) {
+    sig = s;
+    el('log').innerHTML = events.slice(0, -1).reverse().map(function(e){
+      var k = kind(e);
+      return '<div class="' + k + '"><span class="t">' + hhmm(e.time) + '</span><span class="l">' + LABEL[k] + '</span><span>' + esc(e.message || e.title) + '</span></div>';
+    }).join('') || '<div><span>Sem histórico</span></div>';
+    el('cells').innerHTML = events.slice(-10).map(function(e){ return '<b class="' + kind(e) + '"></b>'; }).join('');
+    el('n').textContent = events.length;
+  }
   fit();
 }
 function pollNtfy(){
-  var topic = (window.launcher && launcher.ntfy) || '';
-  if (!topic) { draw(); return; }
-  fetch(SERVER + '/' + encodeURIComponent(topic) + '/json?poll=1&since=24h').then(function(r){ return r.text(); }).then(function(txt){
+  if (!TOPIC) return;
+  fetch(SERVER + '/' + encodeURIComponent(TOPIC) + '/json?poll=1&since=24h').then(function(r){ return r.text(); }).then(function(txt){
     events = txt.split('\n').filter(Boolean).map(function(l){ try { return JSON.parse(l); } catch(x){ return null; } })
       .filter(function(e){ return e && e.event == 'message'; });
     ntfyFail = false; draw();
@@ -326,15 +338,12 @@ function pollCi(){
     el('ci').textContent = txt + ' · ' + hhmm(Date.parse(run.updated_at)/1000);
   }).catch(function(){});
 }
-// Timers do WebView param quando a tela inicial sai de cena; aqui só controlamos o intervalo.
 function tick(){
   var now = Date.now();
   if (now - lastNtfy > 45000) { lastNtfy = now; pollNtfy(); }
   if (now - lastCi > 300000) { lastCi = now; pollCi(); }
   draw();
 }
-var lastTopic = null;
-function onLauncherData(d){ if (d.ntfy !== lastTopic) { lastTopic = d.ntfy; lastNtfy = 0; } }
 document.addEventListener('visibilitychange', function(){ if (!document.hidden) { lastNtfy = 0; tick(); } });
 window.addEventListener('resize', fit);
 tick(); setInterval(tick, 15000);

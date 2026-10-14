@@ -30,7 +30,14 @@ case "$event" in
     fi ;;
   Notification)
     title="esperando você"; tags="bell,wait"; prio=4
-    msg="$(field .message)"; msg="${msg:-O Claude precisa da sua resposta}" ;;
+    msg="$(field .message)"
+    case "$msg" in
+      *"needs your permission to use "*) msg="Precisa de permissão para usar ${msg##*to use }" ;;
+      *"needs your permission"*) msg="Precisa da sua permissão" ;;
+      *"waiting for your input"*) msg="Esperando sua resposta" ;;
+      *"needs your attention"*) msg="Precisa da sua atenção" ;;
+    esac
+    msg="${msg:-O Claude precisa da sua resposta}" ;;
   Stop)
     title="execução concluída"; tags="checkered_flag,stop"; prio=3
     msg="$(field .last_assistant_message | tr '\n' ' ' | cut -c1-140)"; msg="${msg:-Terminou e aguarda o próximo pedido}" ;;
