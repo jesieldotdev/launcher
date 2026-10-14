@@ -98,6 +98,13 @@ fun AppsViewSelector(state: LauncherUiState, controller: LauncherController, pal
             }
             androidx.compose.material3.HorizontalDivider()
             DropdownMenuItem(
+                text = { Text(if (state.layout.searchAtBottom) "Busca no topo" else "Busca embaixo") },
+                onClick = {
+                    open = false
+                    controller.viewModel.updateLayout { it.copy(searchAtBottom = !it.searchAtBottom) }
+                },
+            )
+            DropdownMenuItem(
                 text = { Text(if (state.layout.showLetters) "Ocultar letras" else "Mostrar letras") },
                 onClick = {
                     open = false

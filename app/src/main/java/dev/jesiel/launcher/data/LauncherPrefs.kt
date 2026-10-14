@@ -40,6 +40,8 @@ data class ThemeLayout(
     val showAppsHeader: Boolean = true,
     /** Letras (A, B, C…) separando os grupos e o índice A–Z na lista de apps. */
     val showLetters: Boolean = true,
+    /** Barra de busca da lista de apps embaixo, perto do polegar. */
+    val searchAtBottom: Boolean = false,
     /** Tamanho dos ícones e colunas na lista / grade de apps (menu Iniciar e gavetas). */
     val drawerIconSizeDp: Int = 48,
     val drawerColumns: Int = 4,
@@ -221,6 +223,7 @@ class LauncherPrefs(context: Context) {
                     menuOpensAllApps = l.optBoolean("menuAllApps", false),
                     showAppsHeader = l.optBoolean("appsHeader", true),
                     showLetters = l.optBoolean("letters", true),
+                    searchAtBottom = l.optBoolean("searchBottom", false),
                     drawerIconSizeDp = l.optInt("drawerIcon", 48),
                     drawerColumns = l.optInt("drawerColumns", 4),
                     showTopBar = l.optBoolean("topBar", true),
@@ -296,6 +299,7 @@ class LauncherPrefs(context: Context) {
                         .put("menuAllApps", l.menuOpensAllApps)
                         .put("appsHeader", l.showAppsHeader)
                         .put("letters", l.showLetters)
+                        .put("searchBottom", l.searchAtBottom)
                         .put("drawerIcon", l.drawerIconSizeDp)
                         .put("drawerColumns", l.drawerColumns)
                         .put("topBar", l.showTopBar),

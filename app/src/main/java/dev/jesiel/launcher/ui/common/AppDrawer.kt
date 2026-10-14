@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -142,14 +143,19 @@ private fun DrawerContent(
             .background((style.background ?: palette.panel).let { if (palette.panel.alpha < 1f) it.copy(alpha = minOf(it.alpha, palette.panel.alpha)) else it })
             .clickable(remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, indication = null) {}
             .statusBarsPadding()
-            .navigationBarsPadding(),
+            .navigationBarsPadding()
+            .imePadding(),
     ) {
-        Spacer(Modifier.height(12.dp))
-        DrawerSearch(query, { query = it }, style.searchPlaceholder, palette, focusSearch, onClose = ::close) {
-            val best = state.apps.search(query).firstOrNull()
-            if (best != null) controller.launch(best) else controller.webSearch(query)
-            close()
+        val searchBar: @Composable () -> Unit = {
+            DrawerSearch(query, { query = it }, style.searchPlaceholder, palette, focusSearch, onClose = ::close) {
+                val best = state.apps.search(query).firstOrNull()
+                if (best != null) controller.launch(best) else controller.webSearch(query)
+                close()
+            }
         }
+        val bottomSearch = state.layout.searchAtBottom
+        Spacer(Modifier.height(12.dp))
+        if (!bottomSearch) searchBar()
         val header = state.layout.showAppsHeader
         if (query.isBlank() && header) {
             Row(Modifier.padding(start = 16.dp, top = 10.dp, end = 16.dp)) { AppsViewSelector(state, controller, palette) }
@@ -233,6 +239,12 @@ private fun DrawerContent(
                     }
                 }
             }
+        }
+        // Busca embaixo: acima das abas (KDE) e, ao digitar, logo acima do teclado.
+        if (bottomSearch) {
+            Spacer(Modifier.height(8.dp))
+            searchBar()
+            Spacer(Modifier.height(10.dp))
         }
         if (style.bottomTabs) {
             Row(

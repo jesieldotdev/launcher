@@ -287,7 +287,8 @@ private fun TerminalContent(
             )
         }
         Divider(8.dp)
-        // Prompt de busca.
+        // Prompt de busca: no topo ou embaixo (Personalizar › Busca embaixo).
+        val promptBar: @Composable () -> Unit = {
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
@@ -320,6 +321,9 @@ private fun TerminalContent(
                 }
             }
         }
+        }
+        val bottomSearch = state.layout.searchAtBottom
+        if (!bottomSearch) promptBar()
         Spacer(Modifier.height(6.dp))
         LazyColumn(state = listState, modifier = Modifier.weight(1f).fillMaxWidth()) {
             items(rows, key = { r -> if (r is Char) "h-$r" else (r as Pair<*, *>).let { "a-${it.first}-" + (it.second as dev.jesiel.launcher.data.AppInfo).key } }, contentType = { if (it is Char) "letra" else "app" }) { r ->
@@ -346,6 +350,11 @@ private fun TerminalContent(
                     }
                 }
             }
+        }
+        if (bottomSearch) {
+            Spacer(Modifier.height(6.dp))
+            promptBar()
+            Spacer(Modifier.height(8.dp))
         }
     }
 }
