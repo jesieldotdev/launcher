@@ -662,8 +662,43 @@ function onLauncherData(d){
   </div>
 </div>""".trimIndent()
 
+    /** Tela de bloqueio em HTML (Personalizar › Tela de bloqueio › Widget HTML). */
+    val LOCK = "Tela de bloqueio" to """
+<style>
+.l{position:relative;height:100%;box-sizing:border-box;padding:18vh 8vw 22vh;color:#fff;font-family:sans-serif;
+  display:flex;flex-direction:column;align-items:center;text-align:center;
+  background:linear-gradient(180deg,rgba(0,0,0,.25),rgba(0,0,0,0) 40%,rgba(0,0,0,.45));text-shadow:0 2px 10px rgba(0,0,0,.45)}
+.d{font-size:5vw;opacity:.9;text-transform:capitalize}
+.h{font-size:26vw;font-weight:200;line-height:1;letter-spacing:-.02em;margin-top:1vh}
+.s{font-size:4vw;opacity:.85;margin-top:2vh}
+.s b{color:var(--corPrimaria);font-weight:600}
+.music{margin-top:auto;width:100%;box-sizing:border-box;padding:4vw;border-radius:6vw;text-align:left;
+  background:color-mix(in srgb,var(--corSuperficie) 55%,transparent);border:1px solid rgba(255,255,255,.15)}
+.music .t{font-size:4.6vw;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.music .a{font-size:3.8vw;opacity:.8}
+.ctl{display:flex;justify-content:space-around;margin-top:2vw}
+.ctl a{color:#fff;text-decoration:none;font-size:7vw;padding:1vw 4vw}
+.empty{display:none}
+.music[data-t=""]{display:none}
+</style>
+<div class="l">
+  <div class="d">{{diaSemana}}, {{data}}</div>
+  <div class="h">{{hora}}</div>
+  <div class="s">{{saudacao}} · <b>{{bateria}}%</b> {{carregando}}</div>
+  <div class="music" data-t="{{musicaTitulo}}">
+    <div class="t">{{musicaTitulo}}</div>
+    <div class="a">{{musicaArtista}}</div>
+    <div class="ctl">
+      <a href="launcher://musica/anterior">⏮</a>
+      <a href="launcher://musica/alternar">⏯</a>
+      <a href="launcher://musica/proxima">⏭</a>
+    </div>
+  </div>
+</div>""".trimIndent()
+
     val all: List<Pair<String, String>> = listOf(
         CLAUDE,
+        LOCK,
         MUSIC,
         MATERIAL_CLOCK,
         RETRO,

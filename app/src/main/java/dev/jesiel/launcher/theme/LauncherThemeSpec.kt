@@ -23,6 +23,9 @@ interface LauncherThemeSpec {
     val previewColors: List<Color>
     val available: Boolean get() = true
 
+    /** Cores do tema (usadas também pela tela de bloqueio). */
+    fun palette(dark: Boolean): dev.jesiel.launcher.ui.common.LauncherPalette
+
     @Composable
     fun Content(state: LauncherUiState, controller: LauncherController)
 }
@@ -32,6 +35,8 @@ object WindowsThemeSpec : LauncherThemeSpec {
     override val name = "Windows"
     override val description = "Menu Iniciar, apps fixados e atalhos recentes"
     override val previewColors = listOf(Color(0xFF0B5CD5), Color(0xFF5AA0F2), Color(0xFFDCE8F8))
+
+    override fun palette(dark: Boolean) = dev.jesiel.launcher.ui.windows.windowsPalette(dark)
 
     @Composable
     override fun Content(state: LauncherUiState, controller: LauncherController) = WindowsLauncher(state, controller)
@@ -43,6 +48,8 @@ object UbuntuThemeSpec : LauncherThemeSpec {
     override val description = "Dock lateral, Atividades e grade de apps"
     override val previewColors = listOf(Color(0xFF2C001E), Color(0xFF77216F), Color(0xFFE95420))
 
+    override fun palette(dark: Boolean) = dev.jesiel.launcher.ui.ubuntu.ubuntuPalette(dark)
+
     @Composable
     override fun Content(state: LauncherUiState, controller: LauncherController) = UbuntuLauncher(state, controller)
 }
@@ -52,6 +59,8 @@ object KdeThemeSpec : LauncherThemeSpec {
     override val name = "KDE Plasma"
     override val description = "Widgets do sistema, painel flutuante e apps por categoria"
     override val previewColors = listOf(Color(0xFF0D1B2A), Color(0xFF1D99F3), Color(0xFF3DAEE9))
+
+    override fun palette(dark: Boolean) = dev.jesiel.launcher.ui.kde.kdePalette(dark)
 
     @Composable
     override fun Content(state: LauncherUiState, controller: LauncherController) = KdeLauncher(state, controller)
@@ -63,6 +72,8 @@ object MacThemeSpec : LauncherThemeSpec {
     override val description = "Barra de menus, Dock e Launchpad"
     override val previewColors = listOf(Color(0xFF6A7BA8), Color(0xFFF0A585), Color(0xFF3E6188))
 
+    override fun palette(dark: Boolean) = dev.jesiel.launcher.ui.macos.macPalette(dark)
+
     @Composable
     override fun Content(state: LauncherUiState, controller: LauncherController) = MacLauncher(state, controller)
 }
@@ -73,6 +84,8 @@ object IosThemeSpec : LauncherThemeSpec {
     override val description = "Widgets grandes, páginas e Biblioteca de Apps"
     override val previewColors = listOf(Color(0xFFB8C6FF), Color(0xFFF6C1D9), Color(0xFFFFE4C4))
 
+    override fun palette(dark: Boolean) = dev.jesiel.launcher.ui.ios.iosPalette(dark)
+
     @Composable
     override fun Content(state: LauncherUiState, controller: LauncherController) = IosLauncher(state, controller)
 }
@@ -82,6 +95,8 @@ object RetroThemeSpec : LauncherThemeSpec {
     override val name = "Retrô futurista"
     override val description = "Âmbar, fonte Orbitron, relógio de bordo e grade no horizonte"
     override val previewColors = listOf(Color(0xFF07060A), Color(0xFF3A230C), Color(0xFFE9C27A))
+
+    override fun palette(dark: Boolean) = dev.jesiel.launcher.ui.retro.retroPalette(dark)
 
     @Composable
     override fun Content(state: LauncherUiState, controller: LauncherController) = RetroLauncher(state, controller)

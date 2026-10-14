@@ -42,6 +42,8 @@ import dev.jesiel.launcher.ui.ubuntu.UbuntuLauncher
 import dev.jesiel.launcher.ui.windows.WindowsLauncher
 import dev.jesiel.launcher.widgets.WidgetHost
 import org.junit.Rule
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.background
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -492,6 +494,27 @@ class ScreenshotTest {
 
     @Test fun htmlEditor() = editorShot("html-editor", fullscreen = false)
     @Test fun htmlEditorFullscreen() = editorShot("html-editor-fullscreen", fullscreen = true)
+
+    private fun lockShot(name: String, palette: dev.jesiel.launcher.ui.common.LauncherPalette) {
+        val controller = controller()
+        compose.setContent {
+            androidx.compose.foundation.layout.Box(
+                androidx.compose.ui.Modifier.fillMaxSize().background(
+                    androidx.compose.ui.graphics.Brush.verticalGradient(listOf(androidx.compose.ui.graphics.Color(0xFF243B6B), androidx.compose.ui.graphics.Color(0xFF6A4A7A))),
+                ),
+            ) {
+                dev.jesiel.launcher.ui.common.ThemeRoot(controller, palette) {
+                    dev.jesiel.launcher.ui.common.LockScreenContent(dev.jesiel.launcher.data.LockSettings(enabled = true), sampleState(dark = true), controller, palette) {}
+                }
+            }
+        }
+        compose.mainClock.advanceTimeBy(500)
+        compose.waitForIdle()
+        compose.onRoot().captureRoboImage(shot(name))
+    }
+
+    @Test fun lockWindows() = lockShot("lock-windows", dev.jesiel.launcher.ui.windows.windowsPalette(true))
+    @Test fun lockRetro() = lockShot("lock-retro", dev.jesiel.launcher.ui.retro.retroPalette(true))
 
     @Test fun retro() = retroShot("retro-home")
     @Test fun retroApps() = retroShot("retro-apps", open = "Programas")

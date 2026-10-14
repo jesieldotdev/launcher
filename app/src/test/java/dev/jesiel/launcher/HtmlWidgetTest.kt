@@ -131,4 +131,17 @@ class HtmlWidgetTest {
         assertTrue(html.contains("17:03 17:03 71%"))
         assertTrue(html.contains("--battery:71"))
     }
+
+    @Test
+    fun lockScreenLinksThatNeedUnlocking() {
+        val lock = dev.jesiel.launcher.data.LockScreen
+        // Música funciona com a tela bloqueada; abrir apps, páginas e ajustes pede desbloqueio.
+        assertFalse(lock.needsUnlock("launcher://musica/alternar"))
+        assertFalse(lock.needsUnlock("launcher://music/next"))
+        assertFalse(lock.needsUnlock("launcher://desbloquear"))
+        assertTrue(lock.needsUnlock("launcher://musica"))
+        assertTrue(lock.needsUnlock("launcher://app/com.whatsapp"))
+        assertTrue(lock.needsUnlock("launcher://ajustes"))
+        assertTrue(lock.needsUnlock("https://example.com"))
+    }
 }

@@ -21,6 +21,8 @@
     <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- Abrir a tela de bloqueio do Launcher quando a tela apaga (início em segundo plano). -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
     <uses-permission
         android:name="android.permission.WRITE_SETTINGS"
@@ -53,6 +55,7 @@
     </queries>
 
     <application
+        android:name=".LauncherApp"
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
@@ -78,6 +81,18 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- Tela de bloqueio do Launcher: por cima do bloqueio do sistema, numa tarefa própria. -->
+        <activity
+            android:name=".LockActivity"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|keyboard|uiMode|density|smallestScreenSize"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:launchMode="singleInstance"
+            android:showWhenLocked="true"
+            android:taskAffinity="dev.jesiel.launcher.lock"
+            android:theme="@style/Theme.Launcher"
+            tools:targetApi="o_mr1" />
 
         <!-- Música atual e contagem de notificações para os widgets HTML (precisa de "acesso a notificações"). -->
         <service

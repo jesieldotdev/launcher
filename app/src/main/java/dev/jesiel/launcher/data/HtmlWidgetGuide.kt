@@ -46,6 +46,7 @@ object HtmlWidgetGuide {
         appendLine("- `launcher://apps` lista de apps · `launcher://busca` busca · `launcher://painel` painel de controle · `launcher://notificacoes` notificações · `launcher://ajustes` ajustes do launcher.")
         appendLine("- `launcher://musica/alternar`, `/tocar`, `/pausar`, `/proxima`, `/anterior`; `launcher://musica` abre o app que está tocando.")
         appendLine("- Em inglês também valem: `launcher://music/toggle`, `/play`, `/pause`, `/next`, `/previous`, `launcher://search`, `launcher://panel`, `launcher://notifications`, `launcher://settings`.")
+        appendLine("- `launcher://desbloquear` (ou `unlock`): na tela de bloqueio do Launcher, pede o desbloqueio.")
         appendLine("- `https://…` abre no navegador interno.")
         appendLine()
         appendLine("## Bateria e desempenho")

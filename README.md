@@ -178,3 +178,13 @@ Destaque de sintaxe (HTML, CSS, JS e `{{variáveis}}`), números de linha, barra
 
 - Toda variável dos widgets tem também um nome em inglês, com o mesmo valor: `{{time}}` = `{{hora}}`, `var(--battery)` = `var(--bateria)`, `launcher.musicTitle` = `launcher.musicaTitulo`, `colorPrimary` = `corPrimaria`… Os links também: `launcher://music/next`, `launcher://search`, `launcher://panel`.
 - Ao arrastar um item (segurando ou em Organizar), pare perto da borda esquerda ou direita por meio segundo para levá-lo à tela vizinha; na última tela, uma nova é criada se as telas extras estiverem ligadas.
+
+## Tela de bloqueio do Launcher
+
+![Retrô](docs/screenshots/lock-retro.png)
+
+Personalizar › **Tela de bloqueio**. Quando a tela apaga, o Launcher abre a sua tela por cima do bloqueio do sistema; deslizar para cima pede o desbloqueio do sistema (PIN, digital), que continua sendo o mesmo — nenhum app consegue substituí-lo. Desbloquear direto pela digital também fecha a tela.
+
+- **Do tema:** relógio grande, data, bateria, notificações e música com controles, nas cores e fonte do tema.
+- **Widget HTML:** qualquer widget salvo em tela cheia (modelo "Tela de bloqueio"). `launcher://desbloquear` pede o desbloqueio; abrir apps pede o desbloqueio antes; controles de música funcionam bloqueado.
+- Precisa de "sobrepor a outros apps" e, no HyperOS/MIUI, de "Mostrar na tela de bloqueio" e "Abrir novas janelas em segundo plano" (Outras permissões).

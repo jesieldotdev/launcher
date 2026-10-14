@@ -306,7 +306,11 @@ class LauncherController(
     }
 
     /** Trata os links dos widgets HTML. Devolve verdadeiro se o link foi consumido. */
+    /** Na tela de bloqueio: decide antes (ex.: desbloquear antes de abrir um app). Verdadeiro = tratado. */
+    var linkInterceptor: ((String) -> Boolean)? = null
+
     fun handleWidgetLink(url: String): Boolean {
+        if (linkInterceptor?.invoke(url) == true) return true
         val uri = Uri.parse(url)
         when (uri.scheme) {
             "launcher" -> when (uri.host) {

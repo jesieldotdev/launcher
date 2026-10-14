@@ -317,6 +317,9 @@ fun SettingsScreen(state: LauncherUiState, controller: LauncherController, onClo
                     )
                 }
 
+                SectionTitle("Tela de bloqueio")
+                LockScreenCard(state, controller)
+
                 SectionTitle("Gestos")
                 Card {
                     SwitchRow("Painel de controle", state.controlCenter) { vm.setControlCenter(it) }
@@ -796,6 +799,94 @@ private fun MusicAccessRow(controller: LauncherController) {
         }
         androidx.compose.material3.TextButton(onClick = { controller.start(dev.jesiel.launcher.data.MediaWatcher.accessIntent()) }) {
             Text(if (access) "Gerenciar" else "Permitir")
+        }
+    }
+}
+
+/** Tela de bloqueio do Launcher: ligar, estilo (tema ou widget HTML), permissões e teste. */
+@Composable
+private fun LockScreenCard(state: LauncherUiState, controller: LauncherController) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val lock by dev.jesiel.launcher.data.LockScreen.settings(context).collectAsState()
+    val settings = lock ?: dev.jesiel.launcher.data.LockSettings()
+    var overlay by remember { mutableStateOf(dev.jesiel.launcher.data.LockScreen.canShow(context)) }
+    LifecycleResumeEffect(Unit) {
+        overlay = dev.jesiel.launcher.data.LockScreen.canShow(context)
+        onPauseOrDispose { }
+    }
+    fun update(t: (dev.jesiel.launcher.data.LockSettings) -> dev.jesiel.launcher.data.LockSettings) =
+        dev.jesiel.launcher.data.LockScreen.update(context, t)
+    // Estilo HTML sem widget escolhido (ou com um que foi apagado): usa o primeiro salvo.
+    androidx.compose.runtime.LaunchedEffect(settings.style, settings.htmlWidgetId, state.htmlWidgets) {
+        if (settings.style == dev.jesiel.launcher.data.LockStyle.HTML && state.htmlWidgets.none { it.id == settings.htmlWidgetId }) {
+            state.htmlWidgets.firstOrNull()?.let { w -> update { it.copy(htmlWidgetId = w.id) } }
+        }
+    }
+    Card {
+        SwitchRow("Usar a tela de bloqueio do Launcher", settings.enabled) { on ->
+            update { it.copy(enabled = on) }
+            if (on && !overlay) {
+                controller.toast("Permita \"sobrepor a outros apps\" para a tela aparecer ao ligar o celular")
+                controller.start(dev.jesiel.launcher.data.LockScreen.overlayPermissionIntent(context))
+            }
+        }
+        Text(
+            "Aparece por cima do bloqueio do sistema quando a tela apaga. Deslize para cima para desbloquear: o PIN e a digital continuam sendo os do sistema.",
+            fontSize = 12.sp,
+            color = Color.Gray,
+        )
+        if (settings.enabled) {
+            Spacer(Modifier.height(10.dp))
+            Text("Estilo", fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.height(6.dp))
+            Choices(dev.jesiel.launcher.data.LockStyle.entries, settings.style, { it.label }) { style -> update { it.copy(style = style) } }
+            if (settings.style == dev.jesiel.launcher.data.LockStyle.HTML) {
+                Spacer(Modifier.height(8.dp))
+                if (state.htmlWidgets.isEmpty()) {
+                    Text("Crie um widget HTML (há o modelo \"Tela de bloqueio\").", fontSize = 12.sp, color = Color.Gray)
+                } else {
+                    Text("Widget", fontSize = 13.sp, color = Color.Gray)
+                    Choices(state.htmlWidgets, state.htmlWidgets.firstOrNull { it.id == settings.htmlWidgetId } ?: state.htmlWidgets.first(), { it.name }) { w ->
+                        update { it.copy(htmlWidgetId = w.id) }
+                    }
+                }
+                Text(
+                    "Links no widget: launcher://desbloquear (ou unlock). Abrir apps pede o desbloqueio antes; controles de música funcionam sem desbloquear.",
+                    fontSize = 12.sp,
+                    color = Color.Gray,
+                    modifier = Modifier.padding(top = 6.dp),
+                )
+            }
+            Spacer(Modifier.height(10.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Sobrepor a outros apps")
+                    Text(if (overlay) "Permitido" else "Necessário para abrir a tela quando o celular apaga", fontSize = 12.sp, color = Color.Gray)
+                }
+                androidx.compose.material3.TextButton(onClick = { controller.start(dev.jesiel.launcher.data.LockScreen.overlayPermissionIntent(context)) }) {
+                    Text(if (overlay) "Gerenciar" else "Permitir")
+                }
+            }
+            Text(
+                "No HyperOS/MIUI, ative também em Outras permissões: \"Mostrar na tela de bloqueio\" e \"Abrir novas janelas em segundo plano\".",
+                fontSize = 12.sp,
+                color = Color.Gray,
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 6.dp)) {
+                OutlinedButton(onClick = {
+                    // Tela "Outras permissões" do MIUI/HyperOS; nos outros, os detalhes do app.
+                    val miui = android.content.Intent("miui.intent.action.APP_PERM_EDITOR")
+                        .putExtra("extra_pkgname", context.packageName)
+                        .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                    if (!controller.start(miui, silent = true)) {
+                        controller.start(
+                            android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, android.net.Uri.parse("package:" + context.packageName))
+                                .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
+                        )
+                    }
+                }) { Text("Outras permissões") }
+                OutlinedButton(onClick = { dev.jesiel.launcher.data.LockScreen.show(context) }) { Text("Testar agora") }
+            }
         }
     }
 }
