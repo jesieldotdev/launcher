@@ -25,6 +25,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import dev.jesiel.launcher.LauncherController
 import dev.jesiel.launcher.data.ClaudeLink
+import dev.jesiel.launcher.data.MediaWatcher
 import dev.jesiel.launcher.data.HtmlVariables
 import dev.jesiel.launcher.data.HtmlWidget
 import org.json.JSONObject
@@ -38,14 +39,23 @@ import java.util.Locale
  * nem são observadas se o widget não as menciona.
  */
 @Composable
-fun rememberHtmlValues(palette: LauncherPalette, used: Set<String>): Map<String, String> {
+fun rememberHtmlValues(palette: LauncherPalette, used: Set<String>, controller: LauncherController? = null): Map<String, String> {
     val context = LocalContext.current
     val now = rememberNow()
     val locale = remember { Locale.getDefault() }
-    val battery = if ("bateria" in used || "carregando" in used) rememberBatteryState() else null
+    val battery = if ("bateria" in used || "carregando" in used || "tempBateria" in used) rememberBatteryState() else null
     val memory = if ("memoria" in used || "armazenamento" in used) rememberMemoryState() else null
     val ntfy = if ("ntfy" in used) ClaudeLink.topic(context).collectAsState().value.orEmpty() else ""
-    return remember(now, battery, memory, palette, used, ntfy) {
+    val music = if (used.any { it.startsWith("musica") }) MediaWatcher.nowPlaying.collectAsState().value else null
+    val notifications = if ("notificacoes" in used) MediaWatcher.notifications.collectAsState().value else 0
+    val network = if ("rede" in used) rememberNetworkType() else ""
+    val volume = if ("volume" in used) rememberMediaVolume() else 0
+    val lastApp = if ("ultimoApp" in used && controller != null) {
+        controller.viewModel.state.collectAsState().value.recents.firstOrNull()?.app?.label.orEmpty()
+    } else ""
+    // Posição da música: só anda (1×/s) se o widget mostra posição ou progresso e algo está tocando.
+    val tick = if (music?.playing == true && ("musicaPosicao" in used || "musicaProgresso" in used)) rememberTicker(1_000) else 0L
+    return remember(now, battery, memory, palette, used, ntfy, music, notifications, network, volume, lastApp, tick) {
         val date = Date(now)
         fun fmt(p: String) = SimpleDateFormat(p, locale).format(date)
         val hour = Calendar.getInstance().apply { timeInMillis = now }.get(Calendar.HOUR_OF_DAY)
@@ -70,6 +80,25 @@ fun rememberHtmlValues(palette: LauncherPalette, used: Set<String>): Map<String,
             put("tema", if (palette.dark) "escuro" else "claro")
             put("cor", "#%06X".format(palette.accent.toArgb() and 0xFFFFFF))
             put("ntfy", ntfy)
+            val cal = Calendar.getInstance().apply { timeInMillis = now }
+            put("horas", "%02d".format(cal.get(Calendar.HOUR_OF_DAY)))
+            put("minutos", "%02d".format(cal.get(Calendar.MINUTE)))
+            put("semana", cal.get(Calendar.WEEK_OF_YEAR).toString())
+            if ("tempBateria" in used) put("tempBateria", batteryTemperature(context))
+            put("rede", network)
+            put("volume", volume.toString())
+            put("ultimoApp", lastApp)
+            put("notificacoes", notifications.toString())
+            val position = music?.positionNow() ?: 0L
+            put("musicaTitulo", music?.title.orEmpty())
+            put("musicaArtista", music?.artist.orEmpty())
+            put("musicaAlbum", music?.album.orEmpty())
+            put("musicaApp", music?.appLabel.orEmpty())
+            put("musicaTocando", if (music?.playing == true) "sim" else "")
+            put("musicaPosicao", if (music != null) MediaWatcher.formatTime(position) else "")
+            put("musicaDuracao", if (music != null && music.durationMs > 0) MediaWatcher.formatTime(music.durationMs) else "")
+            put("musicaProgresso", if (music != null && music.durationMs > 0) (position * 100 / music.durationMs).toString() else "0")
+            put("musicaCapa", music?.artDataUri.orEmpty())
         }
     }
 }
@@ -92,7 +121,7 @@ fun HtmlWidgetView(
     onStatus: ((String) -> Unit)? = null,
 ) {
     val used = remember(widget.html) { HtmlVariables.used(widget.html) }
-    val values = rememberHtmlValues(palette, used)
+    val values = rememberHtmlValues(palette, used, controller)
     // No modo interativo a página é montada uma vez; depois só os dados são enviados.
     val document = if (widget.interactive) {
         remember(widget.html, widget.interactive) { HtmlVariables.render(widget.html, values, interactive = true) }
@@ -183,4 +212,73 @@ fun HtmlWidgetView(
         onRelease = { it.destroy() },
         modifier = modifier,
     )
+}
+
+/** Incrementa a cada [periodMs] enquanto estiver na composição. */
+@Composable
+private fun rememberTicker(periodMs: Long): Long {
+    var tick by remember { mutableStateOf(0L) }
+    LaunchedEffect(periodMs) {
+        while (true) {
+            kotlinx.coroutines.delay(periodMs)
+            tick++
+        }
+    }
+    return tick
+}
+
+/** Wi-Fi, Dados móveis, Ethernet ou Sem conexão, acompanhando mudanças de rede. */
+@Composable
+private fun rememberNetworkType(): String {
+    val context = LocalContext.current
+    var type by remember { mutableStateOf("") }
+    DisposableEffect(context) {
+        val cm = context.getSystemService(android.net.ConnectivityManager::class.java)
+        fun describe(caps: android.net.NetworkCapabilities?) = when {
+            caps == null -> "Sem conexão"
+            caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_WIFI) -> "Wi-Fi"
+            caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_CELLULAR) -> "Dados móveis"
+            caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_ETHERNET) -> "Ethernet"
+            caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_VPN) -> "VPN"
+            else -> "Conectado"
+        }
+        type = runCatching { describe(cm?.getNetworkCapabilities(cm.activeNetwork)) }.getOrDefault("")
+        val callback = object : android.net.ConnectivityManager.NetworkCallback() {
+            override fun onCapabilitiesChanged(network: android.net.Network, caps: android.net.NetworkCapabilities) { type = describe(caps) }
+            override fun onLost(network: android.net.Network) { type = "Sem conexão" }
+        }
+        runCatching { cm?.registerDefaultNetworkCallback(callback) }
+        onDispose { runCatching { cm?.unregisterNetworkCallback(callback) } }
+    }
+    return type
+}
+
+/** Volume de mídia em %, atualizado quando muda. */
+@Composable
+private fun rememberMediaVolume(): Int {
+    val context = LocalContext.current
+    val audio = remember { context.getSystemService(android.media.AudioManager::class.java) }
+    fun read(): Int = runCatching {
+        val max = audio.getStreamMaxVolume(android.media.AudioManager.STREAM_MUSIC).coerceAtLeast(1)
+        audio.getStreamVolume(android.media.AudioManager.STREAM_MUSIC) * 100 / max
+    }.getOrDefault(0)
+    var volume by remember { mutableStateOf(read()) }
+    DisposableEffect(context) {
+        val receiver = object : android.content.BroadcastReceiver() {
+            override fun onReceive(c: android.content.Context, intent: android.content.Intent) { volume = read() }
+        }
+        // Ação oculta, mas enviada pelo sistema há muitas versões a cada mudança de volume.
+        androidx.core.content.ContextCompat.registerReceiver(
+            context, receiver, android.content.IntentFilter("android.media.VOLUME_CHANGED_ACTION"),
+            androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED,
+        )
+        onDispose { context.unregisterReceiver(receiver) }
+    }
+    return volume
+}
+
+private fun batteryTemperature(context: android.content.Context): String {
+    val intent = context.registerReceiver(null, android.content.IntentFilter(android.content.Intent.ACTION_BATTERY_CHANGED))
+    val tenths = intent?.getIntExtra(android.os.BatteryManager.EXTRA_TEMPERATURE, -1) ?: -1
+    return if (tenths < 0) "" else "%.0f".format(tenths / 10f)
 }

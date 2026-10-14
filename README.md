@@ -137,3 +137,20 @@ O widget HTML **Claude Code** (estilo âmbar retrô, fundo translúcido) mostra 
 Âmbar sobre fundo escuro translúcido, fonte Orbitron (OFL, ver `docs/licenses`), relógio de bordo, monitor do sistema com barras segmentadas e papel de parede com sol listrado e grade em perspectiva.
 
 O painel de controle pode ser desativado em **Personalizar › Gestos**; aí o gesto e os botões que o abriam passam a abrir as notificações do sistema.
+
+## Variáveis de música e sistema nos widgets HTML
+
+![Widget Música](docs/screenshots/html-widget-music.png)
+
+| Variável | Valor |
+|---|---|
+| `musicaTitulo`, `musicaArtista`, `musicaAlbum`, `musicaApp` | Faixa tocando agora |
+| `musicaTocando` | `sim` tocando, vazio pausado |
+| `musicaPosicao`, `musicaDuracao`, `musicaProgresso` | `1:23`, `3:45`, `0–100` (anda a cada segundo só enquanto toca) |
+| `musicaCapa` | Capa como data URI (`<img data-lsrc="musicaCapa" src="{{musicaCapa}}">`) |
+| `notificacoes` | Notificações pendentes |
+| `rede`, `volume`, `tempBateria` | Wi-Fi / Dados móveis / Sem conexão, volume de mídia (%), °C |
+| `horas`, `minutos`, `semana`, `ultimoApp` | Partes da hora, semana do ano, último app aberto |
+
+Controles: `launcher://musica/alternar`, `/tocar`, `/pausar`, `/proxima`, `/anterior`; `launcher://musica` abre o app que está tocando.
+Música e notificações precisam de **acesso a notificações** (Personalizar › Widgets › Permitir). O Launcher só lê o que está tocando e quantas notificações há; nada sai do aparelho.

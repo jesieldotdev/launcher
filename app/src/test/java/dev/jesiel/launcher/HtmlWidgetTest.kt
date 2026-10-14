@@ -56,4 +56,35 @@ class HtmlWidgetTest {
             java.io.File(dir, "template-$i.html").writeText(HtmlVariables.render(code, values, interactive = code.contains("<script")))
         }
     }
+
+    @Test
+    fun musicTemplateDeclaresItsVariables() {
+        val used = HtmlVariables.used(HtmlTemplates.MUSIC.second)
+        listOf("musicaTitulo", "musicaArtista", "musicaAlbum", "musicaApp", "musicaTocando", "musicaPosicao", "musicaDuracao", "musicaProgresso", "musicaCapa")
+            .forEach { assertTrue("$it não detectada", it in used) }
+        assertTrue(HtmlVariables.needsNotificationAccess(used))
+        assertFalse(HtmlVariables.needsNotificationAccess(setOf("hora", "bateria")))
+    }
+
+    @Test
+    fun interactiveUpdateRefreshesImageSources() {
+        val html = HtmlVariables.render("""<img data-lsrc="musicaCapa" src="{{musicaCapa}}">""", mapOf("musicaCapa" to "data:image/jpeg;base64,AAA"), interactive = true)
+        assertTrue(html.contains("""src="data:image/jpeg;base64,AAA""""))
+        assertTrue(html.contains("[data-lsrc]"))
+    }
+
+    @Test
+    fun formatsMusicTime() {
+        assertTrue(dev.jesiel.launcher.data.MediaWatcher.formatTime(83_000) == "1:23")
+        assertTrue(dev.jesiel.launcher.data.MediaWatcher.formatTime(3_725_000) == "1:02:05")
+        assertTrue(dev.jesiel.launcher.data.MediaWatcher.formatTime(-5) == "0:00")
+    }
+
+    @Test
+    fun positionAdvancesOnlyWhilePlaying() {
+        val base = dev.jesiel.launcher.data.NowPlaying("t", "a", "", "", "p", playing = true, positionMs = 10_000, positionAt = 1_000, speed = 1f, durationMs = 60_000, artDataUri = "")
+        assertTrue(base.positionNow(6_000) == 15_000L)
+        assertTrue(base.copy(playing = false).positionNow(6_000) == 10_000L)
+        assertTrue(base.positionNow(999_999) == 60_000L)
+    }
 }

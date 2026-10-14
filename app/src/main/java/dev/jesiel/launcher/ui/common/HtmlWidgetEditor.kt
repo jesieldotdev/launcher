@@ -148,6 +148,32 @@ fun HtmlWidgetEditor(
                     .border(1.dp, colors.onSurface.copy(alpha = 0.12f), RoundedCornerShape(10.dp))
                     .padding(10.dp),
             )
+            val context = androidx.compose.ui.platform.LocalContext.current
+            var access by remember { mutableStateOf(dev.jesiel.launcher.data.MediaWatcher.hasAccess(context)) }
+            androidx.lifecycle.compose.LifecycleResumeEffect(Unit) {
+                access = dev.jesiel.launcher.data.MediaWatcher.hasAccess(context)
+                onPauseOrDispose { }
+            }
+            if (!access && HtmlVariables.needsNotificationAccess(HtmlVariables.used(html))) {
+                Column(
+                    Modifier
+                        .padding(vertical = 6.dp)
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(colors.primary.copy(alpha = 0.12f))
+                        .padding(12.dp),
+                ) {
+                    Text("Música e notificações precisam de permissão", fontWeight = FontWeight.SemiBold, color = colors.onBackground)
+                    Text(
+                        "O Android só mostra o que está tocando para apps com acesso a notificações. Nada sai do aparelho.",
+                        fontSize = 12.sp,
+                        color = Color.Gray,
+                    )
+                    androidx.compose.material3.TextButton(onClick = { controller.start(dev.jesiel.launcher.data.MediaWatcher.accessIntent()) }) {
+                        Text("Permitir acesso")
+                    }
+                }
+            }
             Text("Variáveis (toque para inserir no fim)", fontWeight = FontWeight.SemiBold, color = colors.onBackground)
             Row(Modifier.horizontalScroll(rememberScrollState()).padding(vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 HtmlVariables.all.forEach { (key, _) -> Chip("{{$key}}") { html += "{{$key}}" } }
@@ -155,7 +181,10 @@ fun HtmlWidgetEditor(
             Text(
                 HtmlVariables.all.joinToString("\n") { (k, d) -> "{{$k}} — $d" } +
                     "\n\nTambém em CSS: var(--bateria) e, no modo interativo, em JS: launcher.hora ou function onLauncherData(d) { … }." +
-                    "\nLinks: launcher://app/<pacote>, launcher://apps, launcher://busca, launcher://painel, launcher://ajustes ou https://…",
+                    "\nLinks: launcher://app/<pacote>, launcher://apps, launcher://busca, launcher://painel, launcher://ajustes, " +
+                    "launcher://notificacoes ou https://…" +
+                    "\nMúsica: launcher://musica/alternar, /tocar, /pausar, /proxima, /anterior; launcher://musica abre o app que está tocando." +
+                    "\nCapa no modo interativo: <img data-lsrc=\"musicaCapa\" src=\"{{musicaCapa}}\"> troca sozinha a cada faixa.",
                 fontSize = 12.sp,
                 color = Color.Gray,
             )

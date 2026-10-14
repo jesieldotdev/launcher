@@ -382,6 +382,7 @@ fun SettingsScreen(state: LauncherUiState, controller: LauncherController, onClo
                     Button(onClick = { controller.widgetPickerOpen = true }) { Text("Adicionar widget") }
                     Spacer(Modifier.height(14.dp))
                     Text("Widgets HTML", fontWeight = FontWeight.SemiBold)
+                    MusicAccessRow(controller)
                     Text(
                         "Crie widgets com HTML e CSS, com variáveis como {{hora}} e {{bateria}}. Ficam pausados fora da tela inicial.",
                         fontSize = 12.sp,
@@ -762,5 +763,29 @@ private fun ClaudeCodeCard(controller: LauncherController) {
             color = Color.Gray,
             modifier = Modifier.padding(top = 6.dp),
         )
+    }
+}
+
+/** Acesso a notificações: necessário para as variáveis de música e de notificações dos widgets. */
+@Composable
+private fun MusicAccessRow(controller: LauncherController) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    var access by remember { mutableStateOf(dev.jesiel.launcher.data.MediaWatcher.hasAccess(context)) }
+    LifecycleResumeEffect(Unit) {
+        access = dev.jesiel.launcher.data.MediaWatcher.hasAccess(context)
+        onPauseOrDispose { }
+    }
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 4.dp)) {
+        Column(Modifier.weight(1f)) {
+            Text("Música e notificações nos widgets")
+            Text(
+                if (access) "Acesso a notificações permitido" else "Precisa de acesso a notificações",
+                fontSize = 12.sp,
+                color = Color.Gray,
+            )
+        }
+        androidx.compose.material3.TextButton(onClick = { controller.start(dev.jesiel.launcher.data.MediaWatcher.accessIntent()) }) {
+            Text(if (access) "Gerenciar" else "Permitir")
+        }
     }
 }

@@ -65,7 +65,27 @@ object HtmlVariables {
         "tema" to "claro ou escuro",
         "cor" to "Cor de destaque do tema (#rrggbb)",
         "ntfy" to "Canal do Claude Code no ntfy.sh",
+        "horas" to "Só a hora (00–23)",
+        "minutos" to "Só os minutos (00–59)",
+        "semana" to "Semana do ano",
+        "tempBateria" to "Temperatura da bateria (°C)",
+        "rede" to "Wi-Fi, Dados móveis ou Sem conexão",
+        "volume" to "Volume de mídia (0–100)",
+        "ultimoApp" to "Último app aberto",
+        "notificacoes" to "Notificações pendentes (precisa de acesso a notificações)",
+        "musicaTitulo" to "Música: título",
+        "musicaArtista" to "Música: artista",
+        "musicaAlbum" to "Música: álbum",
+        "musicaApp" to "Música: app que está tocando",
+        "musicaTocando" to "\"sim\" tocando, vazio pausado",
+        "musicaPosicao" to "Música: posição (1:23)",
+        "musicaDuracao" to "Música: duração (3:45)",
+        "musicaProgresso" to "Música: progresso (0–100)",
+        "musicaCapa" to "Música: capa (use em <img src> ou url())",
     )
+
+    /** Variáveis que dependem do acesso a notificações. */
+    fun needsNotificationAccess(used: Set<String>) = used.any { it.startsWith("musica") || it == "notificacoes" }
 
     private val PLACEHOLDER = Regex("""\{\{\s*([a-zA-Z]+)\s*\}\}""")
     private val TAG = Regex("""<[^>]*>""")
@@ -104,6 +124,7 @@ object HtmlVariables {
             window.__launcherUpdate = function(d){
               window.launcher = d;
               document.querySelectorAll('[data-lv]').forEach(function(e){ e.textContent = d[e.getAttribute('data-lv')] || ''; });
+              document.querySelectorAll('[data-lsrc]').forEach(function(e){ var v = d[e.getAttribute('data-lsrc')] || ''; if (e.getAttribute('src') !== v) e.setAttribute('src', v); });
               for (var k in d) document.documentElement.style.setProperty('--'+k, d[k]);
               if (typeof window.onLauncherData === 'function') window.onLauncherData(d);
             };
@@ -352,8 +373,69 @@ window.addEventListener('resize', fit);
 tick(); setInterval(tick, 15000);
 </script>""".trimIndent()
 
+    /** Música tocando agora: capa, faixa, progresso e controles (precisa de acesso a notificações). */
+    val MUSIC = "Música" to """
+<style>
+.m{position:relative;height:100%;box-sizing:border-box;border-radius:24px;overflow:hidden;color:#fff;font-family:sans-serif;
+  display:flex;align-items:center;gap:4%;padding:4% 5%;background:rgba(20,20,26,.55);border:1px solid rgba(255,255,255,.18)}
+.bg{position:absolute;inset:-20%;background-size:cover;background-position:center;filter:blur(22px) saturate(1.4);opacity:.55;z-index:0}
+.m>*:not(.bg):not(.app){position:relative;z-index:1}
+.cover{height:78%;aspect-ratio:1;border-radius:14px;background:rgba(255,255,255,.12) center/cover;flex:none;
+  box-shadow:0 6px 18px rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;font-size:min(14vh,8vw)}
+.info{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;height:100%}
+.t{font-weight:700;font-size:min(10vh,5.2vw);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.a{opacity:.8;font-size:min(7.5vh,4vw);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
+.bar{height:4px;border-radius:2px;background:rgba(255,255,255,.25);margin:6% 0 2%}
+.bar i{display:block;height:100%;border-radius:2px;background:#fff;width:0;transition:width 1s linear}
+.time{display:flex;justify-content:space-between;font-size:min(6vh,3.2vw);opacity:.75}
+.ctl{display:flex;justify-content:space-between;align-items:center;margin-top:3%;width:82%}
+.ctl a{color:#fff;text-decoration:none;font-size:min(11vh,6vw);line-height:1;padding:2px 6px}
+.ctl a.p{font-size:min(14vh,7.5vw)}
+.ctl a:active{opacity:.5}
+.app{position:absolute;right:5%;top:6%;font-size:min(5.5vh,3vw);opacity:.6;z-index:1}
+</style>
+<div class="m">
+  <div class="bg" id="bg"></div>
+  <a class="cover" id="cover" href="launcher://musica">♪</a>
+  <div class="info">
+    <div class="t" id="t">Nada tocando</div>
+    <div class="a" id="a">Abra um app de música</div>
+    <div class="bar"><i id="bar"></i></div>
+    <div class="time"><span id="pos"></span><span id="dur"></span></div>
+    <div class="ctl">
+      <a href="launcher://musica/anterior">⏮</a>
+      <a class="p" id="play" href="launcher://musica/alternar">▶</a>
+      <a href="launcher://musica/proxima">⏭</a>
+    </div>
+  </div>
+  <div class="app" id="app"></div>
+</div>
+<script>
+// Variáveis usadas: launcher.musicaTitulo, launcher.musicaArtista, launcher.musicaApp, launcher.musicaTocando,
+// launcher.musicaAlbum, launcher.musicaPosicao, launcher.musicaDuracao, launcher.musicaProgresso, launcher.musicaCapa
+var lastCover = null;
+function onLauncherData(d){
+  var has = !!d.musicaTitulo;
+  document.getElementById('t').textContent = has ? d.musicaTitulo : 'Nada tocando';
+  document.getElementById('a').textContent = has ? (d.musicaArtista || d.musicaAlbum || '') : 'Abra um app de música';
+  document.getElementById('app').textContent = d.musicaApp || '';
+  document.getElementById('play').textContent = d.musicaTocando ? '⏸' : '▶';
+  document.getElementById('bar').style.width = (d.musicaProgresso || 0) + '%';
+  document.getElementById('pos').textContent = d.musicaPosicao || '';
+  document.getElementById('dur').textContent = d.musicaDuracao || '';
+  if (d.musicaCapa !== lastCover) {
+    lastCover = d.musicaCapa;
+    var c = document.getElementById('cover');
+    c.style.backgroundImage = d.musicaCapa ? 'url(' + d.musicaCapa + ')' : '';
+    c.textContent = d.musicaCapa ? '' : '♪';
+    document.getElementById('bg').style.backgroundImage = d.musicaCapa ? 'url(' + d.musicaCapa + ')' : '';
+  }
+}
+</script>""".trimIndent()
+
     val all: List<Pair<String, String>> = listOf(
         CLAUDE,
+        MUSIC,
         RETRO,
         CYBERPUNK,
         "Relógio" to """

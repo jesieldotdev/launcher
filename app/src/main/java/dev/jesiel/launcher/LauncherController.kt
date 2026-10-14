@@ -19,6 +19,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import dev.jesiel.launcher.data.MediaWatcher
 import dev.jesiel.launcher.data.AppInfo
 import dev.jesiel.launcher.data.SwipeAction
 import dev.jesiel.launcher.widgets.WidgetHost
@@ -312,6 +313,18 @@ class LauncherController(
                 "busca" -> openSearch?.invoke()
                 "ajustes" -> settingsOpen = true
                 "notificacoes" -> expandNotifications()
+                // launcher://musica/alternar | tocar | pausar | proxima | anterior; sem ação abre o app que toca.
+                "musica" -> {
+                    val action = uri.lastPathSegment
+                    when {
+                        !MediaWatcher.hasAccess(activity) -> {
+                            toast("Permita o acesso a notificações para controlar a música")
+                            start(MediaWatcher.accessIntent(), silent = true)
+                        }
+                        action == null -> MediaWatcher.playingPackage?.let(::launchPackage)
+                        !MediaWatcher.command(action) -> toast("Nada tocando agora")
+                    }
+                }
                 "url" -> uri.getQueryParameter("u")?.let(::openUrl)
             }
             "http", "https" -> openUrl(url)
