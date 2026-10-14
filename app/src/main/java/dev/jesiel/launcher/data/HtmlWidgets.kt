@@ -22,10 +22,14 @@ data class HtmlWidget(
     val software: Boolean = false,
     /** Na área de trabalho ou só guardado na biblioteca de widgets. */
     val onDesktop: Boolean = true,
+    /** Baixado da loja: id do item e data da versão (para mostrar "Atualizar"). */
+    val storeId: String? = null,
+    val storeUpdated: String? = null,
 ) {
     fun toJson(): JSONObject = JSONObject()
         .put("id", id).put("name", name).put("html", html)
         .put("interactive", interactive).put("network", network).put("software", software).put("onDesktop", onDesktop)
+        .put("storeId", storeId).put("storeUpdated", storeUpdated)
 
     companion object {
         fun fromJson(o: JSONObject) = HtmlWidget(
@@ -36,6 +40,8 @@ data class HtmlWidget(
             network = o.optBoolean("network", false),
             software = o.optBoolean("software", false),
             onDesktop = o.optBoolean("onDesktop", true),
+            storeId = o.optString("storeId").takeIf { it.isNotEmpty() },
+            storeUpdated = o.optString("storeUpdated").takeIf { it.isNotEmpty() },
         )
 
         fun listFromJson(text: String?): List<HtmlWidget> = runCatching {

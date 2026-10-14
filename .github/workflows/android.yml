@@ -2,6 +2,9 @@ name: Android
 
 on:
   push:
+    # Publicações da loja só mexem em store/: não precisam de build.
+    paths-ignore:
+      - "store/**"
   pull_request:
 
 jobs:

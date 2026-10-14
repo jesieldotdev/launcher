@@ -695,4 +695,25 @@ class ScreenshotTest {
         compose.onNodeWithContentDescription("Iniciar").assertDoesNotExist()
         org.junit.Assert.assertNotNull("a dock em HTML informa onde está", controller.dockBounds)
     }
+
+    /** Aba Loja: sem internet, mostra a última cópia do catálogo. */
+    @Test
+    fun htmlStoreTab() {
+        val controller = controller()
+        dev.jesiel.launcher.data.HtmlStore.indexUrl = "http://127.0.0.1:9/sem-loja.json"
+        java.io.File(compose.activity.cacheDir, dev.jesiel.launcher.data.HtmlStore.CACHE).writeText(java.io.File("../store/index.json").readText())
+        compose.setContent {
+            val palette = dev.jesiel.launcher.ui.windows.windowsPalette(false)
+            androidx.compose.material3.MaterialTheme(colorScheme = palette.colorScheme) { dev.jesiel.launcher.ui.common.HtmlStudio(controller, palette) }
+        }
+        compose.onNodeWithText("Loja").performClick()
+        compose.waitUntil(10_000) { compose.onAllNodesWithText("Moto Display").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("Sem conexão", substring = true).assertExists()
+        compose.onRoot().captureRoboImage(shot("html-store"))
+        compose.onAllNodesWithText("Baixar")[0].performClick()
+        compose.mainClock.advanceTimeBy(500)
+        compose.waitForIdle()
+        org.junit.Assert.assertTrue(controller.viewModel.state.value.htmlWidgets.any { it.storeId != null })
+        dev.jesiel.launcher.data.HtmlStore.indexUrl = dev.jesiel.launcher.data.HtmlStore.INDEX_URL
+    }
 }

@@ -3,6 +3,7 @@ package dev.jesiel.launcher.ui.common
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -64,6 +65,8 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.jesiel.launcher.LauncherController
 import dev.jesiel.launcher.data.HtmlRole
+import dev.jesiel.launcher.data.HtmlStore
+import dev.jesiel.launcher.data.StoreWidget
 import dev.jesiel.launcher.data.HtmlTemplate
 import dev.jesiel.launcher.data.HtmlTemplates
 import dev.jesiel.launcher.data.HtmlWidget
@@ -107,6 +110,21 @@ fun HtmlStudio(controller: LauncherController, palette: LauncherPalette) {
     val lock by LockScreen.settings(context).collectAsState()
     var tab by rememberSaveable { mutableStateOf(0) }
     var confirmDelete by remember { mutableStateOf<HtmlWidget?>(null) }
+    var publishing by remember { mutableStateOf<HtmlWidget?>(null) }
+    // Loja: catálogo baixado quando a aba abre (e ao tocar em Atualizar).
+    var store by remember { mutableStateOf<List<StoreWidget>?>(null) }
+    var storeError by remember { mutableStateOf<String?>(null) }
+    var storeLoading by remember { mutableStateOf(false) }
+    var storeReload by remember { mutableStateOf(0) }
+    var justDownloaded by remember { mutableStateOf<Pair<HtmlWidget, HtmlRole>?>(null) }
+    androidx.compose.runtime.LaunchedEffect(tab == 2, storeReload) {
+        if (tab != 2) return@LaunchedEffect
+        storeLoading = true
+        HtmlStore.fetch(context)
+            .onSuccess { store = it.items; storeError = if (it.offline) "sem conexão" else null }
+            .onFailure { storeError = it.message ?: "Sem conexão" }
+        storeLoading = false
+    }
     var choosing by remember { mutableStateOf<HtmlRole?>(null) }
     val colors = MaterialTheme.colorScheme
     val lockWidget = lock?.takeIf { it.style == LockStyle.HTML }?.htmlWidgetId?.let { id -> state.htmlWidgets.firstOrNull { it.id == id } }
@@ -159,7 +177,7 @@ fun HtmlStudio(controller: LauncherController, palette: LauncherPalette) {
             }
 
             Row(Modifier.padding(horizontal = 12.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf("Meus widgets (${state.htmlWidgets.size})", "Modelos").forEachIndexed { i, label ->
+                listOf("Meus widgets (${state.htmlWidgets.size})", "Modelos", "Loja").forEachIndexed { i, label ->
                     StudioChip(label, selected = tab == i) { tab = i }
                 }
             }
@@ -213,9 +231,37 @@ fun HtmlStudio(controller: LauncherController, palette: LauncherPalette) {
                                 DropdownMenuItem(text = { Text("Usar como dock") }, onClick = { close(); controller.useAsDock(w) })
                             }
                             DropdownMenuItem(text = { Text("Duplicar") }, onClick = { close(); vm.duplicateHtmlWidget(w.id) })
+                            DropdownMenuItem(text = { Text("Publicar na loja") }, onClick = { close(); publishing = w })
                             DropdownMenuItem(text = { Text("Compartilhar código") }, onClick = { close(); shareHtml(controller, w.name, w.html) })
                             DropdownMenuItem(text = { Text("Excluir", color = colors.error) }, onClick = { close(); confirmDelete = w })
                         }
+                    }
+                } else if (tab == 2) {
+                    item(span = StaggeredGridItemSpan.FullLine) {
+                        StoreHeader(
+                            loading = storeLoading,
+                            error = storeError,
+                            count = store?.size,
+                            onRefresh = { storeReload++ },
+                            onOpenPage = { controller.openUrl(HtmlStore.PAGE_URL) },
+                        )
+                    }
+                    val items = store.orEmpty()
+                    items(items, key = { "s-" + it.id }) { item ->
+                        val local = state.htmlWidgets.firstOrNull { it.storeId == item.id }
+                        StoreCard(
+                            item = item,
+                            local = local,
+                            controller = controller,
+                            palette = palette,
+                            onDownload = {
+                                // Já baixado e com versão nova: atualiza no lugar (mantém onde está em uso).
+                                val widget = HtmlStore.toWidget(item, keepId = local?.id)
+                                vm.saveHtmlWidget(if (local != null) widget.copy(onDesktop = local.onDesktop, software = local.software) else widget)
+                                if (local == null) justDownloaded = widget to item.role else controller.toast("\"${item.name}\" atualizado")
+                            },
+                            onTest = { controller.testHtml(HtmlStore.toWidget(item), item.role) },
+                        )
                     }
                 } else {
                     item(span = StaggeredGridItemSpan.FullLine) { GuideCard(controller) }
@@ -266,6 +312,33 @@ fun HtmlStudio(controller: LauncherController, palette: LauncherPalette) {
             },
             onTemplate = { tab = 1; choosing = null },
             onDismiss = { choosing = null },
+        )
+    }
+
+    publishing?.let { w ->
+        PublishDialog(w, controller.roleOf(w), controller) { publishing = null }
+    }
+
+    justDownloaded?.let { (w, role) ->
+        AlertDialog(
+            onDismissRequest = { justDownloaded = null },
+            title = { Text("\"${w.name}\" baixado") },
+            text = {
+                Text(
+                    if (role == HtmlRole.DESKTOP) "Já está na área de trabalho e em Meus widgets."
+                    else "Está em Meus widgets. Quer usar agora como ${role.label.lowercase()}?",
+                )
+            },
+            confirmButton = {
+                if (role != HtmlRole.DESKTOP) {
+                    TextButton(onClick = { controller.useHtml(w, role); justDownloaded = null }) { Text("Usar agora") }
+                } else {
+                    TextButton(onClick = { justDownloaded = null }) { Text("OK") }
+                }
+            },
+            dismissButton = {
+                if (role != HtmlRole.DESKTOP) TextButton(onClick = { justDownloaded = null }) { Text("Depois") }
+            },
         )
     }
 
@@ -522,4 +595,147 @@ fun shareHtml(controller: LauncherController, name: String, html: String) {
         .putExtra(android.content.Intent.EXTRA_SUBJECT, name)
         .putExtra(android.content.Intent.EXTRA_TEXT, html)
     controller.start(android.content.Intent.createChooser(send, "Compartilhar \"$name\""))
+}
+
+/** Topo da aba Loja: estado do catálogo e como publicar. */
+@Composable
+private fun StoreHeader(loading: Boolean, error: String?, count: Int?, onRefresh: () -> Unit, onOpenPage: () -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(20.dp))
+            .background(colors.secondaryContainer)
+            .padding(14.dp),
+    ) {
+        Text("Loja da comunidade", fontWeight = FontWeight.SemiBold, color = colors.onSecondaryContainer)
+        Text(
+            when {
+                loading && count == null -> "Carregando o catálogo…"
+                error != null && count == null -> "Não deu para abrir a loja: $error"
+                error != null -> "Sem conexão: mostrando a última cópia ($count widgets)."
+                else -> "$count widgets. Baixe, teste antes de baixar e publique os seus pelo menu ⋮ de Meus widgets."
+            },
+            fontSize = 12.sp,
+            color = colors.onSecondaryContainer,
+        )
+        Text(
+            "Publicar abre o GitHub com tudo preenchido (precisa de uma conta). O widget entra na loja depois de aprovado.",
+            fontSize = 11.sp,
+            color = colors.onSecondaryContainer.copy(alpha = 0.75f),
+            modifier = Modifier.padding(top = 4.dp),
+        )
+        Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            StudioChip(if (loading) "Atualizando…" else "Atualizar", selected = true, onClick = onRefresh)
+            StudioChip("Ver no GitHub", selected = false, onClick = onOpenPage)
+        }
+    }
+}
+
+@Composable
+private fun StoreCard(
+    item: StoreWidget,
+    local: HtmlWidget?,
+    controller: LauncherController,
+    palette: LauncherPalette,
+    onDownload: () -> Unit,
+    onTest: () -> Unit,
+) {
+    val colors = MaterialTheme.colorScheme
+    val preview = remember(item) { HtmlStore.toWidget(item, keepId = "loja-" + item.id) }
+    val outdated = local != null && local.storeUpdated != item.updated
+    Column(
+        Modifier
+            .clip(RoundedCornerShape(20.dp))
+            .background(colors.surfaceContainer)
+            .padding(8.dp),
+    ) {
+        Box {
+            HtmlPreview(preview, item.role, controller, palette, Modifier.fillMaxWidth())
+            // Tocar na prévia testa o widget (links e scripts ficam para o testador).
+            Box(Modifier.matchParentSize().clickable(onClick = onTest))
+        }
+        Text(item.name, fontWeight = FontWeight.SemiBold, color = colors.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 4.dp, top = 6.dp))
+        Text(
+            "${item.role.label} · por ${item.author}",
+            fontSize = 11.sp,
+            color = colors.primary,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(horizontal = 4.dp),
+        )
+        if (item.description.isNotBlank()) {
+            Text(item.description, fontSize = 11.sp, color = colors.onSurfaceVariant, maxLines = 3, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 4.dp))
+        }
+        Text(
+            listOfNotNull(if (item.interactive) "JavaScript" else "Leve", if (item.network) "Usa internet" else null).joinToString(" · "),
+            fontSize = 11.sp,
+            color = if (item.network) colors.tertiary else colors.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 4.dp),
+        )
+        Row(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            StudioChip(
+                when {
+                    local == null -> "Baixar"
+                    outdated -> "Atualizar"
+                    else -> "Baixado ✓"
+                },
+                selected = local == null || outdated,
+                onClick = { if (local == null || outdated) onDownload() },
+            )
+            StudioChip("Testar", selected = false, onClick = onTest)
+        }
+    }
+}
+
+/** Enviar um widget para a loja: dados, aviso de código público e abrir o GitHub. */
+@Composable
+private fun PublishDialog(widget: HtmlWidget, currentRole: HtmlRole, controller: LauncherController, onDismiss: () -> Unit) {
+    val context = LocalContext.current
+    val prefs = remember { context.getSharedPreferences("loja", android.content.Context.MODE_PRIVATE) }
+    var author by remember { mutableStateOf(prefs.getString("autor", "").orEmpty()) }
+    var description by remember { mutableStateOf("") }
+    var role by remember { mutableStateOf(currentRole) }
+    var agree by remember { mutableStateOf(false) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Publicar \"${widget.name}\"") },
+        text = {
+            Column(Modifier.heightIn(max = 460.dp).verticalScroll(rememberScrollState())) {
+                androidx.compose.material3.OutlinedTextField(author, { author = it.take(40) }, label = { Text("Seu nome (opcional)") }, singleLine = true)
+                Spacer(Modifier.height(8.dp))
+                androidx.compose.material3.OutlinedTextField(description, { description = it.take(280) }, label = { Text("Descrição") }, minLines = 2)
+                Spacer(Modifier.height(8.dp))
+                Text("Uso", fontWeight = FontWeight.SemiBold)
+                Row(Modifier.horizontalScroll(rememberScrollState()).padding(vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    HtmlRole.entries.forEach { r -> StudioChip(r.label, selected = r == role) { role = r } }
+                }
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { agree = !agree }) {
+                    androidx.compose.material3.Checkbox(agree, { agree = it })
+                    Text("Entendo que o código fica público para todos.", fontSize = 13.sp)
+                }
+                Text(
+                    "Abre o GitHub com a publicação preenchida; é só tocar em \"Submit new issue\" (precisa entrar na sua conta). " +
+                        "O widget aparece na loja depois de aprovado.",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(enabled = agree, onClick = {
+                prefs.edit().putString("autor", author.trim()).apply()
+                val body = HtmlStore.issueBody(widget, author, description, role)
+                val (url, tooLong) = HtmlStore.issueUrl(widget, body)
+                if (tooLong) {
+                    val cm = context.getSystemService(android.content.ClipboardManager::class.java)
+                    cm?.setPrimaryClip(android.content.ClipData.newPlainText("Widget para a loja", body))
+                    controller.toast("Widget grande: copiado. Cole no campo de texto do GitHub.")
+                }
+                controller.start(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url)))
+                onDismiss()
+            }) { Text("Abrir no GitHub") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } },
+    )
 }

@@ -1,0 +1,56 @@
+name: Loja de widgets
+
+# Publica um widget enviado pelo app quando o dono do repositório põe a etiqueta "aprovado"
+# na issue "[Loja] …". O texto da issue só entra por variáveis de ambiente (nunca no script).
+on:
+  issues:
+    types: [labeled]
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: loja
+  cancel-in-progress: false
+
+jobs:
+  publicar:
+    if: github.event.label.name == 'aprovado' && startsWith(github.event.issue.title, '[Loja]')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Publicar o widget
+        id: pub
+        env:
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ISSUE_AUTHOR: ${{ github.event.issue.user.login }}
+        run: python3 store/publish.py
+      - name: Salvar no catálogo
+        if: success()
+        env:
+          WIDGET_ID: ${{ steps.pub.outputs.id }}
+        run: |
+          git config user.name "Loja do Launcher"
+          git config user.email "loja@users.noreply.github.com"
+          git add store
+          git commit -m "Loja: publica $WIDGET_ID"
+          git push
+      - name: Avisar na issue (publicado)
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NUMBER: ${{ github.event.issue.number }}
+          WIDGET_NAME: ${{ steps.pub.outputs.name }}
+        run: |
+          gh issue comment "$NUMBER" --repo "$GITHUB_REPOSITORY" --body "Publicado na loja: **$WIDGET_NAME**. Já aparece no app em Estúdio HTML › Loja (pode levar alguns minutos)."
+          gh issue close "$NUMBER" --repo "$GITHUB_REPOSITORY"
+      - name: Avisar na issue (erro)
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NUMBER: ${{ github.event.issue.number }}
+          ERROR: ${{ steps.pub.outputs.error }}
+        run: |
+          gh issue comment "$NUMBER" --repo "$GITHUB_REPOSITORY" --body "Não deu para publicar: $ERROR"
