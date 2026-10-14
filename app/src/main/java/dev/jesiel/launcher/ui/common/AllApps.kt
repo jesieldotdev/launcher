@@ -98,6 +98,13 @@ fun AppsViewSelector(state: LauncherUiState, controller: LauncherController, pal
             }
             androidx.compose.material3.HorizontalDivider()
             DropdownMenuItem(
+                text = { Text(if (state.layout.showLetters) "Ocultar letras" else "Mostrar letras") },
+                onClick = {
+                    open = false
+                    controller.viewModel.updateLayout { it.copy(showLetters = !it.showLetters) }
+                },
+            )
+            DropdownMenuItem(
                 text = { Text("Ocultar título e filtros") },
                 onClick = {
                     open = false
@@ -160,8 +167,9 @@ private fun AlphabeticalApps(
         contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
         modifier = Modifier.fillMaxSize(),
     ) {
+        val letters = state.layout.showLetters
         grouped.forEach { (letter, group) ->
-            item(key = "h-$letter", span = { GridItemSpan(maxLineSpan) }, contentType = "letra") {
+            if (letters) item(key = "h-$letter", span = { GridItemSpan(maxLineSpan) }, contentType = "letra") {
                 Text(
                     letter.toString(),
                     color = palette.accent,
@@ -283,6 +291,7 @@ private fun CategoryIcon(app: AppInfo, controller: LauncherController, onLaunche
     Image(
         app.icon,
         contentDescription = app.label,
+        colorFilter = LocalIconStyle.current.filter,
         modifier = Modifier
             .size(46.dp)
             .pressScale(interaction)
@@ -304,7 +313,7 @@ private fun MiniCluster(apps: List<AppInfo>, palette: LauncherPalette, onClick: 
         Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
             apps.take(4).chunked(2).forEach { row ->
                 Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
-                    row.forEach { Image(it.icon, null, Modifier.size(16.dp).aspectRatio(1f)) }
+                    row.forEach { Image(it.icon, null, Modifier.size(16.dp).aspectRatio(1f), colorFilter = LocalIconStyle.current.filter) }
                 }
             }
         }

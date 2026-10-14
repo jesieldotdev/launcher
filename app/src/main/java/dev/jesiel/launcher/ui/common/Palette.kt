@@ -54,6 +54,8 @@ data class LauncherPalette(
     val iconBackground: Color? = null,
     /** Fonte própria do tema (ex.: Orbitron no Retrô futurista); nula usa a do sistema. */
     val font: FontFamily? = null,
+    /** Como os ícones de app são desenhados neste tema. */
+    val iconStyle: IconStyle = IconStyle(),
 ) {
     val wallpaperLabel: TextStyle
         get() = TextStyle(
@@ -80,6 +82,19 @@ data class LauncherPalette(
             )
         }
 }
+
+/**
+ * Visual dos ícones de app no tema: filtro de cor (ex.: fósforo âmbar), cantoneiras de mira em
+ * volta do ícone e rótulos em maiúsculas.
+ */
+data class IconStyle(
+    val filter: androidx.compose.ui.graphics.ColorFilter? = null,
+    val brackets: Color? = null,
+    val uppercaseLabels: Boolean = false,
+)
+
+/** Estilo de ícone do tema em uso (padrão: ícone original). */
+val LocalIconStyle = staticCompositionLocalOf { IconStyle() }
 
 /** Paleta do tema em uso, para componentes profundos na árvore. */
 val LocalPalette = staticCompositionLocalOf<LauncherPalette> { error("Paleta não definida") }

@@ -371,8 +371,26 @@ class ScreenshotTest {
     @Test fun ubuntu() = themeShot("ubuntu-home", dark = true) { s, c -> UbuntuLauncher(s, c) }
     @Test fun ubuntuLight() = themeShot("ubuntu-home-light", dark = false) { s, c -> UbuntuLauncher(s, c) }
     @Test fun ubuntuApps() = themeShot("ubuntu-apps", dark = true, open = "Mostrar aplicativos") { s, c -> UbuntuLauncher(s, c) }
-    @Test fun retro() = themeShot("retro-home", dark = true) { s, c -> RetroLauncher(s, c) }
-    @Test fun retroApps() = themeShot("retro-apps", dark = true, open = "Apps") { s, c -> RetroLauncher(s, c) }
+    private fun retroShot(name: String, open: String? = null, state: LauncherUiState = sampleState(dark = true)) {
+        val controller = controller()
+        compose.setContent { RetroLauncher(state, controller) }
+        // Passa da sequência de inicialização.
+        compose.mainClock.advanceTimeBy(2_000)
+        compose.waitForIdle()
+        if (open != null) {
+            compose.onNodeWithContentDescription(open).performClick()
+            compose.mainClock.advanceTimeBy(1_000)
+            compose.waitForIdle()
+        }
+        compose.onRoot().captureRoboImage(shot(name))
+    }
+
+    @Test fun retro() = retroShot("retro-home")
+    @Test fun retroApps() = retroShot("retro-apps", open = "Programas")
+    @Test fun retroAppsNoLetters() {
+        val s = sampleState(dark = true)
+        retroShot("retro-apps-no-letters", open = "Programas", state = s.copy(layout = s.layout.copy(showLetters = false)))
+    }
     @Test fun kde() = themeShot("kde-home", dark = true) { s, c -> KdeLauncher(s, c) }
     @Test fun kdeLight() = themeShot("kde-home-light", dark = false) { s, c -> KdeLauncher(s, c) }
     @Test fun kdeApps() = themeShot("kde-apps", dark = true, open = "Lançador de aplicativos") { s, c -> KdeLauncher(s, c) }

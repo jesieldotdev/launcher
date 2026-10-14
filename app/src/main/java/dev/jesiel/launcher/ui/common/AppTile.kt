@@ -30,6 +30,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.LayoutCoordinates
@@ -82,6 +84,7 @@ fun AppTile(
     }
     val haptics = LocalHapticFeedback.current
     val interaction = remember { MutableInteractionSource() }
+    val iconStyle = LocalIconStyle.current
 
     Box(modifier) {
         Column(
@@ -107,17 +110,18 @@ fun AppTile(
             val iconModifier = Modifier
                 .size(iconSize)
                 .onPlaced { coordinates[0] = it }
+                .then(iconStyle.brackets?.let { Modifier.targetBrackets(it) } ?: Modifier)
             if (iconBackground != null) {
                 Box(
                     iconModifier.clip(RoundedCornerShape(iconSize * 0.24f)).background(iconBackground).padding(iconSize * 0.14f),
-                ) { Image(bitmap = app.icon, contentDescription = app.label, modifier = Modifier.matchParentSize()) }
+                ) { Image(bitmap = app.icon, contentDescription = app.label, modifier = Modifier.matchParentSize(), colorFilter = iconStyle.filter) }
             } else {
-                Image(bitmap = app.icon, contentDescription = app.label, modifier = iconModifier)
+                Image(bitmap = app.icon, contentDescription = app.label, modifier = iconModifier, colorFilter = iconStyle.filter)
             }
             if (showLabel) {
                 Spacer(Modifier.height(6.dp))
                 Text(
-                    text = app.label,
+                    text = if (iconStyle.uppercaseLabels) app.label.uppercase() else app.label,
                     style = labelStyle,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -236,7 +240,7 @@ fun AppListRow(
                 )
                 .padding(horizontal = 8.dp, vertical = 6.dp),
         ) {
-            Image(bitmap = app.icon, contentDescription = null, modifier = Modifier.size(iconSize))
+            Image(bitmap = app.icon, contentDescription = null, modifier = Modifier.size(iconSize), colorFilter = LocalIconStyle.current.filter)
             content()
         }
         // O menu só é composto quando aberto: em listas longas isso deixa cada item mais leve.
@@ -262,5 +266,24 @@ fun AppListRow(
                 folderPickerOpen = false
             },
         )
+    }
+}
+
+/** Cantoneiras de mira em volta do ícone (tema Retrô futurista). */
+fun Modifier.targetBrackets(color: Color): Modifier = this.drawWithContent {
+    drawContent()
+    val pad = size.minDimension * 0.1f
+    val len = size.minDimension * 0.22f
+    val w = size.minDimension * 0.045f
+    val l = -pad
+    val t = -pad
+    val r = size.width + pad
+    val b = size.height + pad
+    listOf(
+        Offset(l, t) to Offset(1f, 1f), Offset(r, t) to Offset(-1f, 1f),
+        Offset(l, b) to Offset(1f, -1f), Offset(r, b) to Offset(-1f, -1f),
+    ).forEach { (p, d) ->
+        drawLine(color, p, Offset(p.x + len * d.x, p.y), w)
+        drawLine(color, p, Offset(p.x, p.y + len * d.y), w)
     }
 }

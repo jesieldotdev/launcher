@@ -47,7 +47,7 @@ fun ThemeRoot(controller: LauncherController, palette: LauncherPalette, content:
     BackHandler(enabled = controller.controlCenterOpen) { controller.controlCenterOpen = false }
     BackHandler(enabled = controller.editMode) { controller.editMode = false }
     androidx.compose.runtime.SideEffect { controller.palette = palette }
-    CompositionLocalProvider(LocalPalette provides palette) {
+    CompositionLocalProvider(LocalPalette provides palette, LocalIconStyle provides palette.iconStyle) {
         val typography = remember(palette.font) { palette.font?.let(::typographyWith) ?: androidx.compose.material3.Typography() }
         MaterialTheme(colorScheme = palette.colorScheme, typography = typography) {
             Box(Modifier.fillMaxSize(), content = content)

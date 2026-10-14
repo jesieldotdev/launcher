@@ -87,7 +87,7 @@ fun FolderTile(
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     folder.apps.take(4).chunked(2).forEach { row ->
                         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                            row.forEach { Image(it.icon, null, Modifier.size(mini)) }
+                            row.forEach { Image(it.icon, null, Modifier.size(mini), colorFilter = LocalIconStyle.current.filter) }
                         }
                     }
                 }

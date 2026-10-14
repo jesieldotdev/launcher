@@ -192,6 +192,9 @@ fun SettingsScreen(state: LauncherUiState, controller: LauncherController, onClo
                     SliderRow("Colunas na lista de apps", "${layout.drawerColumns}", layout.drawerColumns.toFloat(), 3f..6f, 2) { v ->
                         vm.updateLayout { it.copy(drawerColumns = v.roundToInt()) }
                     }
+                    SwitchRow("Letras do alfabeto na lista de apps", layout.showLetters) { on ->
+                        vm.updateLayout { it.copy(showLetters = on) }
+                    }
                     SwitchRow("Mostrar título, exibição e filtros na lista de apps", layout.showAppsHeader) { on ->
                         vm.updateLayout { it.copy(showAppsHeader = on) }
                     }

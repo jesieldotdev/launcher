@@ -215,7 +215,7 @@ private fun DrawerContent(
                     }
                 }
             }
-            if (style.alphabetIndex && query.isBlank() && category == null && state.appsView != AppsView.CATEGORY) {
+            if (style.alphabetIndex && state.layout.showLetters && query.isBlank() && category == null && state.appsView != AppsView.CATEGORY) {
                 val letters = remember(apps) { letterPositions(apps) }
                 val scope = rememberCoroutineScope()
                 Column(

@@ -20,15 +20,15 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.CutCornerShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -38,6 +38,8 @@ import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.TileMode
@@ -57,15 +59,12 @@ import dev.jesiel.launcher.LauncherUiState
 import dev.jesiel.launcher.R
 import dev.jesiel.launcher.data.CellSize
 import dev.jesiel.launcher.ui.common.AppDock
-import dev.jesiel.launcher.ui.common.AppDrawer
 import dev.jesiel.launcher.ui.common.AppMenuLabels
 import dev.jesiel.launcher.ui.common.BuiltinSpec
 import dev.jesiel.launcher.ui.common.ControlCenter
 import dev.jesiel.launcher.ui.common.DesktopCanvas
-import dev.jesiel.launcher.ui.common.DockTray
-import dev.jesiel.launcher.ui.common.DrawerStyle
+import dev.jesiel.launcher.ui.common.IconStyle
 import dev.jesiel.launcher.ui.common.LauncherPalette
-import dev.jesiel.launcher.ui.common.MenuBarButton
 import dev.jesiel.launcher.ui.common.ThemeRoot
 import dev.jesiel.launcher.ui.common.asFixedSp
 import dev.jesiel.launcher.ui.common.backdrop
@@ -87,39 +86,54 @@ val Orbitron = FontFamily(
     Font(R.font.orbitron_black, FontWeight.Black),
 )
 
-private val Amber = Color(0xFFE9C27A)
-private val AmberBright = Color(0xFFFFD98C)
-private val AmberDim = Color(0xFFC9A464)
-private val AmberLine = Color(0xFF7D6136)
+internal val Amber = Color(0xFFE9C27A)
+internal val AmberBright = Color(0xFFFFD98C)
+internal val AmberDim = Color(0xFFC9A464)
+internal val AmberLine = Color(0xFF7D6136)
+internal val Ink = Color(0xFF0B0805)
+
+/** Corta cantos opostos, como as placas de um painel de nave. */
+internal val PlateShape = CutCornerShape(topStart = 18.dp, topEnd = 3.dp, bottomEnd = 18.dp, bottomStart = 3.dp)
+
+/** Ícones em fósforo âmbar: tons de cinza do ícone original pintados de âmbar, com mais contraste. */
+private val PhosphorFilter = run {
+    val k = 1.2f
+    fun row(scale: Float, bias: Float) = floatArrayOf(0.299f * k * scale, 0.587f * k * scale, 0.114f * k * scale, 0f, bias)
+    ColorFilter.colorMatrix(
+        ColorMatrix(row(1.05f, 18f) + row(0.80f, 6f) + row(0.42f, 0f) + floatArrayOf(0f, 0f, 0f, 1f, 0f)),
+    )
+}
 
 fun retroPalette(dark: Boolean) = LauncherPalette(
     dark = true,
     accent = Amber,
-    onAccent = Color(0xFF1A1208),
+    onAccent = Ink,
     onWallpaper = Color(0xFFF0D49A),
-    card = if (dark) Color(0x8C100D07) else Color(0x66140F08),
+    card = if (dark) Color(0x99100D07) else Color(0x73140F08),
     cardStroke = AmberLine,
     cardText = Amber,
     cardTextSecondary = AmberDim,
-    cardShape = RoundedCornerShape(22.dp),
+    cardShape = PlateShape,
     panel = Color(0xF20E0B06),
     panelStroke = AmberLine,
     panelText = Color(0xFFF0D49A),
     panelTextSecondary = AmberDim,
-    panelShape = RoundedCornerShape(22.dp),
+    panelShape = CutCornerShape(14.dp),
     tile = Color(0x26E9C27A),
     field = Color(0xFF1A140B),
-    dock = if (dark) Color(0xB30E0B06) else Color(0x8C140F08),
+    dock = if (dark) Color(0xCC0E0B06) else Color(0x99140F08),
     dockStroke = AmberLine,
-    folder = Color(0x40E9C27A),
+    folder = Color(0x33E9C27A),
     font = Orbitron,
+    iconStyle = IconStyle(filter = PhosphorFilter, brackets = Amber.copy(alpha = 0.75f), uppercaseLabels = true),
 )
 
-private val RetroLabels = AppMenuLabels(pinToDock = "Fixar no console", unpinFromDock = "Tirar do console")
+internal val RetroLabels = AppMenuLabels(pinToDock = "Fixar no console", unpinFromDock = "Tirar do console")
 
 /**
- * Tema Retrô futurista: âmbar sobre fundo escuro translúcido, fonte Orbitron, linhas de
- * varredura, relógio de painel de nave e papel de parede com sol listrado e grade.
+ * Tema Retrô futurista: a tela vira o painel de uma nave. Barra HUD no topo, ícones em fósforo
+ * âmbar com cantoneiras de mira, placas de cantos cortados, console de comando no lugar do dock,
+ * gaveta de apps em forma de terminal, tela de tubo (linhas e vinheta) e grade em movimento.
  */
 @Composable
 fun RetroLauncher(state: LauncherUiState, controller: LauncherController) {
@@ -135,17 +149,20 @@ fun RetroLauncher(state: LauncherUiState, controller: LauncherController) {
         drawerOpen = true
     }
 
+    val current by rememberUpdatedState(state)
     val builtins = remember(palette) {
         listOf(
             BuiltinSpec("clock", "Relógio de bordo", { c -> CellSize(c.toFloat(), 2.2f) }) { RetroClockCard(palette, it) },
+            BuiltinSpec("log", "Log de bordo", { c -> CellSize(c.toFloat(), 1.6f) }) { RetroLogCard(current, controller, palette, it) },
             BuiltinSpec("monitor", "Monitor do sistema", { c -> CellSize(c.toFloat(), 1.4f) }) { RetroMonitorCard(palette, it) },
         )
     }
 
     ThemeRoot(controller, palette) {
         Box(Modifier.fillMaxSize().backdrop(controller, drawerOpen || controller.controlCenterOpen, state.transparency)) {
-            if (state.layout.useThemeWallpaper) RetroWallpaper(Modifier.fillMaxSize())
+            if (state.layout.useThemeWallpaper) RetroWallpaper(Modifier.fillMaxSize(), moving = !drawerOpen)
             Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
+                if (state.layout.showTray) RetroHud(state, controller, Modifier.padding(horizontal = 12.dp).padding(top = 6.dp))
                 DesktopCanvas(
                     state = state,
                     controller = controller,
@@ -161,37 +178,32 @@ fun RetroLauncher(state: LauncherUiState, controller: LauncherController) {
                         state = state,
                         controller = controller,
                         palette = palette,
-                        iconSize = 42.dp,
-                        shape = RoundedCornerShape(22.dp),
+                        iconSize = 40.dp,
+                        shape = PlateShape,
                         labels = RetroLabels,
                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp).fillMaxWidth(),
-                        leading = {
-                            MenuBarButton(
-                                state, controller, palette, "Apps", Icons.Default.Apps, palette.onAccent, { openDrawer(search = false) },
-                                size = 44.dp, background = Amber, shape = RoundedCornerShape(14.dp),
-                            )
-                        },
-                        trailing = { DockTray(state, controller, palette) },
+                        leading = { ExecButton { openDrawer(search = false) } },
+                        trailing = { PromptButton { openDrawer(search = true) } },
                     )
                 }
             }
         }
-        AppDrawer(
+        TerminalDrawer(
             visible = drawerOpen,
             state = state,
             controller = controller,
             palette = palette,
-            style = DrawerStyle(searchPlaceholder = "Buscar no sistema"),
             focusSearch = focusSearch,
             onClose = { drawerOpen = false },
-            labels = RetroLabels,
         )
         ControlCenter(controller, palette)
+        CrtOverlay(Modifier.fillMaxSize())
+        BootSequence()
     }
 }
 
 /** Faixas horizontais finas por cima do conteúdo, como um monitor de tubo. */
-private fun Modifier.scanlines(color: Color = Color(0x09FFC878)): Modifier = drawWithContent {
+internal fun Modifier.scanlines(color: Color = Color(0x09FFC878)): Modifier = drawWithContent {
     drawContent()
     val step = 4.dp.toPx()
     var y = 0f
@@ -203,7 +215,7 @@ private fun Modifier.scanlines(color: Color = Color(0x09FFC878)): Modifier = dra
 
 /** Texto âmbar listrado com brilho, como letreiro de fósforo. */
 @Composable
-private fun phosphor(size: Dp, color: Color = AmberBright): TextStyle {
+internal fun phosphor(size: Dp, color: Color = AmberBright): TextStyle {
     val stripe = with(LocalDensity.current) { (size * 0.075f).coerceAtLeast(2.dp).toPx() }
     return TextStyle(
         brush = Brush.linearGradient(
@@ -219,7 +231,7 @@ private fun phosphor(size: Dp, color: Color = AmberBright): TextStyle {
 }
 
 @Composable
-private fun RetroFrame(palette: LauncherPalette, modifier: Modifier, onClick: () -> Unit, content: @Composable (maxW: Dp, maxH: Dp) -> Unit) {
+internal fun RetroFrame(palette: LauncherPalette, modifier: Modifier, onClick: () -> Unit, content: @Composable (maxW: Dp, maxH: Dp) -> Unit) {
     BoxWithConstraints(
         modifier
             .glass(palette.card, palette.cardShape, palette.cardStroke)
@@ -230,7 +242,7 @@ private fun RetroFrame(palette: LauncherPalette, modifier: Modifier, onClick: ()
 }
 
 @Composable
-private fun Header(left: String, right: String, size: Dp) {
+internal fun Header(left: String, right: String, size: Dp) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Box(Modifier.size(size * 0.75f, size * 0.6f).background(Amber))
         Spacer(Modifier.width(size * 0.55f))
@@ -240,7 +252,7 @@ private fun Header(left: String, right: String, size: Dp) {
 }
 
 @Composable
-private fun Divider(vertical: Dp) {
+internal fun Divider(vertical: Dp) {
     Box(Modifier.padding(vertical = vertical).fillMaxWidth().height(1.dp).background(Brush.horizontalGradient(listOf(Color(0xFF6B5330), Color(0xFF4A3A22)))))
 }
 
@@ -322,7 +334,7 @@ fun RetroMonitorCard(palette: LauncherPalette, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun SegmentBar(value: Float, modifier: Modifier, segments: Int = 20) {
+internal fun SegmentBar(value: Float, modifier: Modifier, segments: Int = 20) {
     Canvas(modifier) {
         val v = value.coerceIn(0f, 1f)
         drawRect(AmberLine, style = androidx.compose.ui.graphics.drawscope.Stroke(1.dp.toPx()))
@@ -342,7 +354,16 @@ private fun SegmentBar(value: Float, modifier: Modifier, segments: Int = 20) {
 
 /** Céu escuro, sol âmbar listrado no horizonte e grade em perspectiva. */
 @Composable
-fun RetroWallpaper(modifier: Modifier = Modifier) {
+fun RetroWallpaper(modifier: Modifier = Modifier, moving: Boolean = true) {
+    // A grade anda em direção a quem olha. ~15 quadros/s bastam e gastam pouco; o laço para
+    // quando a tela inicial sai de cena (o Compose deixa de desenhar) ou a gaveta está aberta.
+    val phase = remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
+    if (moving) LaunchedEffect(Unit) {
+        while (true) {
+            kotlinx.coroutines.delay(66)
+            phase.floatValue = (phase.floatValue + 0.02f) % 1f
+        }
+    }
     Canvas(modifier) {
         val w = size.width
         val h = size.height
@@ -378,11 +399,13 @@ fun RetroWallpaper(modifier: Modifier = Modifier) {
             val x = w / 2f + i * w * 0.16f
             drawLine(line.copy(alpha = 0.35f), vanish, Offset(x * 1f + (x - w / 2f) * 2.2f, h), strokeWidth = 1.5f)
         }
-        var t = 0.02f
-        while (t < 1f) {
+        // Linhas transversais em perspectiva: na profundidade z ficam em horizonte + altura / z.
+        val p = phase.floatValue
+        for (k in 0..18) {
+            val z = 1f + (k + 1 - p) * 0.9f
+            val t = 1f / z
             val y = horizon + (h - horizon) * t
-            drawLine(line.copy(alpha = 0.15f + 0.4f * t), Offset(0f, y), Offset(w, y), strokeWidth = 1.5f)
-            t = t * 1.45f + 0.02f
+            drawLine(line.copy(alpha = (0.1f + 0.55f * t).coerceAtMost(0.65f)), Offset(0f, y), Offset(w, y), strokeWidth = 1f + 1.5f * t)
         }
         drawLine(Brush.horizontalGradient(listOf(Color.Transparent, Color(0xFFFFD98C), Color.Transparent)), Offset(0f, horizon), Offset(w, horizon), strokeWidth = 3f)
         // Linhas de varredura.
