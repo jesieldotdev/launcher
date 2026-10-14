@@ -1,5 +1,10 @@
 package dev.jesiel.launcher.ui.settings
 
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.material3.Tab
+import androidx.compose.material3.ScrollableTabRow
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -82,6 +87,7 @@ private val SettingsDark = darkColorScheme(
 fun SettingsScreen(state: LauncherUiState, controller: LauncherController, onClose: () -> Unit) {
     val vm = controller.viewModel
     val layout = state.layout
+    var tab by rememberSaveable { mutableIntStateOf(0) }
     var isDefault by remember { mutableStateOf(controller.isDefaultLauncher()) }
     LifecycleResumeEffect(Unit) {
         isDefault = controller.isDefaultLauncher()
@@ -95,8 +101,6 @@ fun SettingsScreen(state: LauncherUiState, controller: LauncherController, onClo
                     .fillMaxSize()
                     .statusBarsPadding()
                     .navigationBarsPadding()
-                    .verticalScroll(rememberScrollState())
-                    .padding(bottom = 24.dp),
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(8.dp)) {
                     IconButton(onClick = onClose) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Voltar") }
@@ -116,312 +120,338 @@ fun SettingsScreen(state: LauncherUiState, controller: LauncherController, onClo
                     }
                 }
 
-                SectionTitle("Tema")
-                Row(
-                    Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    ThemeRegistry.all.forEach { theme ->
-                        ThemePreview(theme, selected = theme.id == state.themeId) { vm.setTheme(theme.id) }
-                    }
-                }
-                Text(
-                    "Favoritos, pastas, dock, widgets e modo de cor são mantidos ao trocar de tema. Grade, posições e telas valem só para o tema atual.",
-                    fontSize = 12.sp,
-                    color = Color.Gray,
-                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
-                )
-
-                SectionTitle("Aparência")
-                Card {
-                    Text("Modo de cor", fontWeight = FontWeight.SemiBold)
-                    Spacer(Modifier.height(6.dp))
-                    Choices(ColorMode.entries, state.colorMode, { it.label }) { vm.setColorMode(it) }
-                    Spacer(Modifier.height(16.dp))
-                    SwitchRow("Efeitos de transparência", state.transparency) { vm.setTransparency(it) }
-                    Text(
-                        "Menus e painéis translúcidos com o fundo desfocado (desfoque a partir do Android 12).",
-                        fontSize = 12.sp,
-                        color = Color.Gray,
-                    )
-                    Spacer(Modifier.height(12.dp))
-                    SwitchRow("Papel de parede do tema", layout.useThemeWallpaper) { on ->
-                        vm.updateLayout { it.copy(useThemeWallpaper = on) }
-                    }
-                    Text(
-                        if (layout.useThemeWallpaper) "Desative para ver o papel de parede do sistema."
-                        else "Mostrando o papel de parede do sistema.",
-                        fontSize = 12.sp,
-                        color = Color.Gray,
-                    )
-                    val live = remember { controller.liveWallpaperName() }
-                    if (live != null) {
-                        Text(
-                            "Papel de parede animado: $live. " + if (layout.useThemeWallpaper) "Desative o papel de parede do tema para vê-lo e tocar nele."
-                            else "Toques em áreas vazias da tela são repassados a ele.",
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.padding(top = 4.dp),
-                        )
-                    }
-                    Spacer(Modifier.height(8.dp))
-                    OutlinedButton(onClick = controller::openWallpaperPicker) { Text("Escolher papel de parede do sistema") }
-
-                    Spacer(Modifier.height(16.dp))
-                    Text("Ícone do menu de apps", fontWeight = FontWeight.SemiBold)
-                    Spacer(Modifier.height(6.dp))
-                    Choices(MenuIcon.entries, layout.menuIcon, { it.label }) { icon ->
-                        if (icon == MenuIcon.CUSTOM) controller.pickImage?.invoke()
-                        else vm.updateLayout { it.copy(menuIcon = icon) }
-                    }
-
-                    // Os outros temas já abrem a gaveta com a lista completa.
-                    if (state.themeId == "windows") {
-                        Spacer(Modifier.height(16.dp))
-                        Text("Iniciar abre em", fontWeight = FontWeight.SemiBold)
-                        Spacer(Modifier.height(6.dp))
-                        Choices(listOf(false, true), layout.menuOpensAllApps, { if (it) "Todos os apps (como no KDE)" else "Fixados" }) { all ->
-                            vm.updateLayout { it.copy(menuOpensAllApps = all) }
-                        }
-                    }
-
-                    Spacer(Modifier.height(12.dp))
-                    SliderRow("Ícones na lista de apps", "${layout.drawerIconSizeDp} dp", layout.drawerIconSizeDp.toFloat(), 36f..72f, 8) { v ->
-                        vm.updateLayout { it.copy(drawerIconSizeDp = v.roundToInt()) }
-                    }
-                    SliderRow("Colunas na lista de apps", "${layout.drawerColumns}", layout.drawerColumns.toFloat(), 3f..6f, 2) { v ->
-                        vm.updateLayout { it.copy(drawerColumns = v.roundToInt()) }
-                    }
-                    SwitchRow("Busca embaixo na lista de apps", layout.searchAtBottom) { on ->
-                        vm.updateLayout { it.copy(searchAtBottom = on) }
-                    }
-                    SwitchRow("Letras do alfabeto na lista de apps", layout.showLetters) { on ->
-                        vm.updateLayout { it.copy(showLetters = on) }
-                    }
-                    SwitchRow("Mostrar título, exibição e filtros na lista de apps", layout.showAppsHeader) { on ->
-                        vm.updateLayout { it.copy(showAppsHeader = on) }
-                    }
-
-                    Spacer(Modifier.height(16.dp))
-                    Text("Exibição de \"Todos os apps\"", fontWeight = FontWeight.SemiBold)
-                    Spacer(Modifier.height(6.dp))
-                    Choices(AppsView.entries, state.appsView, { it.label }) { vm.setAppsView(it) }
-
-                    Spacer(Modifier.height(16.dp))
-                    SliderRow("Ícones da área de trabalho", "${layout.iconSizeDp} dp", layout.iconSizeDp.toFloat(), 40f..72f, 7) { v ->
-                        vm.updateLayout { it.copy(iconSizeDp = v.roundToInt()) }
-                    }
-                    SliderRow("Colunas da área de trabalho", "${layout.gridColumns}", layout.gridColumns.toFloat(), 3f..6f, 2) { v ->
-                        vm.updateLayout { it.copy(gridColumns = v.roundToInt()) }
-                    }
-                    SwitchRow("Mostrar nomes dos apps", layout.showLabels) { on ->
-                        vm.updateLayout { it.copy(showLabels = on) }
-                    }
-                }
-
-                SectionTitle("Área de trabalho")
-                Card {
-                    SwitchRow("Mesma organização em todos os temas", state.sharedLayout) { vm.setSharedLayout(it) }
-                    Text(
-                        if (state.sharedLayout) "Apps, pastas e widgets ficam nas mesmas posições ao trocar de tema; só os cartões próprios de cada tema mudam."
-                        else "Cada tema guarda sua própria organização.",
-                        fontSize = 12.sp,
-                        color = Color.Gray,
-                        modifier = Modifier.padding(bottom = 12.dp),
-                    )
-                    Text("Posição dos itens", fontWeight = FontWeight.SemiBold)
-                    Spacer(Modifier.height(6.dp))
-                    Choices(listOf(false, true), layout.freePlacement, { if (it) "Livre" else "Grade" }) { free ->
-                        vm.updateLayout { it.copy(freePlacement = free) }
-                    }
-                    Text(
-                        if (layout.freePlacement) "Itens ficam exatamente onde você soltar, como na área de trabalho do Windows."
-                        else "Itens se encaixam nas células da grade.",
-                        fontSize = 12.sp,
-                        color = Color.Gray,
-                        modifier = Modifier.padding(top = 6.dp),
-                    )
-                    Spacer(Modifier.height(12.dp))
-                    SwitchRow("Várias telas (deslizar para o lado)", layout.multiPage) { on ->
-                        vm.updateLayout { it.copy(multiPage = on, pageCount = maxOf(it.pageCount, if (on) 2 else 1)) }
-                    }
-                    Spacer(Modifier.height(8.dp))
-                    Button(onClick = { onClose(); controller.editMode = true }) { Text("Organizar área de trabalho") }
-                    Text(
-                        "Arraste para mover, use o ponto no canto para redimensionar e toque em um item para movê-lo de tela ou removê-lo.",
-                        fontSize = 12.sp,
-                        color = Color.Gray,
-                        modifier = Modifier.padding(top = 6.dp),
-                    )
-                }
-
-                SectionTitle(if (state.themeId == "windows") "Barra de tarefas" else "Dock")
-                Card {
-                    val isWindows = state.themeId == "windows"
-                    SwitchRow(if (isWindows) "Mostrar barra de tarefas" else "Mostrar dock / painel", layout.showDock) { on ->
-                        vm.updateLayout { it.copy(showDock = on) }
-                    }
-                    if (layout.showDock) {
-                        SwitchRow("Fundo translúcido", layout.dockBackground) { on -> vm.updateLayout { it.copy(dockBackground = on) } }
-                        SwitchRow("Mostrar hora", layout.showTray) { on -> vm.updateLayout { it.copy(showTray = on) } }
-                        if (layout.showTray) {
-                            SwitchRow("Mostrar data junto da hora", layout.trayShowDate) { on -> vm.updateLayout { it.copy(trayShowDate = on) } }
-                            SwitchRow("Mostrar Wi-Fi e bateria", layout.trayShowStatus) { on -> vm.updateLayout { it.copy(trayShowStatus = on) } }
-                        }
-                        if (isWindows) {
-                            SwitchRow("Botão de pesquisa", layout.dockShowSearch) { on -> vm.updateLayout { it.copy(dockShowSearch = on) } }
-                            Spacer(Modifier.height(6.dp))
-                            Text("Alinhamento", fontWeight = FontWeight.SemiBold)
-                            Spacer(Modifier.height(6.dp))
-                            Choices(listOf(true, false), layout.dockCentered, { if (it) "Centralizado" else "À esquerda" }) { centered ->
-                                vm.updateLayout { it.copy(dockCentered = centered) }
+                // Abas: cada uma rola sozinha e lembra a posição.
+                SettingsTabs(tab) { tab = it }
+                val scrolls = remember { List(SETTINGS_TABS.size) { ScrollState(0) } }
+                Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(scrolls[tab]).padding(bottom = 24.dp)) {
+                    when (tab) {
+                        0 -> { // Visual
+                        SectionTitle("Tema")
+                        Row(
+                            Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
+                            ThemeRegistry.all.forEach { theme ->
+                                ThemePreview(theme, selected = theme.id == state.themeId) { vm.setTheme(theme.id) }
                             }
                         }
-                        Spacer(Modifier.height(10.dp))
-                        val iconValue = if (layout.dockIconSizeDp > 0) layout.dockIconSizeDp else if (isWindows) 32 else 46
-                        SliderRow("Tamanho dos ícones", "$iconValue dp", iconValue.toFloat(), 24f..64f, 9) { v ->
-                            vm.updateLayout { it.copy(dockIconSizeDp = v.roundToInt()) }
-                        }
-                        SliderRow("Máximo de apps", "${layout.dockMaxApps}", layout.dockMaxApps.toFloat(), 3f..8f, 4) { v ->
-                            vm.updateLayout { it.copy(dockMaxApps = v.roundToInt()) }
-                        }
                         Text(
-                            "Apps na dock: " + state.dock.joinToString { it.label }.ifEmpty { "nenhum" } +
-                                ". Toque e segure um app para fixar ou desafixar.",
+                            "Favoritos, pastas, dock, widgets e modo de cor são mantidos ao trocar de tema. Grade, posições e telas valem só para o tema atual.",
                             fontSize = 12.sp,
                             color = Color.Gray,
+                            modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
                         )
-                        Spacer(Modifier.height(14.dp))
-                        WindowModeSettings(state, controller)
-                    } else {
-                        Text(
-                            "Sem a barra, deslize para cima para abrir os apps e para baixo para o painel de controle.",
-                            fontSize = 12.sp,
-                            color = Color.Gray,
-                        )
-                    }
-                }
 
-                SectionTitle("Telas")
-                Card {
-                    if (state.themeId == "ubuntu" || state.themeId == "macos") {
-                        SwitchRow("Mostrar barra superior", layout.showTopBar) { on -> vm.updateLayout { it.copy(showTopBar = on) } }
-                        Spacer(Modifier.height(8.dp))
-                    }
-                    Text("Tela à esquerda", fontWeight = FontWeight.SemiBold)
-                    Spacer(Modifier.height(6.dp))
-                    Choices(LeftScreen.entries, state.leftScreen, { it.label }) { vm.setLeftScreen(it) }
-                    Text(
-                        "Deslize para a direita na primeira tela. O feed mostra notícias com imagens por assunto e abre as matérias " +
-                            "dentro do launcher. O Discover do Google não pode ser embutido em outros launchers; a última opção abre o app do Google.",
-                        fontSize = 12.sp,
-                        color = Color.Gray,
-                        modifier = Modifier.padding(top = 6.dp),
-                    )
-                }
-
-                SectionTitle("Tela de bloqueio")
-                LockScreenCard(state, controller)
-
-                SectionTitle("Gestos")
-                Card {
-                    SwitchRow("Painel de controle", state.controlCenter) { vm.setControlCenter(it) }
-                    Text(
-                        "Desativado, o gesto e os botões que abriam o painel abrem as notificações do sistema.",
-                        fontSize = 12.sp,
-                        color = Color.Gray,
-                        modifier = Modifier.padding(bottom = 12.dp),
-                    )
-                    Text("Deslizar para baixo na área de trabalho", fontWeight = FontWeight.SemiBold)
-                    Spacer(Modifier.height(6.dp))
-                    Choices(SwipeAction.entries, state.swipeDown, { it.label }) { vm.setSwipeDown(it) }
-                    Text(
-                        "Deslizar para cima abre o menu de apps.",
-                        fontSize = 12.sp,
-                        color = Color.Gray,
-                        modifier = Modifier.padding(top = 8.dp),
-                    )
-                    Spacer(Modifier.height(14.dp))
-                    HyperOsGestures(controller)
-                }
-
-                SectionTitle("Importar")
-                Card {
-                    var importResult by remember { mutableStateOf<String?>(null) }
-                    Text(
-                        "Traz os apps, pastas e o dock da tela inicial do launcher do sistema. A organização atual deste tema é substituída.",
-                        fontSize = 12.sp,
-                        color = Color.Gray,
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    Button(onClick = { importResult = vm.importHome(mostUsed = false) }) { Text("Importar da tela inicial do sistema") }
-                    OutlinedButton(onClick = {
-                        if (vm.hasUsageAccess()) importResult = vm.importHome(mostUsed = true)
-                        else {
-                            importResult = "Ative o acesso ao uso para o Launcher e toque de novo."
-                            controller.openUsageAccessSettings()
-                        }
-                    }) { Text("Importar apps mais usados") }
-                    importResult?.let { Text(it, fontSize = 13.sp, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 6.dp)) }
-                }
-
-                SectionTitle("Backup")
-                Card { BackupSettings(controller) }
-
-                SectionTitle("Widgets")
-                Card {
-                    if (state.widgetIds.isEmpty()) {
-                        Text("Nenhum widget na tela inicial.", fontSize = 13.sp, color = Color.Gray)
-                    }
-                    state.widgetIds.forEach { id ->
-                        val label = remember(id) {
-                            controller.widgets.info(id)?.let { info ->
-                                runCatching { info.loadLabel(controller.widgets.packageManager) }.getOrNull()
-                            } ?: "Widget"
-                        }
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(label, modifier = Modifier.weight(1f))
-                            IconButton(onClick = { controller.removeWidget(id) }) { Icon(Icons.Default.Delete, "Remover") }
-                        }
-                    }
-                    Spacer(Modifier.height(8.dp))
-                    Button(onClick = { controller.widgetPickerOpen = true }) { Text("Adicionar widget") }
-                    Spacer(Modifier.height(14.dp))
-                    Text("Widgets HTML", fontWeight = FontWeight.SemiBold)
-                    MusicAccessRow(controller)
-                    Text(
-                        "Crie widgets com HTML e CSS, com variáveis como {{hora}} e {{bateria}}. Ficam pausados fora da tela inicial.",
-                        fontSize = 12.sp,
-                        color = Color.Gray,
-                    )
-                    state.htmlWidgets.forEach { w ->
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Column(Modifier.weight(1f)) {
-                                Text(w.name)
-                                Text(if (w.onDesktop) "Na área de trabalho" else "Guardado", fontSize = 12.sp, color = Color.Gray)
+                        SectionTitle("Aparência")
+                        Card {
+                            Text("Modo de cor", fontWeight = FontWeight.SemiBold)
+                            Spacer(Modifier.height(6.dp))
+                            Choices(ColorMode.entries, state.colorMode, { it.label }) { vm.setColorMode(it) }
+                            Spacer(Modifier.height(16.dp))
+                            SwitchRow("Efeitos de transparência", state.transparency) { vm.setTransparency(it) }
+                            Text(
+                                "Menus e painéis translúcidos com o fundo desfocado (desfoque a partir do Android 12).",
+                                fontSize = 12.sp,
+                                color = Color.Gray,
+                            )
+                            Spacer(Modifier.height(12.dp))
+                            SwitchRow("Papel de parede do tema", layout.useThemeWallpaper) { on ->
+                                vm.updateLayout { it.copy(useThemeWallpaper = on) }
                             }
-                            androidx.compose.material3.TextButton(onClick = { vm.setHtmlWidgetOnDesktop(w.id, !w.onDesktop) }) {
-                                Text(if (w.onDesktop) "Tirar" else "Adicionar")
+                            Text(
+                                if (layout.useThemeWallpaper) "Desative para ver o papel de parede do sistema."
+                                else "Mostrando o papel de parede do sistema.",
+                                fontSize = 12.sp,
+                                color = Color.Gray,
+                            )
+                            val live = remember { controller.liveWallpaperName() }
+                            if (live != null) {
+                                Text(
+                                    "Papel de parede animado: $live. " + if (layout.useThemeWallpaper) "Desative o papel de parede do tema para vê-lo e tocar nele."
+                                    else "Toques em áreas vazias da tela são repassados a ele.",
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.padding(top = 4.dp),
+                                )
                             }
-                            androidx.compose.material3.TextButton(onClick = { onClose(); controller.htmlEditing = w }) { Text("Editar") }
+                            Spacer(Modifier.height(8.dp))
+                            OutlinedButton(onClick = controller::openWallpaperPicker) { Text("Escolher papel de parede do sistema") }
+
+                            Spacer(Modifier.height(16.dp))
+                            Text("Ícone do menu de apps", fontWeight = FontWeight.SemiBold)
+                            Spacer(Modifier.height(6.dp))
+                            Choices(MenuIcon.entries, layout.menuIcon, { it.label }) { icon ->
+                                if (icon == MenuIcon.CUSTOM) controller.pickImage?.invoke()
+                                else vm.updateLayout { it.copy(menuIcon = icon) }
+                            }
+
+                        }
+
+                        }
+                        1 -> { // Tela inicial
+                        SectionTitle("Área de trabalho")
+                        Card {
+                            SwitchRow("Mesma organização em todos os temas", state.sharedLayout) { vm.setSharedLayout(it) }
+                            Text(
+                                if (state.sharedLayout) "Apps, pastas e widgets ficam nas mesmas posições ao trocar de tema; só os cartões próprios de cada tema mudam."
+                                else "Cada tema guarda sua própria organização.",
+                                fontSize = 12.sp,
+                                color = Color.Gray,
+                                modifier = Modifier.padding(bottom = 12.dp),
+                            )
+                            Text("Posição dos itens", fontWeight = FontWeight.SemiBold)
+                            Spacer(Modifier.height(6.dp))
+                            Choices(listOf(false, true), layout.freePlacement, { if (it) "Livre" else "Grade" }) { free ->
+                                vm.updateLayout { it.copy(freePlacement = free) }
+                            }
+                            Text(
+                                if (layout.freePlacement) "Itens ficam exatamente onde você soltar, como na área de trabalho do Windows."
+                                else "Itens se encaixam nas células da grade.",
+                                fontSize = 12.sp,
+                                color = Color.Gray,
+                                modifier = Modifier.padding(top = 6.dp),
+                            )
+                            Spacer(Modifier.height(12.dp))
+                            SwitchRow("Várias telas (deslizar para o lado)", layout.multiPage) { on ->
+                                vm.updateLayout { it.copy(multiPage = on, pageCount = maxOf(it.pageCount, if (on) 2 else 1)) }
+                            }
+                            Spacer(Modifier.height(8.dp))
+                            Button(onClick = { onClose(); controller.editMode = true }) { Text("Organizar área de trabalho") }
+                            Text(
+                                "Arraste para mover, use o ponto no canto para redimensionar e toque em um item para movê-lo de tela ou removê-lo.",
+                                fontSize = 12.sp,
+                                color = Color.Gray,
+                                modifier = Modifier.padding(top = 6.dp),
+                            )
+                        }
+
+                        SectionTitle("Ícones")
+                        Card {
+                            SliderRow("Ícones da área de trabalho", "${layout.iconSizeDp} dp", layout.iconSizeDp.toFloat(), 40f..72f, 7) { v ->
+                                vm.updateLayout { it.copy(iconSizeDp = v.roundToInt()) }
+                            }
+                            SliderRow("Colunas da área de trabalho", "${layout.gridColumns}", layout.gridColumns.toFloat(), 3f..6f, 2) { v ->
+                                vm.updateLayout { it.copy(gridColumns = v.roundToInt()) }
+                            }
+                            SwitchRow("Mostrar nomes dos apps", layout.showLabels) { on ->
+                                vm.updateLayout { it.copy(showLabels = on) }
+                            }
+                        }
+
+                        SectionTitle(if (state.themeId == "windows") "Barra de tarefas" else "Dock")
+                        Card {
+                            val isWindows = state.themeId == "windows"
+                            SwitchRow(if (isWindows) "Mostrar barra de tarefas" else "Mostrar dock / painel", layout.showDock) { on ->
+                                vm.updateLayout { it.copy(showDock = on) }
+                            }
+                            if (layout.showDock) {
+                                SwitchRow("Fundo translúcido", layout.dockBackground) { on -> vm.updateLayout { it.copy(dockBackground = on) } }
+                                SwitchRow("Mostrar hora", layout.showTray) { on -> vm.updateLayout { it.copy(showTray = on) } }
+                                if (layout.showTray) {
+                                    SwitchRow("Mostrar data junto da hora", layout.trayShowDate) { on -> vm.updateLayout { it.copy(trayShowDate = on) } }
+                                    SwitchRow("Mostrar Wi-Fi e bateria", layout.trayShowStatus) { on -> vm.updateLayout { it.copy(trayShowStatus = on) } }
+                                }
+                                if (isWindows) {
+                                    SwitchRow("Botão de pesquisa", layout.dockShowSearch) { on -> vm.updateLayout { it.copy(dockShowSearch = on) } }
+                                    Spacer(Modifier.height(6.dp))
+                                    Text("Alinhamento", fontWeight = FontWeight.SemiBold)
+                                    Spacer(Modifier.height(6.dp))
+                                    Choices(listOf(true, false), layout.dockCentered, { if (it) "Centralizado" else "À esquerda" }) { centered ->
+                                        vm.updateLayout { it.copy(dockCentered = centered) }
+                                    }
+                                }
+                                Spacer(Modifier.height(10.dp))
+                                val iconValue = if (layout.dockIconSizeDp > 0) layout.dockIconSizeDp else if (isWindows) 32 else 46
+                                SliderRow("Tamanho dos ícones", "$iconValue dp", iconValue.toFloat(), 24f..64f, 9) { v ->
+                                    vm.updateLayout { it.copy(dockIconSizeDp = v.roundToInt()) }
+                                }
+                                SliderRow("Máximo de apps", "${layout.dockMaxApps}", layout.dockMaxApps.toFloat(), 3f..8f, 4) { v ->
+                                    vm.updateLayout { it.copy(dockMaxApps = v.roundToInt()) }
+                                }
+                                Text(
+                                    "Apps na dock: " + state.dock.joinToString { it.label }.ifEmpty { "nenhum" } +
+                                        ". Toque e segure um app para fixar ou desafixar.",
+                                    fontSize = 12.sp,
+                                    color = Color.Gray,
+                                )
+                                Spacer(Modifier.height(14.dp))
+                                WindowModeSettings(state, controller)
+                            } else {
+                                Text(
+                                    "Sem a barra, deslize para cima para abrir os apps e para baixo para o painel de controle.",
+                                    fontSize = 12.sp,
+                                    color = Color.Gray,
+                                )
+                            }
+                        }
+
+                        SectionTitle("Telas")
+                        Card {
+                            if (state.themeId == "ubuntu" || state.themeId == "macos") {
+                                SwitchRow("Mostrar barra superior", layout.showTopBar) { on -> vm.updateLayout { it.copy(showTopBar = on) } }
+                                Spacer(Modifier.height(8.dp))
+                            }
+                            Text("Tela à esquerda", fontWeight = FontWeight.SemiBold)
+                            Spacer(Modifier.height(6.dp))
+                            Choices(LeftScreen.entries, state.leftScreen, { it.label }) { vm.setLeftScreen(it) }
+                            Text(
+                                "Deslize para a direita na primeira tela. O feed mostra notícias com imagens por assunto e abre as matérias " +
+                                    "dentro do launcher. O Discover do Google não pode ser embutido em outros launchers; a última opção abre o app do Google.",
+                                fontSize = 12.sp,
+                                color = Color.Gray,
+                                modifier = Modifier.padding(top = 6.dp),
+                            )
+                        }
+
+                        }
+                        2 -> { // Apps
+                        SectionTitle("Lista de apps")
+                        Card {
+                            // Os outros temas já abrem a gaveta com a lista completa.
+                            if (state.themeId == "windows") {
+                                Spacer(Modifier.height(16.dp))
+                                Text("Iniciar abre em", fontWeight = FontWeight.SemiBold)
+                                Spacer(Modifier.height(6.dp))
+                                Choices(listOf(false, true), layout.menuOpensAllApps, { if (it) "Todos os apps (como no KDE)" else "Fixados" }) { all ->
+                                    vm.updateLayout { it.copy(menuOpensAllApps = all) }
+                                }
+                            }
+
+                            Spacer(Modifier.height(12.dp))
+                            SliderRow("Ícones na lista de apps", "${layout.drawerIconSizeDp} dp", layout.drawerIconSizeDp.toFloat(), 36f..72f, 8) { v ->
+                                vm.updateLayout { it.copy(drawerIconSizeDp = v.roundToInt()) }
+                            }
+                            SliderRow("Colunas na lista de apps", "${layout.drawerColumns}", layout.drawerColumns.toFloat(), 3f..6f, 2) { v ->
+                                vm.updateLayout { it.copy(drawerColumns = v.roundToInt()) }
+                            }
+                            SwitchRow("Busca embaixo na lista de apps", layout.searchAtBottom) { on ->
+                                vm.updateLayout { it.copy(searchAtBottom = on) }
+                            }
+                            SwitchRow("Letras do alfabeto na lista de apps", layout.showLetters) { on ->
+                                vm.updateLayout { it.copy(showLetters = on) }
+                            }
+                            SwitchRow("Mostrar título, exibição e filtros na lista de apps", layout.showAppsHeader) { on ->
+                                vm.updateLayout { it.copy(showAppsHeader = on) }
+                            }
+
+                            Spacer(Modifier.height(16.dp))
+                            Text("Exibição de \"Todos os apps\"", fontWeight = FontWeight.SemiBold)
+                            Spacer(Modifier.height(6.dp))
+                            Choices(AppsView.entries, state.appsView, { it.label }) { vm.setAppsView(it) }
+
+                        }
+
+                        }
+                        3 -> { // Widgets
+                        SectionTitle("Widgets")
+                        Card {
+                            if (state.widgetIds.isEmpty()) {
+                                Text("Nenhum widget na tela inicial.", fontSize = 13.sp, color = Color.Gray)
+                            }
+                            state.widgetIds.forEach { id ->
+                                val label = remember(id) {
+                                    controller.widgets.info(id)?.let { info ->
+                                        runCatching { info.loadLabel(controller.widgets.packageManager) }.getOrNull()
+                                    } ?: "Widget"
+                                }
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(label, modifier = Modifier.weight(1f))
+                                    IconButton(onClick = { controller.removeWidget(id) }) { Icon(Icons.Default.Delete, "Remover") }
+                                }
+                            }
+                            Spacer(Modifier.height(8.dp))
+                            Button(onClick = { controller.widgetPickerOpen = true }) { Text("Adicionar widget") }
+                            Spacer(Modifier.height(14.dp))
+                            Text("Widgets HTML", fontWeight = FontWeight.SemiBold)
+                            MusicAccessRow(controller)
+                            Text(
+                                "Crie widgets com HTML e CSS, com variáveis como {{hora}} e {{bateria}}. Ficam pausados fora da tela inicial.",
+                                fontSize = 12.sp,
+                                color = Color.Gray,
+                            )
+                            state.htmlWidgets.forEach { w ->
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Column(Modifier.weight(1f)) {
+                                        Text(w.name)
+                                        Text(if (w.onDesktop) "Na área de trabalho" else "Guardado", fontSize = 12.sp, color = Color.Gray)
+                                    }
+                                    androidx.compose.material3.TextButton(onClick = { vm.setHtmlWidgetOnDesktop(w.id, !w.onDesktop) }) {
+                                        Text(if (w.onDesktop) "Tirar" else "Adicionar")
+                                    }
+                                    androidx.compose.material3.TextButton(onClick = { onClose(); controller.htmlEditing = w }) { Text("Editar") }
+                                }
+                            }
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                OutlinedButton(onClick = { onClose(); controller.newHtmlWidget() }) { Text("Criar widget HTML") }
+                                OutlinedButton(onClick = { onClose(); controller.htmlLibraryOpen = true }) { Text("Biblioteca") }
+                            }
+                        }
+
+                        SectionTitle("Claude Code")
+                        ClaudeCodeCard(controller)
+
+                        }
+                        4 -> { // Bloqueio e gestos
+                        SectionTitle("Tela de bloqueio")
+                        LockScreenCard(state, controller)
+
+                        SectionTitle("Gestos")
+                        Card {
+                            SwitchRow("Painel de controle", state.controlCenter) { vm.setControlCenter(it) }
+                            Text(
+                                "Desativado, o gesto e os botões que abriam o painel abrem as notificações do sistema.",
+                                fontSize = 12.sp,
+                                color = Color.Gray,
+                                modifier = Modifier.padding(bottom = 12.dp),
+                            )
+                            Text("Deslizar para baixo na área de trabalho", fontWeight = FontWeight.SemiBold)
+                            Spacer(Modifier.height(6.dp))
+                            Choices(SwipeAction.entries, state.swipeDown, { it.label }) { vm.setSwipeDown(it) }
+                            Text(
+                                "Deslizar para cima abre o menu de apps.",
+                                fontSize = 12.sp,
+                                color = Color.Gray,
+                                modifier = Modifier.padding(top = 8.dp),
+                            )
+                            Spacer(Modifier.height(14.dp))
+                            HyperOsGestures(controller)
+                        }
+
+                        }
+                        5 -> { // Sistema
+                        SectionTitle("Sistema")
+                        Card {
+                            OutlinedButton(onClick = controller::requestDefaultLauncher) {
+                                Text(if (isDefault) "Trocar launcher padrão" else "Definir como launcher padrão")
+                            }
+                            Spacer(Modifier.height(8.dp))
+                            OutlinedButton(onClick = controller::openSystemSettings) { Text("Configurações do Android") }
+                        }
+                        SectionTitle("Importar")
+                        Card {
+                            var importResult by remember { mutableStateOf<String?>(null) }
+                            Text(
+                                "Traz os apps, pastas e o dock da tela inicial do launcher do sistema. A organização atual deste tema é substituída.",
+                                fontSize = 12.sp,
+                                color = Color.Gray,
+                            )
+                            Spacer(Modifier.height(8.dp))
+                            Button(onClick = { importResult = vm.importHome(mostUsed = false) }) { Text("Importar da tela inicial do sistema") }
+                            OutlinedButton(onClick = {
+                                if (vm.hasUsageAccess()) importResult = vm.importHome(mostUsed = true)
+                                else {
+                                    importResult = "Ative o acesso ao uso para o Launcher e toque de novo."
+                                    controller.openUsageAccessSettings()
+                                }
+                            }) { Text("Importar apps mais usados") }
+                            importResult?.let { Text(it, fontSize = 13.sp, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 6.dp)) }
+                        }
+
+                        SectionTitle("Backup")
+                        Card { BackupSettings(controller) }
+
                         }
                     }
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedButton(onClick = { onClose(); controller.newHtmlWidget() }) { Text("Criar widget HTML") }
-                        OutlinedButton(onClick = { onClose(); controller.htmlLibraryOpen = true }) { Text("Biblioteca") }
-                    }
-                }
-
-                SectionTitle("Claude Code")
-                ClaudeCodeCard(controller)
-
-                SectionTitle("Sistema")
-                Card {
-                    OutlinedButton(onClick = controller::requestDefaultLauncher) {
-                        Text(if (isDefault) "Trocar launcher padrão" else "Definir como launcher padrão")
-                    }
-                    Spacer(Modifier.height(8.dp))
-                    OutlinedButton(onClick = controller::openSystemSettings) { Text("Configurações do Android") }
                 }
             }
         }
@@ -890,6 +920,28 @@ private fun LockScreenCard(state: LauncherUiState, controller: LauncherControlle
                 }) { Text("Outras permissões") }
                 OutlinedButton(onClick = { dev.jesiel.launcher.data.LockScreen.show(context) }) { Text("Testar agora") }
             }
+        }
+    }
+}
+
+private val SETTINGS_TABS = listOf("Visual", "Tela inicial", "Apps", "Widgets", "Bloqueio e gestos", "Sistema")
+
+@Composable
+private fun SettingsTabs(selected: Int, onSelect: (Int) -> Unit) {
+    ScrollableTabRow(
+        selectedTabIndex = selected,
+        edgePadding = 12.dp,
+        containerColor = MaterialTheme.colorScheme.background,
+        divider = {},
+    ) {
+        SETTINGS_TABS.forEachIndexed { i, label ->
+            Tab(
+                selected = i == selected,
+                onClick = { onSelect(i) },
+                selectedContentColor = MaterialTheme.colorScheme.primary,
+                unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                text = { Text(label, fontWeight = if (i == selected) FontWeight.SemiBold else FontWeight.Normal) },
+            )
         }
     }
 }

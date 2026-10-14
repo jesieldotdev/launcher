@@ -41,6 +41,7 @@ import dev.jesiel.launcher.ui.macos.MacLauncher
 import dev.jesiel.launcher.ui.ubuntu.UbuntuLauncher
 import dev.jesiel.launcher.ui.windows.WindowsLauncher
 import dev.jesiel.launcher.widgets.WidgetHost
+import androidx.compose.ui.test.performScrollTo
 import org.junit.Rule
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.background
@@ -577,5 +578,18 @@ class ScreenshotTest {
         val controller = controller()
         compose.setContent { SettingsScreen(sampleState(), controller, onClose = {}) }
         compose.onRoot().captureRoboImage(shot("settings"))
+    }
+
+    /** Cada aba dos ajustes mostra só as suas seções. */
+    @Test
+    fun settingsTabs() {
+        val controller = controller()
+        compose.setContent { SettingsScreen(sampleState(), controller, onClose = {}) }
+        listOf("Tela inicial" to "settings-home", "Apps" to "settings-apps", "Sistema" to "settings-system").forEach { (tab, name) ->
+            compose.onNodeWithText(tab).performScrollTo().performClick()
+            compose.waitForIdle()
+            compose.onRoot().captureRoboImage(shot(name))
+        }
+        compose.onNodeWithText("Busca embaixo na lista de apps").assertDoesNotExist()
     }
 }
