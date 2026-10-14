@@ -105,7 +105,7 @@ fun rememberHtmlValues(palette: LauncherPalette, used: Set<String>, controller: 
             put("musicaProgresso", if (music != null && music.durationMs > 0) (position * 100 / music.durationMs).toString() else "0")
             put("musicaCapa", music?.artDataUri.orEmpty())
             putAll(material)
-        }
+        }.let(HtmlVariables::withEnglish)
     }
 }
 

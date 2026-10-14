@@ -30,8 +30,8 @@ object HtmlWidgetGuide {
         appendLine("2. **CSS:** `var(--nome)`. Números vêm sem aspas (dá para usar em `calc(var(--bateria) * 1%)`), cores `#rrggbb` sem aspas, textos entre aspas (servem em `content:`).")
         appendLine("3. **JavaScript (só no modo Interativo):** objeto `launcher` (ex.: `launcher.hora`) e a função `function onLauncherData(d) { … }`, chamada ao carregar e sempre que um valor muda, sem recarregar a página.")
         appendLine()
-        appendLine("Todas as variáveis são texto. Lista:")
-        HtmlVariables.all.forEach { (k, d) -> appendLine("- `$k`: $d") }
+        appendLine("Todas as variáveis são texto. Cada uma tem um nome em português e um em inglês, com o mesmo valor (ex.: `{{hora}}` = `{{time}}`, `var(--bateria)` = `var(--battery)`). Use um dos dois. Lista (português / inglês):")
+        HtmlVariables.all.forEach { (k, d) -> appendLine("- `$k` / `${HtmlVariables.english[k] ?: k}`: $d") }
         appendLine()
         appendLine("Observações:")
         appendLine("- Só as variáveis citadas no código são calculadas (o launcher procura `{{nome}}`, `var(--nome)` e `launcher.nome`). Se ler um valor como `d.nome` dentro de `onLauncherData`, cite também `launcher.nome` em algum lugar (um comentário basta) para ele ser calculado.")
@@ -45,6 +45,7 @@ object HtmlWidgetGuide {
         appendLine("- `launcher://app/<pacote>` abre um app (ex.: `launcher://app/com.whatsapp`).")
         appendLine("- `launcher://apps` lista de apps · `launcher://busca` busca · `launcher://painel` painel de controle · `launcher://notificacoes` notificações · `launcher://ajustes` ajustes do launcher.")
         appendLine("- `launcher://musica/alternar`, `/tocar`, `/pausar`, `/proxima`, `/anterior`; `launcher://musica` abre o app que está tocando.")
+        appendLine("- Em inglês também valem: `launcher://music/toggle`, `/play`, `/pause`, `/next`, `/previous`, `launcher://search`, `launcher://panel`, `launcher://notifications`, `launcher://settings`.")
         appendLine("- `https://…` abre no navegador interno.")
         appendLine()
         appendLine("## Bateria e desempenho")

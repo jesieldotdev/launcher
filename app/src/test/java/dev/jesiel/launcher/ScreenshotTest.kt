@@ -362,6 +362,28 @@ class ScreenshotTest {
         org.junit.Assert.assertTrue("a posição deve ter sido gravada", after != before)
     }
 
+    /** Segurar o item arrastado na borda direita leva ele para a próxima tela. */
+    @Test
+    fun holdingAtTheEdgeMovesIconToNextScreen() {
+        val controller = controller()
+        val base = sampleState()
+        val state = base.copy(layout = base.layout.copy(multiPage = true, pageCount = 2))
+        compose.setContent { WindowsLauncher(state, controller) }
+        compose.onNodeWithText("Chrome").performTouchInput {
+            down(center)
+            advanceEventTime(viewConfiguration.longPressTimeoutMillis + 100)
+            moveBy(androidx.compose.ui.geometry.Offset(width * 1.2f, 0f))
+            moveBy(androidx.compose.ui.geometry.Offset(width * 1.4f, 0f))
+        }
+        compose.mainClock.advanceTimeBy(300)
+        compose.waitForIdle()
+        compose.onRoot().captureRoboImage(shot("windows-edge-drag"))
+        compose.mainClock.advanceTimeBy(1_500)
+        compose.waitForIdle()
+        val pages = controller.viewModel.state.value.placements.values.map { it.page }
+        org.junit.Assert.assertTrue("algum item deve ter ido para a tela 2: $pages", pages.any { it == 1 })
+    }
+
     /** Arrastar rápido, sem segurar, não move ícone nenhum. */
     @Test
     fun quickSwipeDoesNotMoveIcons() {

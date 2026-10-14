@@ -93,15 +93,41 @@ object HtmlVariables {
         "corContorno" to "Material You: bordas e divisórias",
     )
 
+    /** Nome em inglês de cada variável (mesmo valor), para quem prefere ou para código gerado por outras IAs. */
+    val english: Map<String, String> = linkedMapOf(
+        "hora" to "time", "data" to "date", "diaSemana" to "weekday", "dia" to "day", "mes" to "month", "ano" to "year",
+        "saudacao" to "greeting", "bateria" to "battery", "carregando" to "charging", "alarme" to "alarm",
+        "memoria" to "memory", "armazenamento" to "storage", "tema" to "theme", "cor" to "accent", "ntfy" to "ntfy",
+        "horas" to "hours", "minutos" to "minutes", "semana" to "week", "tempBateria" to "batteryTemp",
+        "rede" to "network", "volume" to "volume", "ultimoApp" to "lastApp", "notificacoes" to "notifications",
+        "musicaTitulo" to "musicTitle", "musicaArtista" to "musicArtist", "musicaAlbum" to "musicAlbum",
+        "musicaApp" to "musicApp", "musicaTocando" to "musicPlaying", "musicaPosicao" to "musicPosition",
+        "musicaDuracao" to "musicDuration", "musicaProgresso" to "musicProgress", "musicaCapa" to "musicCover",
+        "corPrimaria" to "colorPrimary", "corPrimariaFundo" to "colorPrimaryContainer", "corSecundaria" to "colorSecondary",
+        "corTerciaria" to "colorTertiary", "corFundo" to "colorBackground", "corSuperficie" to "colorSurface",
+        "corTexto" to "colorOnSurface", "corTextoSuave" to "colorOnSurfaceVariant", "corContorno" to "colorOutline",
+    )
+    private val fromEnglish: Map<String, String> = english.entries.associate { (pt, en) -> en to pt }
+
+    /** Copia cada valor também com o nome em inglês. */
+    fun withEnglish(values: Map<String, String>): Map<String, String> =
+        values + values.mapNotNull { (k, v) -> english[k]?.takeIf { it != k }?.let { it to v } }
+
     /** Variáveis que dependem do acesso a notificações. */
     fun needsNotificationAccess(used: Set<String>) = used.any { it.startsWith("musica") || it == "notificacoes" }
 
     private val PLACEHOLDER = Regex("""\{\{\s*([a-zA-Z]+)\s*\}\}""")
     private val TAG = Regex("""<[^>]*>""")
 
-    /** Nomes de variáveis usadas no HTML (para calcular só o necessário). */
-    fun used(html: String): Set<String> = PLACEHOLDER.findAll(html).map { it.groupValues[1] }.toSet() +
-        all.map { it.first }.filter { html.contains("launcher.$it") || html.contains("--$it") }
+    /**
+     * Nomes (em português, os internos) das variáveis usadas no HTML, para calcular só o
+     * necessário. Reconhece também os nomes em inglês.
+     */
+    fun used(html: String): Set<String> {
+        fun mentioned(name: String) = html.contains("launcher.$name") || html.contains("--$name")
+        val placeholders = PLACEHOLDER.findAll(html).map { it.groupValues[1] }.map { fromEnglish[it] ?: it }.toSet()
+        return placeholders + all.map { it.first }.filter { pt -> mentioned(pt) || english[pt]?.let(::mentioned) == true }
+    }
 
     /**
      * Monta o documento final: troca `{{variavel}}` pelo valor, expõe as variáveis também como

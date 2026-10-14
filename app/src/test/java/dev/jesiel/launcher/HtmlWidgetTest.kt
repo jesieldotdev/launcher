@@ -115,4 +115,20 @@ class HtmlWidgetTest {
         assertTrue(withCode.contains("Interativo = sim, Acesso à internet = não"))
         assertTrue(withCode.trimEnd().endsWith("[descreva aqui o que mudar]"))
     }
+
+    @Test
+    fun englishNamesWorkLikePortugueseOnes() {
+        // Toda variável tem nome em inglês, sem repetir.
+        HtmlVariables.all.forEach { (k, _) -> assertTrue("$k sem nome em inglês", HtmlVariables.english.containsKey(k)) }
+        assertTrue(HtmlVariables.english.values.toSet().size == HtmlVariables.english.size)
+        // Os nomes em inglês são detectados como as variáveis internas.
+        val used = HtmlVariables.used("<b>{{time}}</b><i style=\"width:calc(var(--battery)*1%)\"></i><script>launcher.musicTitle</script>")
+        assertTrue(used.containsAll(setOf("hora", "bateria", "musicaTitulo")))
+        assertTrue(HtmlVariables.needsNotificationAccess(used))
+        // O valor chega pelos dois nomes.
+        val values = HtmlVariables.withEnglish(mapOf("hora" to "17:03", "bateria" to "71"))
+        val html = HtmlVariables.render("<p>{{time}} {{hora}} {{battery}}%</p>", values, interactive = false)
+        assertTrue(html.contains("17:03 17:03 71%"))
+        assertTrue(html.contains("--battery:71"))
+    }
 }

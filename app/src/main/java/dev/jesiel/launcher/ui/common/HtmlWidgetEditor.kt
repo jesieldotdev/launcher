@@ -219,16 +219,23 @@ fun HtmlWidgetEditor(
                     controller.start(android.content.Intent.createChooser(send, "Enviar guia para"))
                 }
             }
-            Text("Variáveis (toque para inserir no cursor)", fontWeight = FontWeight.SemiBold, color = colors.onBackground)
+            var englishNames by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
+            fun nameOf(key: String) = if (englishNames) HtmlVariables.english[key] ?: key else key
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Variáveis (toque para inserir no cursor)", fontWeight = FontWeight.SemiBold, color = colors.onBackground, modifier = Modifier.weight(1f))
+                Chip(if (englishNames) "EN" else "PT") { englishNames = !englishNames }
+            }
             Row(Modifier.horizontalScroll(rememberScrollState()).padding(vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                HtmlVariables.all.forEach { (key, _) -> Chip("{{$key}}") { code.insert("{{$key}}") } }
+                HtmlVariables.all.forEach { (key, _) -> nameOf(key).let { n -> Chip("{{$n}}") { code.insert("{{$n}}") } } }
             }
             Text(
-                HtmlVariables.all.joinToString("\n") { (k, d) -> "{{$k}} — $d" } +
+                HtmlVariables.all.joinToString("\n") { (k, d) -> "{{$k}} · {{${HtmlVariables.english[k] ?: k}}} — $d" } +
+                    "\n\nCada variável tem um nome em português e um em inglês, com o mesmo valor." +
                     "\n\nTambém em CSS: var(--bateria) e, no modo interativo, em JS: launcher.hora ou function onLauncherData(d) { … }." +
                     "\nLinks: launcher://app/<pacote>, launcher://apps, launcher://busca, launcher://painel, launcher://ajustes, " +
                     "launcher://notificacoes ou https://…" +
                     "\nMúsica: launcher://musica/alternar, /tocar, /pausar, /proxima, /anterior; launcher://musica abre o app que está tocando." +
+                    "\nEm inglês: launcher://music/toggle, /play, /pause, /next, /previous; launcher://search, panel, notifications, settings." +
                     "\nCapa no modo interativo: <img data-lsrc=\"musicaCapa\" src=\"{{musicaCapa}}\"> troca sozinha a cada faixa.",
                 fontSize = 12.sp,
                 color = Color.Gray,

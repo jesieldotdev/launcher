@@ -173,3 +173,8 @@ O Play Protect bloqueia, fora da Play Store, apps que pedem acesso a notificaç�
 ![Editor](docs/screenshots/html-editor-fullscreen.png)
 
 Destaque de sintaxe (HTML, CSS, JS e `{{variáveis}}`), números de linha, barra de símbolos acima do teclado (Tab, `< > / = " { } ( ) : ;`…), desfazer/refazer, indentação automática, fechamento automático de tags, buscar e substituir, aviso de tag não fechada com a linha, tela cheia e tamanho de fonte. As variáveis entram onde está o cursor.
+
+### Nomes em inglês e troca de tela pela beirada
+
+- Toda variável dos widgets tem também um nome em inglês, com o mesmo valor: `{{time}}` = `{{hora}}`, `var(--battery)` = `var(--bateria)`, `launcher.musicTitle` = `launcher.musicaTitulo`, `colorPrimary` = `corPrimaria`… Os links também: `launcher://music/next`, `launcher://search`, `launcher://panel`.
+- Ao arrastar um item (segurando ou em Organizar), pare perto da borda esquerda ou direita por meio segundo para levá-lo à tela vizinha; na última tela, uma nova é criada se as telas extras estiverem ligadas.

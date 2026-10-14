@@ -81,7 +81,7 @@ object MediaWatcher {
             "tocar", "play" -> c.play()
             "pausar", "pause" -> c.pause()
             "alternar", "toggle" -> if (_nowPlaying.value?.playing == true) c.pause() else c.play()
-            "proxima", "next" -> c.skipToNext()
+            "proxima", "next", "skip" -> c.skipToNext()
             "anterior", "prev", "previous" -> c.skipToPrevious()
             else -> return false
         }

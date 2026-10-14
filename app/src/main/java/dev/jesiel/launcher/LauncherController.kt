@@ -310,14 +310,15 @@ class LauncherController(
         val uri = Uri.parse(url)
         when (uri.scheme) {
             "launcher" -> when (uri.host) {
+                // Nomes em português e em inglês.
                 "app" -> uri.lastPathSegment?.let(::launchPackage)
-                "painel" -> controlCenterOpen = true
+                "painel", "panel" -> controlCenterOpen = true
                 "apps" -> openAppsMenu?.invoke()
-                "busca" -> openSearch?.invoke()
-                "ajustes" -> settingsOpen = true
-                "notificacoes" -> expandNotifications()
+                "busca", "search" -> openSearch?.invoke()
+                "ajustes", "settings" -> settingsOpen = true
+                "notificacoes", "notifications" -> expandNotifications()
                 // launcher://musica/alternar | tocar | pausar | proxima | anterior; sem ação abre o app que toca.
-                "musica" -> {
+                "musica", "music" -> {
                     val action = uri.lastPathSegment
                     when {
                         !MediaWatcher.supported(activity) -> toast("Controle de música indisponível na versão leve")

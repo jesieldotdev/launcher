@@ -1,5 +1,10 @@
 package dev.jesiel.launcher.ui.common
 
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.width
+import androidx.compose.ui.graphics.Brush
+import kotlinx.coroutines.delay
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -242,14 +247,28 @@ fun DesktopCanvas(
         var preview by remember { mutableStateOf<Map<String, Placement>?>(null) }
         var lastTarget by remember { mutableStateOf<Placement?>(null) }
 
+        // Beirada: segurar o item arrastado perto da borda leva ele para a tela vizinha.
+        var edge by remember { mutableIntStateOf(0) }
+
+        fun edgeOf(target: Placement): Int {
+            val center = target.x + target.w / 2f
+            return when {
+                center < EDGE_ZONE && target.page > 0 -> -1
+                center > columns - EDGE_ZONE && layout.multiPage -> 1
+                else -> 0
+            }
+        }
+
         fun previewMove(id: String, target: Placement?) {
             if (target == null) {
                 dragging = null
                 preview = null
                 lastTarget = null
+                edge = 0
                 return
             }
             dragging = id
+            edge = edgeOf(target)
             val key = if (layout.freePlacement) target else grid.clamp(target.snapped())
             if (key == lastTarget) return
             lastTarget = key
@@ -262,6 +281,25 @@ fun DesktopCanvas(
             dragging = null
             preview = null
             lastTarget = null
+            edge = 0
+        }
+
+        /** Leva o item para a tela vizinha, junto da borda por onde entrou, e mostra essa tela. */
+        fun moveAcrossEdge(id: String, direction: Int) {
+            val p = resolved[id] ?: return
+            val page = p.page + direction
+            if (page < 0 || (page >= desktopPages && !layout.multiPage)) return
+            if (page >= layout.pageCount) vm.addPage()
+            val x = if (direction > 0) 0f else (columns - p.w).coerceAtLeast(0f)
+            move(id, p.copy(page = page, x = x))
+            scope.launch { pager.animateScrollToPage(page + feedOffset) }
+        }
+
+        LaunchedEffect(edge, dragging) {
+            val id = dragging ?: return@LaunchedEffect
+            if (edge == 0) return@LaunchedEffect
+            delay(EDGE_DWELL_MS)
+            moveAcrossEdge(id, edge)
         }
 
         fun remove(id: String) {
@@ -339,8 +377,8 @@ fun DesktopCanvas(
         }
 
         Column(Modifier.fillMaxSize()) {
-            if (usePager) {
-                HorizontalPager(state = pager, beyondViewportPageCount = 1, modifier = Modifier.weight(1f).fillMaxWidth()) { index ->
+            if (usePager) Box(Modifier.weight(1f).fillMaxWidth()) {
+                HorizontalPager(state = pager, beyondViewportPageCount = 1, modifier = Modifier.fillMaxSize()) { index ->
                     when {
                         index < feedOffset -> when (state.leftScreen) {
                             LeftScreen.FEED -> FeedScreen(controller, palette)
@@ -350,6 +388,10 @@ fun DesktopCanvas(
                         else -> Page(index - feedOffset)
                     }
                 }
+                // Faixa acesa na borda enquanto o item espera para trocar de tela.
+                EdgeGlow(edge, palette.accent, Modifier.matchParentSize())
+            }
+            if (usePager) {
                 PageDots(totalPages, pager.currentPage, feedOffset, palette.onWallpaper, Modifier.fillMaxWidth().height(indicatorSpace))
             } else {
                 Box(Modifier.weight(1f)) { Page(0) }
@@ -785,6 +827,30 @@ private fun Modifier.longPressFirst(enabled: Boolean, onLongPress: (Offset) -> U
             }
         }
     }
+
+private const val EDGE_ZONE = 0.4f
+private const val EDGE_DWELL_MS = 550L
+
+@Composable
+private fun EdgeGlow(edge: Int, color: Color, modifier: Modifier) {
+    val alpha by animateFloatAsState(if (edge != 0) 1f else 0f, label = "beirada")
+    if (alpha == 0f) return
+    Box(modifier) {
+        val left = edge < 0
+        Box(
+            Modifier
+                .align(if (left) Alignment.CenterStart else Alignment.CenterEnd)
+                .fillMaxHeight()
+                .width(40.dp)
+                .graphicsLayer { this.alpha = alpha }
+                .background(
+                    Brush.horizontalGradient(
+                        if (left) listOf(color.copy(alpha = 0.85f), Color.Transparent) else listOf(Color.Transparent, color.copy(alpha = 0.85f)),
+                    ),
+                ),
+        )
+    }
+}
 
 @Composable
 private fun PageDots(count: Int, current: Int, feedOffset: Int, color: Color, modifier: Modifier) {
