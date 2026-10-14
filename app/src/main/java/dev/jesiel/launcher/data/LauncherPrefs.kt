@@ -102,6 +102,8 @@ data class LauncherData(
     val leftScreen: LeftScreen,
     /** Abrir apps em janela livre acima da barra, para a barra não cobrir o app. */
     val windowMode: Boolean,
+    /** Painel de controle do Launcher; desligado, os atalhos abrem as notificações do sistema. */
+    val controlCenter: Boolean = true,
     /** Apps, pastas e widgets ficam na mesma posição em todos os temas. */
     val sharedLayout: Boolean,
     val htmlWidgets: List<HtmlWidget>,
@@ -251,6 +253,7 @@ class LauncherPrefs(context: Context) {
             appsView = enumOr(prefs.getString(KEY_APPS_VIEW, null), AppsView.GRID),
             leftScreen = enumOr(prefs.getString(KEY_LEFT_SCREEN, null), LeftScreen.FEED),
             windowMode = prefs.getBoolean(KEY_WINDOW_MODE, false),
+            controlCenter = prefs.getBoolean(KEY_CONTROL_CENTER, true),
             sharedLayout = prefs.getBoolean(KEY_SHARED_LAYOUT, true),
             htmlWidgets = HtmlWidget.listFromJson(prefs.getString(KEY_HTML_WIDGETS, null)),
         )
@@ -322,6 +325,7 @@ class LauncherPrefs(context: Context) {
             .putString(KEY_APPS_VIEW, d.appsView.name)
             .putString(KEY_LEFT_SCREEN, d.leftScreen.name)
             .putBoolean(KEY_WINDOW_MODE, d.windowMode)
+            .putBoolean(KEY_CONTROL_CENTER, d.controlCenter)
             .putBoolean(KEY_SHARED_LAYOUT, d.sharedLayout)
             .putString(KEY_HTML_WIDGETS, HtmlWidget.listToJson(d.htmlWidgets))
             .apply()
@@ -351,6 +355,7 @@ class LauncherPrefs(context: Context) {
         const val KEY_APPS_VIEW = "appsView"
         const val KEY_LEFT_SCREEN = "leftScreen"
         const val KEY_WINDOW_MODE = "windowMode"
+        const val KEY_CONTROL_CENTER = "controlCenter"
         const val KEY_SHARED_LAYOUT = "sharedLayout"
         const val KEY_HTML_WIDGETS = "htmlWidgets"
     }

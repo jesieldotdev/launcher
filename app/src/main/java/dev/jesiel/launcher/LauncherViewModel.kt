@@ -60,6 +60,7 @@ data class LauncherUiState(
     val menuIconVersion: Long = 0,
     val leftScreen: LeftScreen = LeftScreen.FEED,
     val windowMode: Boolean = false,
+    val controlCenter: Boolean = true,
     val sharedLayout: Boolean = true,
     val htmlWidgets: List<HtmlWidget> = emptyList(),
 )
@@ -134,6 +135,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
             menuIconVersion = menuIconVersion.value,
             leftScreen = data.leftScreen,
             windowMode = data.windowMode,
+            controlCenter = data.controlCenter,
             sharedLayout = data.sharedLayout,
             htmlWidgets = data.htmlWidgets,
         )
@@ -357,6 +359,8 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun setWindowMode(on: Boolean) = prefs.update { it.copy(windowMode = on) }
+
+    fun setControlCenter(on: Boolean) = prefs.update { it.copy(controlCenter = on) }
 
     fun setLeftScreen(screen: LeftScreen) = prefs.update { it.copy(leftScreen = screen) }
 

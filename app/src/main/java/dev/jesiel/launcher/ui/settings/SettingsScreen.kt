@@ -316,6 +316,13 @@ fun SettingsScreen(state: LauncherUiState, controller: LauncherController, onClo
 
                 SectionTitle("Gestos")
                 Card {
+                    SwitchRow("Painel de controle", state.controlCenter) { vm.setControlCenter(it) }
+                    Text(
+                        "Desativado, o gesto e os botões que abriam o painel abrem as notificações do sistema.",
+                        fontSize = 12.sp,
+                        color = Color.Gray,
+                        modifier = Modifier.padding(bottom = 12.dp),
+                    )
                     Text("Deslizar para baixo na área de trabalho", fontWeight = FontWeight.SemiBold)
                     Spacer(Modifier.height(6.dp))
                     Choices(SwipeAction.entries, state.swipeDown, { it.label }) { vm.setSwipeDown(it) }

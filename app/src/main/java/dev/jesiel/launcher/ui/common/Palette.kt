@@ -16,6 +16,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.jesiel.launcher.data.ColorMode
@@ -51,15 +52,18 @@ data class LauncherPalette(
     val folder: Color,
     /** Fundo atrás de cada ícone (tema KDE), ou nulo. */
     val iconBackground: Color? = null,
+    /** Fonte própria do tema (ex.: Orbitron no Retrô futurista); nula usa a do sistema. */
+    val font: FontFamily? = null,
 ) {
     val wallpaperLabel: TextStyle
         get() = TextStyle(
             color = onWallpaper,
             fontSize = 12.sp,
+            fontFamily = font,
             shadow = if (onWallpaper == Color.White) Shadow(Color(0x99000000), Offset(0f, 1f), 4f) else null,
         )
 
-    val panelLabel: TextStyle get() = TextStyle(color = panelText, fontSize = 12.sp)
+    val panelLabel: TextStyle get() = TextStyle(color = panelText, fontSize = 12.sp, fontFamily = font)
 
     val colorScheme: ColorScheme
         get() = if (dark) {

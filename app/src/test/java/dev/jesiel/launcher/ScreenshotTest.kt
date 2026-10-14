@@ -35,6 +35,7 @@ import dev.jesiel.launcher.data.RecentApp
 import dev.jesiel.launcher.ui.settings.SettingsScreen
 import dev.jesiel.launcher.ui.ios.IosLauncher
 import dev.jesiel.launcher.ui.kde.KdeLauncher
+import dev.jesiel.launcher.ui.retro.RetroLauncher
 import dev.jesiel.launcher.ui.macos.MacLauncher
 import dev.jesiel.launcher.ui.ubuntu.UbuntuLauncher
 import dev.jesiel.launcher.ui.windows.WindowsLauncher
@@ -370,6 +371,8 @@ class ScreenshotTest {
     @Test fun ubuntu() = themeShot("ubuntu-home", dark = true) { s, c -> UbuntuLauncher(s, c) }
     @Test fun ubuntuLight() = themeShot("ubuntu-home-light", dark = false) { s, c -> UbuntuLauncher(s, c) }
     @Test fun ubuntuApps() = themeShot("ubuntu-apps", dark = true, open = "Mostrar aplicativos") { s, c -> UbuntuLauncher(s, c) }
+    @Test fun retro() = themeShot("retro-home", dark = true) { s, c -> RetroLauncher(s, c) }
+    @Test fun retroApps() = themeShot("retro-apps", dark = true, open = "Apps") { s, c -> RetroLauncher(s, c) }
     @Test fun kde() = themeShot("kde-home", dark = true) { s, c -> KdeLauncher(s, c) }
     @Test fun kdeLight() = themeShot("kde-home-light", dark = false) { s, c -> KdeLauncher(s, c) }
     @Test fun kdeApps() = themeShot("kde-apps", dark = true, open = "Lançador de aplicativos") { s, c -> KdeLauncher(s, c) }

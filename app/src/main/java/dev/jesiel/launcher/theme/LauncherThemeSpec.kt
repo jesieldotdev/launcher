@@ -7,6 +7,7 @@ import dev.jesiel.launcher.LauncherUiState
 import dev.jesiel.launcher.ui.ios.IosLauncher
 import dev.jesiel.launcher.ui.kde.KdeLauncher
 import dev.jesiel.launcher.ui.macos.MacLauncher
+import dev.jesiel.launcher.ui.retro.RetroLauncher
 import dev.jesiel.launcher.ui.ubuntu.UbuntuLauncher
 import dev.jesiel.launcher.ui.windows.WindowsLauncher
 
@@ -76,8 +77,18 @@ object IosThemeSpec : LauncherThemeSpec {
     override fun Content(state: LauncherUiState, controller: LauncherController) = IosLauncher(state, controller)
 }
 
+object RetroThemeSpec : LauncherThemeSpec {
+    override val id = "retro"
+    override val name = "Retrô futurista"
+    override val description = "Âmbar, fonte Orbitron, relógio de bordo e grade no horizonte"
+    override val previewColors = listOf(Color(0xFF07060A), Color(0xFF3A230C), Color(0xFFE9C27A))
+
+    @Composable
+    override fun Content(state: LauncherUiState, controller: LauncherController) = RetroLauncher(state, controller)
+}
+
 object ThemeRegistry {
-    val all: List<LauncherThemeSpec> = listOf(WindowsThemeSpec, UbuntuThemeSpec, KdeThemeSpec, MacThemeSpec, IosThemeSpec)
+    val all: List<LauncherThemeSpec> = listOf(WindowsThemeSpec, UbuntuThemeSpec, KdeThemeSpec, MacThemeSpec, IosThemeSpec, RetroThemeSpec)
 
     fun byId(id: String): LauncherThemeSpec = all.firstOrNull { it.id == id && it.available } ?: WindowsThemeSpec
 }

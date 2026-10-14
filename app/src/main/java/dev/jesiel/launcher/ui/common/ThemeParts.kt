@@ -48,7 +48,8 @@ fun ThemeRoot(controller: LauncherController, palette: LauncherPalette, content:
     BackHandler(enabled = controller.editMode) { controller.editMode = false }
     androidx.compose.runtime.SideEffect { controller.palette = palette }
     CompositionLocalProvider(LocalPalette provides palette) {
-        MaterialTheme(colorScheme = palette.colorScheme) {
+        val typography = remember(palette.font) { palette.font?.let(::typographyWith) ?: androidx.compose.material3.Typography() }
+        MaterialTheme(colorScheme = palette.colorScheme, typography = typography) {
             Box(Modifier.fillMaxSize(), content = content)
         }
     }
@@ -191,5 +192,20 @@ fun DockDivider(color: Color, vertical: Boolean) {
             .padding(if (vertical) 6.dp else 4.dp)
             .then(if (vertical) Modifier.width(28.dp).height(1.dp) else Modifier.width(1.dp).height(28.dp))
             .background(color),
+    )
+}
+
+/** Tipografia do Material com a fonte do tema em todos os estilos. */
+private fun typographyWith(font: androidx.compose.ui.text.font.FontFamily): androidx.compose.material3.Typography {
+    val t = androidx.compose.material3.Typography()
+    return t.copy(
+        displayLarge = t.displayLarge.copy(fontFamily = font), displayMedium = t.displayMedium.copy(fontFamily = font),
+        displaySmall = t.displaySmall.copy(fontFamily = font), headlineLarge = t.headlineLarge.copy(fontFamily = font),
+        headlineMedium = t.headlineMedium.copy(fontFamily = font), headlineSmall = t.headlineSmall.copy(fontFamily = font),
+        titleLarge = t.titleLarge.copy(fontFamily = font), titleMedium = t.titleMedium.copy(fontFamily = font),
+        titleSmall = t.titleSmall.copy(fontFamily = font), bodyLarge = t.bodyLarge.copy(fontFamily = font),
+        bodyMedium = t.bodyMedium.copy(fontFamily = font), bodySmall = t.bodySmall.copy(fontFamily = font),
+        labelLarge = t.labelLarge.copy(fontFamily = font), labelMedium = t.labelMedium.copy(fontFamily = font),
+        labelSmall = t.labelSmall.copy(fontFamily = font),
     )
 }

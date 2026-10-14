@@ -129,3 +129,11 @@ O widget HTML **Claude Code** (estilo âmbar retrô, fundo translúcido) mostra 
 - Opcionais: `CLAUDE_NTFY_TOKEN` (conta ntfy, com cota própria) e `CLAUDE_NTFY_SERVER`.
 - No Launcher: **Personalizar › Claude Code** → Gerar / Salvar o mesmo canal e **Testar**.
 - O widget só consulta a rede com a tela inicial visível (ntfy a cada 45 s, GitHub a cada 5 min).
+
+## Tema Retrô futurista
+
+![Retrô futurista](docs/screenshots/retro-home.png)
+
+Âmbar sobre fundo escuro translúcido, fonte Orbitron (OFL, ver `docs/licenses`), relógio de bordo, monitor do sistema com barras segmentadas e papel de parede com sol listrado e grade em perspectiva.
+
+O painel de controle pode ser desativado em **Personalizar › Gestos**; aí o gesto e os botões que o abriam passam a abrir as notificações do sistema.

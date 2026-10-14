@@ -34,7 +34,19 @@ class LauncherController(
 ) {
     var settingsOpen by mutableStateOf(false)
     var widgetPickerOpen by mutableStateOf(false)
-    var controlCenterOpen by mutableStateOf(false)
+    private var controlCenterState by mutableStateOf(false)
+
+    /** Com o painel desativado, abrir o painel abre as notificações do sistema. */
+    var controlCenterOpen: Boolean
+        get() = controlCenterState
+        set(value) {
+            if (value && !viewModel.state.value.controlCenter) {
+                controlCenterState = false
+                expandNotifications()
+            } else {
+                controlCenterState = value
+            }
+        }
     /** Modo de organização da área de trabalho (arrastar, redimensionar, remover). */
     var editMode by mutableStateOf(false)
 
