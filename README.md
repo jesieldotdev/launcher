@@ -167,3 +167,9 @@ O Play Protect bloqueia, fora da Play Store, apps que pedem acesso a notificaç�
 `corPrimaria`, `corPrimariaFundo`, `corSecundaria`, `corTerciaria`, `corFundo`, `corSuperficie`, `corTexto`, `corTextoSuave` e `corContorno` trazem a paleta dinâmica do sistema (Android 12+), no tom certo para o modo claro ou escuro do Launcher. Use em CSS: `color: var(--corPrimaria)`; para transparência, `color-mix(in srgb, var(--corPrimaria) 35%, transparent)`. Exemplo: [`docs/material-clock-widget.html`](docs/material-clock-widget.html) (modelo "Relógio Material You").
 
 ![Escuro](docs/screenshots/html-widget-material-dark.png) ![Claro](docs/screenshots/html-widget-material-light.png)
+
+## Editor de código dos widgets
+
+![Editor](docs/screenshots/html-editor-fullscreen.png)
+
+Destaque de sintaxe (HTML, CSS, JS e `{{variáveis}}`), números de linha, barra de símbolos acima do teclado (Tab, `< > / = " { } ( ) : ;`…), desfazer/refazer, indentação automática, fechamento automático de tags, buscar e substituir, aviso de tag não fechada com a linha, tela cheia e tamanho de fonte. As variáveis entram onde está o cursor.

@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -65,14 +66,26 @@ fun HtmlWidgetEditor(
     val vm = controller.viewModel
     val isNew = vm.state.value.htmlWidgets.none { it.id == initial.id }
     var name by remember { mutableStateOf(initial.name) }
-    var html by remember { mutableStateOf(initial.html) }
+    val code = remember { CodeEditorState(initial.html) }
+    val html = code.text
+    var fullscreen by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
+    var fontSize by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(12f) }
+    var finding by remember { mutableStateOf(false) }
+    var codeFocused by remember { mutableStateOf(false) }
+    // Verificação de tags só depois de uma pausa na digitação.
+    var problem by remember { mutableStateOf<String?>(null) }
+    androidx.compose.runtime.LaunchedEffect(html) {
+        kotlinx.coroutines.delay(500)
+        problem = dev.jesiel.launcher.data.CodeTools.tagProblem(html)
+    }
+    androidx.activity.compose.BackHandler(enabled = fullscreen) { fullscreen = false }
     var interactive by remember { mutableStateOf(initial.interactive) }
     var network by remember { mutableStateOf(initial.network) }
     var software by remember { mutableStateOf(initial.software) }
     var status by remember { mutableStateOf("Carregando a prévia…") }
     androidx.compose.runtime.LaunchedEffect(importedHtml) {
         if (importedHtml != null) {
-            html = importedHtml
+            code.set(importedHtml)
             onImportedConsumed()
         }
     }
@@ -102,7 +115,7 @@ fun HtmlWidgetEditor(
             Modifier
                 .padding(horizontal = 14.dp)
                 .fillMaxWidth()
-                .height(190.dp)
+                .height(if (fullscreen) 120.dp else 190.dp)
                 .clip(RoundedCornerShape(18.dp))
                 .background(Brush.linearGradient(listOf(Color(0xFF1B2A4A), Color(0xFF3A5BA0))))
                 .padding(8.dp),
@@ -119,34 +132,36 @@ fun HtmlWidgetEditor(
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
         )
 
-        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(14.dp)) {
+        if (fullscreen) {
+            Column(Modifier.weight(1f).padding(horizontal = 10.dp)) {
+                CodeHeader(problem, fontSize, { fontSize = it }, fullscreen = true, onFullscreen = { fullscreen = false })
+                CodeEditor(
+                    code,
+                    Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()),
+                    fontSize = fontSize.sp,
+                    onFocus = { codeFocused = it },
+                )
+            }
+        } else Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(14.dp)) {
             OutlinedTextField(name, { name = it }, label = { Text("Nome") }, singleLine = true, modifier = Modifier.fillMaxWidth())
             Spacer(Modifier.height(10.dp))
             Text("Modelos", fontWeight = FontWeight.SemiBold, color = colors.onBackground)
             Row(Modifier.horizontalScroll(rememberScrollState()).padding(vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                HtmlTemplates.all.forEach { (label, code) ->
+                HtmlTemplates.all.forEach { (label, template) ->
                     Chip(label) {
-                        html = code
-                        interactive = code.contains("<script")
-                        network = code.contains("fetch(") || code.contains("https://fonts.")
+                        code.set(template)
+                        interactive = template.contains("<script")
+                        network = template.contains("fetch(") || template.contains("https://fonts.")
                     }
                 }
                 Chip("Importar .html") { controller.importHtmlFile?.invoke() }
             }
-            Text("Código", fontWeight = FontWeight.SemiBold, color = colors.onBackground)
-            BasicTextField(
-                value = html,
-                onValueChange = { html = it },
-                textStyle = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 12.sp, color = colors.onSurface),
-                cursorBrush = SolidColor(colors.primary),
-                modifier = Modifier
-                    .padding(vertical = 6.dp)
-                    .fillMaxWidth()
-                    .heightIn(min = 180.dp)
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(colors.onSurface.copy(alpha = 0.06f))
-                    .border(1.dp, colors.onSurface.copy(alpha = 0.12f), RoundedCornerShape(10.dp))
-                    .padding(10.dp),
+            CodeHeader(problem, fontSize, { fontSize = it }, fullscreen = false, onFullscreen = { fullscreen = true })
+            CodeEditor(
+                code,
+                Modifier.padding(vertical = 6.dp).fillMaxWidth().then(CodeEditorMinHeight),
+                fontSize = fontSize.sp,
+                onFocus = { codeFocused = it },
             )
             val context = androidx.compose.ui.platform.LocalContext.current
             var access by remember { mutableStateOf(dev.jesiel.launcher.data.MediaWatcher.hasAccess(context)) }
@@ -181,9 +196,9 @@ fun HtmlWidgetEditor(
                     }
                 }
             }
-            Text("Variáveis (toque para inserir no fim)", fontWeight = FontWeight.SemiBold, color = colors.onBackground)
+            Text("Variáveis (toque para inserir no cursor)", fontWeight = FontWeight.SemiBold, color = colors.onBackground)
             Row(Modifier.horizontalScroll(rememberScrollState()).padding(vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                HtmlVariables.all.forEach { (key, _) -> Chip("{{$key}}") { html += "{{$key}}" } }
+                HtmlVariables.all.forEach { (key, _) -> Chip("{{$key}}") { code.insert("{{$key}}") } }
             }
             Text(
                 HtmlVariables.all.joinToString("\n") { (k, d) -> "{{$k}} — $d" } +
@@ -235,6 +250,33 @@ fun HtmlWidgetEditor(
                 }) { Text("Excluir widget") }
             }
         }
+        // Fixos acima do teclado enquanto se edita o código.
+        if (finding) FindBar(code, onClose = { finding = false }, modifier = Modifier.fillMaxWidth().background(colors.surface))
+        if (codeFocused || finding || fullscreen) {
+            CodeToolbar(code, onFind = { finding = !finding }, modifier = Modifier.fillMaxWidth().background(colors.surface))
+        }
+    }
+}
+
+/** Título da área de código: aviso de tags, tamanho da fonte e tela cheia. */
+@Composable
+private fun CodeHeader(problem: String?, fontSize: Float, onFontSize: (Float) -> Unit, fullscreen: Boolean, onFullscreen: () -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(top = 4.dp)) {
+        Column(Modifier.weight(1f)) {
+            Text("Código", fontWeight = FontWeight.SemiBold, color = colors.onBackground)
+            Text(
+                problem ?: "Tags em ordem",
+                fontSize = 12.sp,
+                color = if (problem != null) colors.error else Color.Gray,
+                maxLines = 2,
+            )
+        }
+        Chip("A−") { onFontSize((fontSize - 1f).coerceAtLeast(9f)) }
+        Spacer(Modifier.width(6.dp))
+        Chip("A+") { onFontSize((fontSize + 1f).coerceAtMost(20f)) }
+        Spacer(Modifier.width(6.dp))
+        Chip(if (fullscreen) "Sair da tela cheia" else "Tela cheia", onFullscreen)
     }
 }
 

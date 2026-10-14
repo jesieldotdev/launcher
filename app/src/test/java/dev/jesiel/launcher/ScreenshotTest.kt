@@ -411,6 +411,26 @@ class ScreenshotTest {
         retroShot("check-retro-accents", open = "Programas", state = s.copy(apps = apps))
     }
 
+    private fun editorShot(name: String, fullscreen: Boolean) {
+        val controller = controller()
+        val widget = dev.jesiel.launcher.data.HtmlWidget(id = "w1", name = "Música", html = dev.jesiel.launcher.data.HtmlTemplates.MUSIC.second, interactive = true)
+        compose.setContent {
+            androidx.compose.material3.MaterialTheme(colorScheme = androidx.compose.material3.darkColorScheme()) {
+                dev.jesiel.launcher.ui.common.HtmlWidgetEditor(widget, controller, dev.jesiel.launcher.ui.windows.windowsPalette(true), null) {}
+            }
+        }
+        if (fullscreen) {
+            compose.onNodeWithText("Tela cheia").performClick()
+            compose.waitForIdle()
+        }
+        compose.mainClock.advanceTimeBy(1_000)
+        compose.waitForIdle()
+        compose.onRoot().captureRoboImage(shot(name))
+    }
+
+    @Test fun htmlEditor() = editorShot("html-editor", fullscreen = false)
+    @Test fun htmlEditorFullscreen() = editorShot("html-editor-fullscreen", fullscreen = true)
+
     @Test fun retro() = retroShot("retro-home")
     @Test fun retroApps() = retroShot("retro-apps", open = "Programas")
     @Test fun retroAppsNoLetters() {
