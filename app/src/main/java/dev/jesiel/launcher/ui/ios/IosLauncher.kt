@@ -76,6 +76,7 @@ fun IosLauncher(state: LauncherUiState, controller: LauncherController) {
     LaunchedEffect(controller.homePresses) { libraryOpen = false }
 
     fun openLibrary(search: Boolean) {
+        if (controller.openHtmlDrawer(search)) return
         focusSearch = search
         controller.controlCenterOpen = false
         libraryOpen = true

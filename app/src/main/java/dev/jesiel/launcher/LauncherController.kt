@@ -1,5 +1,6 @@
 package dev.jesiel.launcher
 
+import androidx.compose.ui.graphics.asAndroidBitmap
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.app.SearchManager
@@ -69,6 +70,7 @@ class LauncherController(
         editMode = false
         articleUrl = null
         htmlLibraryOpen = false
+        htmlDrawerOpen = false
     }
 
     /** Executa o gesto de deslizar para baixo configurado; [openSearch] é a busca do tema. */
@@ -281,8 +283,43 @@ class LauncherController(
     /** Widget HTML aberto no editor (novo ou existente); nulo quando o editor está fechado. */
     var htmlEditing by mutableStateOf<dev.jesiel.launcher.data.HtmlWidget?>(null)
 
-    /** Biblioteca de widgets HTML salvos (adicionar, editar, duplicar, excluir). */
+    /** Estúdio HTML: todos os widgets, modelos e onde cada um é usado. */
     var htmlLibraryOpen by mutableStateOf(false)
+
+    /** Onde o widget em edição vai ser usado ao salvar (área de trabalho, bloqueio, lista de apps). */
+    var htmlEditingRole by mutableStateOf(dev.jesiel.launcher.data.HtmlRole.DESKTOP)
+
+    /** Lista de apps em HTML aberta (no lugar da gaveta do tema). */
+    var htmlDrawerOpen by mutableStateOf(false)
+    var htmlDrawerSearch by mutableStateOf(false)
+
+    /**
+     * Chamado pelos temas antes de abrir a gaveta: se o usuário escolheu uma lista de apps em
+     * HTML, abre ela e devolve verdadeiro (o tema não abre a sua).
+     */
+    fun openHtmlDrawer(search: Boolean): Boolean {
+        if (viewModel.state.value.appsHtml == null) return false
+        controlCenterOpen = false
+        htmlDrawerSearch = search
+        htmlDrawerOpen = true
+        return true
+    }
+
+    /** Ícones em PNG para os widgets (launcher-icon://pacote), guardados depois do primeiro pedido. */
+    private val iconCache = object : android.util.LruCache<String, ByteArray>(4 * 1024 * 1024) {
+        override fun sizeOf(key: String, value: ByteArray) = value.size
+    }
+    fun appIconPng(packageName: String): ByteArray? {
+        iconCache.get(packageName)?.let { return it }
+        val app = viewModel.state.value.apps.firstOrNull { it.packageName == packageName } ?: return null
+        val bytes = runCatching {
+            val out = java.io.ByteArrayOutputStream()
+            app.icon.asAndroidBitmap().compress(android.graphics.Bitmap.CompressFormat.PNG, 100, out)
+            out.toByteArray()
+        }.getOrNull() ?: return null
+        iconCache.put(packageName, bytes)
+        return bytes
+    }
 
     /** Definidos pela área de trabalho do tema, para os links launcher://apps e launcher://busca. */
     var openAppsMenu: (() -> Unit)? = null
@@ -291,15 +328,48 @@ class LauncherController(
     /** Definido pela Activity: escolher um arquivo .html para o editor. */
     var importHtmlFile: (() -> Unit)? = null
 
-    fun newHtmlWidget() {
+    /** Abre o editor com um widget novo, a partir de [template] (ou do primeiro modelo). */
+    fun newHtmlWidget(template: dev.jesiel.launcher.data.HtmlTemplate? = null, role: dev.jesiel.launcher.data.HtmlRole? = null) {
+        val t = template ?: dev.jesiel.launcher.data.HtmlTemplates.all.first { it.role == dev.jesiel.launcher.data.HtmlRole.DESKTOP }
+        val r = role ?: t.role
+        htmlEditingRole = r
         htmlEditing = dev.jesiel.launcher.data.HtmlWidget(
             id = java.util.UUID.randomUUID().toString().take(8),
-            name = "Widget HTML",
-            html = dev.jesiel.launcher.data.HtmlTemplates.all.first().second,
+            name = if (template != null) t.name else "Widget HTML",
+            html = t.html,
+            interactive = t.html.contains("<script"),
+            network = t.html.contains("fetch(") || t.html.contains("https://fonts."),
+            onDesktop = r == dev.jesiel.launcher.data.HtmlRole.DESKTOP,
         )
     }
 
+    /** Abre um widget salvo no editor. */
+    fun editHtmlWidget(widget: dev.jesiel.launcher.data.HtmlWidget) {
+        htmlEditingRole = roleOf(widget)
+        htmlEditing = widget
+    }
+
+    /** Onde o widget é usado hoje (para a prévia do editor ter o formato certo). */
+    fun roleOf(widget: dev.jesiel.launcher.data.HtmlWidget): dev.jesiel.launcher.data.HtmlRole = when {
+        viewModel.state.value.appsHtml?.id == widget.id -> dev.jesiel.launcher.data.HtmlRole.APPS
+        dev.jesiel.launcher.data.LockScreen.settings(activity).value?.let { it.style == dev.jesiel.launcher.data.LockStyle.HTML && it.htmlWidgetId == widget.id } == true ->
+            dev.jesiel.launcher.data.HtmlRole.LOCK
+        else -> dev.jesiel.launcher.data.HtmlRole.DESKTOP
+    }
+
+    /** Usa o widget na tela de bloqueio (e liga a tela de bloqueio do Launcher). */
+    fun useOnLockScreen(widget: dev.jesiel.launcher.data.HtmlWidget) {
+        dev.jesiel.launcher.data.LockScreen.update(activity) { it.copy(enabled = true, style = dev.jesiel.launcher.data.LockStyle.HTML, htmlWidgetId = widget.id) }
+        toast("\"${widget.name}\" na tela de bloqueio")
+    }
+
+    fun useAsAppList(widget: dev.jesiel.launcher.data.HtmlWidget) {
+        viewModel.setAppsHtml(widget.id)
+        toast("\"${widget.name}\" como lista de apps")
+    }
+
     fun launchPackage(packageName: String) {
+        htmlDrawerOpen = false
         val app = viewModel.state.value.apps.firstOrNull { it.packageName == packageName }
         if (app != null) launch(app)
         else activity.packageManager.getLaunchIntentForPackage(packageName)?.let { start(it) } ?: toast("App não encontrado: $packageName")
@@ -316,6 +386,10 @@ class LauncherController(
             "launcher" -> when (uri.host) {
                 // Nomes em português e em inglês.
                 "app" -> uri.lastPathSegment?.let(::launchPackage)
+                // Na lista de apps em HTML: fechar, informações e desinstalar.
+                "fechar", "close" -> htmlDrawerOpen = false
+                "info" -> uri.lastPathSegment?.let { pkg -> viewModel.state.value.apps.firstOrNull { it.packageName == pkg } }?.let(::openAppInfo)
+                "desinstalar", "uninstall" -> uri.lastPathSegment?.let { pkg -> viewModel.state.value.apps.firstOrNull { it.packageName == pkg } }?.let(::uninstall)
                 "painel", "panel" -> controlCenterOpen = true
                 "apps" -> openAppsMenu?.invoke()
                 "busca", "search" -> openSearch?.invoke()

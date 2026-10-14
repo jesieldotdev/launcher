@@ -42,6 +42,7 @@ import dev.jesiel.launcher.ui.ubuntu.UbuntuLauncher
 import dev.jesiel.launcher.ui.windows.WindowsLauncher
 import dev.jesiel.launcher.widgets.WidgetHost
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.onAllNodesWithText
 import org.junit.Rule
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.background
@@ -591,5 +592,35 @@ class ScreenshotTest {
             compose.onRoot().captureRoboImage(shot(name))
         }
         compose.onNodeWithText("Busca embaixo na lista de apps").assertDoesNotExist()
+    }
+
+    /** Estúdio HTML: widgets salvos com onde cada um é usado, e a aba de modelos. */
+    @Test
+    fun htmlStudio() {
+        val controller = controller()
+        val vm = controller.viewModel
+        val grid = dev.jesiel.launcher.data.HtmlTemplates.APPS_GRID
+        vm.saveHtmlWidget(dev.jesiel.launcher.data.HtmlWidget("w1", "Relógio", dev.jesiel.launcher.data.HtmlTemplates.all.first { it.name == "Relógio" }.html))
+        vm.saveHtmlWidget(dev.jesiel.launcher.data.HtmlWidget("w2", grid.name, grid.html, interactive = true, onDesktop = false))
+        vm.setAppsHtml("w2")
+        compose.setContent {
+            val palette = dev.jesiel.launcher.ui.windows.windowsPalette(false)
+            androidx.compose.material3.MaterialTheme(colorScheme = palette.colorScheme) { dev.jesiel.launcher.ui.common.HtmlStudio(controller, palette) }
+        }
+        compose.mainClock.advanceTimeBy(1_000)
+        compose.waitForIdle()
+        org.junit.Assert.assertEquals("no cartão de uso e no do widget", 2, compose.onAllNodesWithText("Lista de apps · Material").fetchSemanticsNodes().size)
+        compose.onRoot().captureRoboImage(shot("html-studio"))
+        compose.onNodeWithText("Modelos").performClick()
+        compose.waitForIdle()
+        compose.onRoot().captureRoboImage(shot("html-studio-templates"))
+        // Com uma lista em HTML escolhida, os temas abrem ela no lugar da gaveta.
+        org.junit.Assert.assertTrue(controller.openHtmlDrawer(search = true))
+        org.junit.Assert.assertTrue(controller.htmlDrawerOpen && controller.htmlDrawerSearch)
+        vm.setAppsHtml(null)
+        compose.mainClock.advanceTimeBy(1_000)
+        compose.waitForIdle()
+        controller.htmlDrawerOpen = false
+        org.junit.Assert.assertFalse(controller.openHtmlDrawer(search = false))
     }
 }

@@ -100,6 +100,7 @@ fun UbuntuLauncher(state: LauncherUiState, controller: LauncherController) {
     LaunchedEffect(controller.homePresses) { drawerOpen = false }
 
     fun openDrawer(search: Boolean) {
+        if (controller.openHtmlDrawer(search)) return
         focusSearch = search
         controller.controlCenterOpen = false
         drawerOpen = true

@@ -101,9 +101,27 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-            if (controller.htmlLibraryOpen) {
+            // Lista de apps em HTML, no lugar da gaveta do tema.
+            BackHandler(enabled = controller.htmlDrawerOpen) { controller.htmlDrawerOpen = false }
+            AnimatedVisibility(
+                visible = controller.htmlDrawerOpen && state.appsHtml != null,
+                enter = slideInVertically(tween(260)) { it / 6 } + fadeIn(tween(200)),
+                exit = slideOutVertically(tween(200)) { it / 6 } + fadeOut(tween(160)),
+            ) {
+                val widget = remember { state.appsHtml }
                 val palette = controller.palette ?: dev.jesiel.launcher.ui.windows.windowsPalette(isDark(state.colorMode))
-                MaterialTheme(colorScheme = palette.colorScheme) { dev.jesiel.launcher.ui.common.HtmlWidgetLibrary(controller, palette) }
+                widget?.let { dev.jesiel.launcher.ui.common.HtmlAppList(state.appsHtml ?: it, controller, palette, controller.htmlDrawerSearch) }
+            }
+
+            // Estúdio HTML: widgets, tela de bloqueio e lista de apps.
+            BackHandler(enabled = controller.htmlLibraryOpen && controller.htmlEditing == null) { controller.htmlLibraryOpen = false }
+            AnimatedVisibility(
+                visible = controller.htmlLibraryOpen,
+                enter = slideInHorizontally(tween(280)) { it } + fadeIn(tween(200)),
+                exit = slideOutHorizontally(tween(240)) { it } + fadeOut(tween(200)),
+            ) {
+                val palette = controller.palette ?: dev.jesiel.launcher.ui.windows.windowsPalette(isDark(state.colorMode))
+                MaterialTheme(colorScheme = palette.colorScheme) { dev.jesiel.launcher.ui.common.HtmlStudio(controller, palette) }
             }
 
             // Editor de widgets HTML.

@@ -307,6 +307,18 @@ fun SettingsScreen(state: LauncherUiState, controller: LauncherController, onClo
                         2 -> { // Apps
                         SectionTitle("Lista de apps")
                         Card {
+                            Text("Estilo da lista", fontWeight = FontWeight.SemiBold)
+                            Spacer(Modifier.height(6.dp))
+                            val htmlLists = state.htmlWidgets.filter { it.id == state.appsHtml?.id || it.html.contains("appsLista") || it.html.contains("appsList") }
+                            Choices(listOf<dev.jesiel.launcher.data.HtmlWidget?>(null) + htmlLists, state.appsHtml, { it?.name ?: "Do tema" }) { vm.setAppsHtml(it?.id) }
+                            Text(
+                                "Uma lista em HTML abre no lugar da gaveta em todos os temas. Crie a sua a partir dos modelos do Estúdio HTML.",
+                                fontSize = 12.sp,
+                                color = Color.Gray,
+                                modifier = Modifier.padding(top = 6.dp),
+                            )
+                            androidx.compose.material3.TextButton(onClick = { onClose(); controller.htmlLibraryOpen = true }) { Text("Abrir Estúdio HTML") }
+                            Spacer(Modifier.height(8.dp))
                             // Os outros temas já abrem a gaveta com a lista completa.
                             if (state.themeId == "windows") {
                                 Spacer(Modifier.height(16.dp))
@@ -361,30 +373,30 @@ fun SettingsScreen(state: LauncherUiState, controller: LauncherController, onClo
                             }
                             Spacer(Modifier.height(8.dp))
                             Button(onClick = { controller.widgetPickerOpen = true }) { Text("Adicionar widget") }
-                            Spacer(Modifier.height(14.dp))
-                            Text("Widgets HTML", fontWeight = FontWeight.SemiBold)
-                            MusicAccessRow(controller)
+                        }
+
+                        SectionTitle("Widgets HTML")
+                        Card {
+                            Text("Estúdio HTML", fontWeight = FontWeight.SemiBold)
                             Text(
-                                "Crie widgets com HTML e CSS, com variáveis como {{hora}} e {{bateria}}. Ficam pausados fora da tela inicial.",
+                                "Widgets em HTML e CSS para a área de trabalho, a tela de bloqueio e a lista de apps, com modelos, prévia e editor. " +
+                                    "Ficam pausados fora da tela inicial.",
                                 fontSize = 12.sp,
                                 color = Color.Gray,
                             )
-                            state.htmlWidgets.forEach { w ->
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Column(Modifier.weight(1f)) {
-                                        Text(w.name)
-                                        Text(if (w.onDesktop) "Na área de trabalho" else "Guardado", fontSize = 12.sp, color = Color.Gray)
-                                    }
-                                    androidx.compose.material3.TextButton(onClick = { vm.setHtmlWidgetOnDesktop(w.id, !w.onDesktop) }) {
-                                        Text(if (w.onDesktop) "Tirar" else "Adicionar")
-                                    }
-                                    androidx.compose.material3.TextButton(onClick = { onClose(); controller.htmlEditing = w }) { Text("Editar") }
-                                }
-                            }
+                            val onDesktop = state.htmlWidgets.count { it.onDesktop }
+                            Text(
+                                "${state.htmlWidgets.size} salvos · $onDesktop na área de trabalho" + (state.appsHtml?.let { " · lista de apps: ${it.name}" } ?: ""),
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(top = 4.dp),
+                            )
+                            Spacer(Modifier.height(8.dp))
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                OutlinedButton(onClick = { onClose(); controller.newHtmlWidget() }) { Text("Criar widget HTML") }
-                                OutlinedButton(onClick = { onClose(); controller.htmlLibraryOpen = true }) { Text("Biblioteca") }
+                                Button(onClick = { onClose(); controller.htmlLibraryOpen = true }) { Text("Abrir Estúdio HTML") }
+                                OutlinedButton(onClick = { onClose(); controller.newHtmlWidget() }) { Text("Novo") }
                             }
+                            MusicAccessRow(controller)
                         }
 
                         SectionTitle("Claude Code")

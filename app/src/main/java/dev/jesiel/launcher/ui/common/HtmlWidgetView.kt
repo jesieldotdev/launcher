@@ -1,6 +1,9 @@
 package dev.jesiel.launcher.ui.common
 
 import android.annotation.SuppressLint
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.statusBars
 import android.app.AlarmManager
 import android.graphics.Color as AndroidColor
 import android.view.View
@@ -39,7 +42,12 @@ import java.util.Locale
  * nem são observadas se o widget não as menciona.
  */
 @Composable
-fun rememberHtmlValues(palette: LauncherPalette, used: Set<String>, controller: LauncherController? = null): Map<String, String> {
+fun rememberHtmlValues(
+    palette: LauncherPalette,
+    used: Set<String>,
+    controller: LauncherController? = null,
+    extra: Map<String, String> = emptyMap(),
+): Map<String, String> {
     val context = LocalContext.current
     val now = rememberNow()
     val locale = remember { Locale.getDefault() }
@@ -53,9 +61,19 @@ fun rememberHtmlValues(palette: LauncherPalette, used: Set<String>, controller: 
     } else emptyList()
     val network = if ("rede" in used) rememberNetworkType() else ""
     val volume = if ("volume" in used) rememberMediaVolume() else 0
-    val lastApp = if ("ultimoApp" in used && controller != null) {
-        controller.viewModel.state.collectAsState().value.recents.firstOrNull()?.app?.label.orEmpty()
+    val needsState = controller != null && used.any { it == "ultimoApp" || it.startsWith("apps") }
+    val launcherState = if (needsState) controller!!.viewModel.state.collectAsState().value else null
+    val lastApp = if ("ultimoApp" in used) launcherState?.recents?.firstOrNull()?.app?.label.orEmpty() else ""
+    // A lista de apps só é montada de novo quando apps, favoritos ou dock mudam.
+    val appsList = if ("appsLista" in used && launcherState != null) {
+        remember(launcherState.apps, launcherState.favoriteKeys, launcherState.dockKeys) {
+            HtmlVariables.appsJson(launcherState.apps, launcherState.favoriteKeys, launcherState.dockKeys)
+        }
     } else ""
+    val recentApps = if ("appsRecentes" in used && launcherState != null) {
+        remember(launcherState.recents) { HtmlVariables.appsJson(launcherState.recents.map { it.app }.distinctBy { it.key }.take(8)) }
+    } else ""
+    val appsCount = launcherState?.apps?.size ?: 0
     // Posição da música: só anda (1×/s) se o widget mostra posição ou progresso e algo está tocando.
     val tick = if (music?.playing == true && ("musicaPosicao" in used || "musicaProgresso" in used)) rememberTicker(1_000) else 0L
     // A configuração muda quando o papel de parede (e com ele a paleta do Material You) muda.
@@ -63,7 +81,10 @@ fun rememberHtmlValues(palette: LauncherPalette, used: Set<String>, controller: 
     val material = if (used.any { it in MaterialColors.names }) {
         remember(configuration, palette.dark, palette.accent) { MaterialColors.of(context, palette.dark, palette.accent.toArgb()) }
     } else emptyMap()
-    return remember(now, battery, memory, palette, used, ntfy, music, notifications, notificationItems, network, volume, lastApp, tick, material) {
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    val insetTop = (WindowInsets.statusBars.getTop(density) / density.density).toInt()
+    val insetBottom = (WindowInsets.navigationBars.getBottom(density) / density.density).toInt()
+    return remember(now, battery, memory, palette, used, ntfy, music, notifications, notificationItems, network, volume, lastApp, tick, material, appsList, recentApps, appsCount, extra, insetTop, insetBottom) {
         val date = Date(now)
         fun fmt(p: String) = SimpleDateFormat(p, locale).format(date)
         val hour = Calendar.getInstance().apply { timeInMillis = now }.get(Calendar.HOUR_OF_DAY)
@@ -114,6 +135,13 @@ fun rememberHtmlValues(palette: LauncherPalette, used: Set<String>, controller: 
             put("musicaProgresso", if (music != null && music.durationMs > 0) (position * 100 / music.durationMs).toString() else "0")
             put("musicaCapa", music?.artDataUri.orEmpty())
             putAll(material)
+            if ("appsLista" in used) put("appsLista", appsList)
+            if ("appsRecentes" in used) put("appsRecentes", recentApps)
+            put("appsTotal", appsCount.toString())
+            put("modoBusca", "")
+            put("barraTopo", insetTop.toString())
+            put("barraBase", insetBottom.toString())
+            putAll(extra)
         }.let(HtmlVariables::withEnglish)
     }
 }
@@ -134,9 +162,11 @@ fun HtmlWidgetView(
     modifier: Modifier = Modifier,
     /** Recebe mensagens de diagnóstico (carregamento, tamanho, erros), para o editor. */
     onStatus: ((String) -> Unit)? = null,
+    /** Valores a mais (ex.: modoBusca na lista de apps). */
+    extra: Map<String, String> = emptyMap(),
 ) {
     val used = remember(widget.html) { HtmlVariables.used(widget.html) }
-    val values = rememberHtmlValues(palette, used, controller)
+    val values = rememberHtmlValues(palette, used, controller, extra)
     // No modo interativo a página é montada uma vez; depois só os dados são enviados.
     val document = if (widget.interactive) {
         remember(widget.html, widget.interactive) { HtmlVariables.render(widget.html, values, interactive = true) }
@@ -185,6 +215,17 @@ fun HtmlWidgetView(
                 webViewClient = object : WebViewClient() {
                     override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean =
                         controller.handleWidgetLink(request.url.toString())
+
+                    // Ícones dos apps: launcher-icon://<pacote>, respondidos sem rede.
+                    override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): android.webkit.WebResourceResponse? {
+                        val url = request.url.toString()
+                        if (!url.startsWith(HtmlVariables.ICON_SCHEME)) return null
+                        val png = controller.appIconPng(url.removePrefix(HtmlVariables.ICON_SCHEME).substringBefore('?').trimEnd('/'))
+                            ?: return android.webkit.WebResourceResponse("image/png", null, 404, "Not Found", emptyMap(), java.io.ByteArrayInputStream(ByteArray(0)))
+                        return android.webkit.WebResourceResponse("image/png", null, java.io.ByteArrayInputStream(png)).apply {
+                            responseHeaders = mapOf("Cache-Control" to "max-age=86400", "Access-Control-Allow-Origin" to "*")
+                        }
+                    }
 
                     override fun onPageFinished(view: WebView, url: String?) {
                         onStatus?.invoke("Página carregada · ${view.width}×${view.height}px")

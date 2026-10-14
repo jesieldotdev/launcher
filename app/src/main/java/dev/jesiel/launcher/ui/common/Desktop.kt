@@ -471,7 +471,7 @@ private fun DesktopMenu(at: DpOffset?, onDismiss: () -> Unit, controller: Launch
         DropdownMenu(expanded = at != null, onDismissRequest = onDismiss, shape = RoundedCornerShape(12.dp)) {
             DropdownMenuItem(text = { Text("Organizar área de trabalho") }, onClick = { onDismiss(); controller.editMode = true })
             DropdownMenuItem(text = { Text("Adicionar widget") }, onClick = { onDismiss(); controller.widgetPickerOpen = true })
-            DropdownMenuItem(text = { Text("Widgets HTML…") }, onClick = { onDismiss(); controller.htmlLibraryOpen = true })
+            DropdownMenuItem(text = { Text("Estúdio HTML…") }, onClick = { onDismiss(); controller.htmlLibraryOpen = true })
             DropdownMenuItem(text = { Text("Adicionar tela") }, onClick = { onDismiss(); onAddScreen() })
             val dockLayout = controller.viewModel.state.value.layout
             val showDock = dockLayout.showDock
@@ -680,7 +680,7 @@ private fun EntryContent(
             entry.widget.name,
             controller,
             onRemove,
-            onEdit = { controller.htmlEditing = entry.widget },
+            onEdit = { controller.editHtmlWidget(entry.widget) },
         ) {
             HtmlWidgetView(entry.widget, controller, palette, Modifier.fillMaxSize().padding(4.dp))
         }

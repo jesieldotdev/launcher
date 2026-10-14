@@ -1,5 +1,6 @@
 package dev.jesiel.launcher
 
+import androidx.compose.ui.graphics.asImageBitmap
 import dev.jesiel.launcher.data.HtmlTemplates
 import dev.jesiel.launcher.data.HtmlVariables
 import org.junit.Assert.assertFalse
@@ -160,5 +161,41 @@ class HtmlWidgetTest {
         val parsed = org.json.JSONArray(json).getJSONObject(0)
         assertTrue(parsed.getString("app") == "WhatsApp" && parsed.getString("hora") == "12:30" && parsed.getString("pacote") == "com.whatsapp")
         assertTrue(HtmlVariables.needsNotificationAccess(HtmlVariables.used("{{lastNotification}}")))
+    }
+
+    @Test
+    fun appsListIsJsonWithIconsAndLetters() {
+        val bitmap = android.graphics.Bitmap.createBitmap(4, 4, android.graphics.Bitmap.Config.ARGB_8888)
+        fun app(label: String, pkg: String) = dev.jesiel.launcher.data.AppInfo(
+            key = "$pkg/.Main#0", label = label, component = android.content.ComponentName(pkg, "$pkg.Main"),
+            user = android.os.Process.myUserHandle(), icon = bitmap.asImageBitmap(),
+        )
+        val apps = listOf(app("Éden", "com.eden"), app("2048", "com.game"), app("WhatsApp", "com.whatsapp"))
+        val parsed = org.json.JSONArray(HtmlVariables.appsJson(apps, favorites = setOf("com.whatsapp/.Main#0")))
+        assertTrue(parsed.length() == 3)
+        val eden = parsed.getJSONObject(0)
+        assertTrue(eden.getString("letra") == "E" && eden.getString("nome") == "Éden" && eden.getString("name") == "Éden")
+        assertTrue(eden.getString("icone") == "launcher-icon://com.eden" && eden.getString("icon") == eden.getString("icone"))
+        assertTrue(parsed.getJSONObject(1).getString("letra") == "#")
+        assertTrue(parsed.getJSONObject(2).getBoolean("favorito") && !eden.getBoolean("favorito"))
+    }
+
+    @Test
+    fun jsonListsStayOutOfCssVariables() {
+        val html = HtmlVariables.render("<script>launcher.appsLista</script>", mapOf("appsLista" to "[{\"nome\":\"A\"}]", "appsTotal" to "1"), interactive = true)
+        assertFalse(html.contains("--appsLista"))
+        assertTrue(html.contains("--appsTotal:1"))
+        assertTrue(HtmlVariables.used("<script>launcher.appsList; launcher.searchMode</script>").containsAll(listOf("appsLista", "modoBusca")))
+    }
+
+    @Test
+    fun appListTemplatesAreInteractiveAndUseTheApps() {
+        val lists = HtmlTemplates.all.filter { it.role == dev.jesiel.launcher.data.HtmlRole.APPS }
+        assertTrue(lists.size >= 2)
+        lists.forEach { t ->
+            assertTrue(t.name, t.html.contains("<script") && "appsLista" in HtmlVariables.used(t.html) && "modoBusca" in HtmlVariables.used(t.html))
+            assertTrue(t.name, t.html.contains("launcher://fechar") || t.html.contains("launcher://app/"))
+        }
+        assertTrue(HtmlTemplates.all.any { it.role == dev.jesiel.launcher.data.HtmlRole.LOCK })
     }
 }

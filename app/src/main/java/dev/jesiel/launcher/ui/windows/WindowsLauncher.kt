@@ -110,6 +110,7 @@ fun WindowsLauncher(state: LauncherUiState, controller: LauncherController) {
     BackHandler(enabled = controller.editMode) { controller.editMode = false }
 
     fun openStart(search: Boolean) {
+        if (controller.openHtmlDrawer(search)) return
         controller.controlCenterOpen = false
         searchFocused = search
         startOpen = true

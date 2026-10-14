@@ -63,6 +63,8 @@ data class LauncherUiState(
     val controlCenter: Boolean = true,
     val sharedLayout: Boolean = true,
     val htmlWidgets: List<HtmlWidget> = emptyList(),
+    /** Widget HTML que substitui a lista de apps do tema, se houver. */
+    val appsHtml: HtmlWidget? = null,
 )
 
 class LauncherViewModel(application: Application) : AndroidViewModel(application) {
@@ -138,6 +140,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
             controlCenter = data.controlCenter,
             sharedLayout = data.sharedLayout,
             htmlWidgets = data.htmlWidgets,
+            appsHtml = data.appsHtmlId?.let { id -> data.htmlWidgets.firstOrNull { it.id == id } },
         )
     }
 
@@ -362,6 +365,9 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         val source = d.htmlWidgets.firstOrNull { it.id == id } ?: return@update d
         d.copy(htmlWidgets = d.htmlWidgets + source.copy(id = UUID.randomUUID().toString().take(8), name = source.name + " (cópia)", onDesktop = true))
     }
+
+    /** Usa o widget [id] como lista de apps (nulo volta à do tema). */
+    fun setAppsHtml(id: String?) = prefs.update { it.copy(appsHtmlId = id) }
 
     fun setWindowMode(on: Boolean) = prefs.update { it.copy(windowMode = on) }
 

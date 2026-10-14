@@ -99,6 +99,7 @@ fun MacLauncher(state: LauncherUiState, controller: LauncherController) {
     LaunchedEffect(controller.homePresses) { launchpadOpen = false }
 
     fun openLaunchpad(search: Boolean) {
+        if (controller.openHtmlDrawer(search)) return
         focusSearch = search
         controller.controlCenterOpen = false
         launchpadOpen = true

@@ -94,6 +94,12 @@ object HtmlVariables {
         "corTexto" to "Material You: texto",
         "corTextoSuave" to "Material You: texto secundário",
         "corContorno" to "Material You: bordas e divisórias",
+        "appsLista" to "Apps instalados em JSON: [{nome, pacote, categoria, letra, favorito, dock, icone}] (use em JS)",
+        "appsRecentes" to "Últimos apps abertos, no mesmo formato de appsLista (use em JS)",
+        "appsTotal" to "Quantidade de apps instalados",
+        "modoBusca" to "\"sim\" quando a lista de apps foi aberta pela busca",
+        "barraTopo" to "Altura da barra de status (px do CSS), para telas cheias",
+        "barraBase" to "Altura da barra de navegação (px do CSS), para telas cheias",
     )
 
     /** Nome em inglês de cada variável (mesmo valor), para quem prefere ou para código gerado por outras IAs. */
@@ -110,6 +116,8 @@ object HtmlVariables {
         "corPrimaria" to "colorPrimary", "corPrimariaFundo" to "colorPrimaryContainer", "corSecundaria" to "colorSecondary",
         "corTerciaria" to "colorTertiary", "corFundo" to "colorBackground", "corSuperficie" to "colorSurface",
         "corTexto" to "colorOnSurface", "corTextoSuave" to "colorOnSurfaceVariant", "corContorno" to "colorOutline",
+        "appsLista" to "appsList", "appsRecentes" to "recentApps", "appsTotal" to "appsCount", "modoBusca" to "searchMode",
+        "barraTopo" to "insetTop", "barraBase" to "insetBottom",
     )
     private val fromEnglish: Map<String, String> = english.entries.associate { (pt, en) -> en to pt }
 
@@ -134,6 +142,36 @@ object HtmlVariables {
                 put(JSONObject().put("app", n.app).put("pacote", n.packageName).put("titulo", n.title).put("texto", n.text).put("hora", timeFormat(n.postedAt)))
             }
         }.toString()
+
+    /**
+     * Apps em JSON, com os campos em português e em inglês. O ícone é um endereço que o
+     * Launcher responde na hora (`launcher-icon://pacote`), para não embutir imagens na página.
+     */
+    fun appsJson(apps: List<AppInfo>, favorites: Set<String> = emptySet(), dock: Set<String> = emptySet()): String =
+        JSONArray().apply {
+            apps.forEach { a ->
+                val icon = ICON_SCHEME + a.packageName
+                val letter = a.label.trim().firstOrNull()?.let { c ->
+                    java.text.Normalizer.normalize(c.toString(), java.text.Normalizer.Form.NFD).first().uppercaseChar()
+                }?.let { if (it.isLetter()) it.toString() else "#" } ?: "#"
+                put(
+                    JSONObject()
+                        .put("nome", a.label).put("name", a.label)
+                        .put("pacote", a.packageName).put("package", a.packageName)
+                        .put("categoria", a.category.label).put("category", a.category.name.lowercase())
+                        .put("letra", letter).put("letter", letter)
+                        .put("favorito", a.key in favorites).put("favorite", a.key in favorites)
+                        .put("dock", a.key in dock)
+                        .put("icone", icon).put("icon", icon),
+                )
+            }
+        }.toString()
+
+    /** Endereço dos ícones dos apps dentro dos widgets. */
+    const val ICON_SCHEME = "launcher-icon://"
+
+    /** Listas em JSON: grandes demais para virar variável CSS. */
+    private val JSON_KEYS = setOf("notificacoesLista", "appsLista", "appsRecentes", "notificationsList", "appsList", "recentApps")
 
     private val PLACEHOLDER = Regex("""\{\{\s*([a-zA-Z]+)\s*\}\}""")
     private val TAG = Regex("""<[^>]*>""")
@@ -166,7 +204,7 @@ object HtmlVariables {
             }
             append(replaceText(html.substring(last), values, ::escape, interactive))
         }
-        val cssVars = values.entries.joinToString(";") { (k, v) -> "--$k:${cssValue(v)}" }
+        val cssVars = values.entries.filter { it.key !in JSON_KEYS }.joinToString(";") { (k, v) -> "--$k:${cssValue(v)}" }
         val head = """
             <meta name="viewport" content="width=device-width, initial-scale=1">
             <style>:root{$cssVars}html,body{margin:0;padding:0;background:transparent;overflow:hidden;height:100%}
@@ -179,7 +217,7 @@ object HtmlVariables {
               window.launcher = d;
               document.querySelectorAll('[data-lv]').forEach(function(e){ e.textContent = d[e.getAttribute('data-lv')] || ''; });
               document.querySelectorAll('[data-lsrc]').forEach(function(e){ var v = d[e.getAttribute('data-lsrc')] || ''; if (e.getAttribute('src') !== v) e.setAttribute('src', v); });
-              for (var k in d) document.documentElement.style.setProperty('--'+k, d[k]);
+              for (var k in d) { var v = d[k]; if (typeof v === 'string' && v.charAt(0) === '[') continue; document.documentElement.style.setProperty('--'+k, v); }
               if (typeof window.onLauncherData === 'function') window.onLauncherData(d);
             };
             document.addEventListener('DOMContentLoaded', function(){ if (typeof window.onLauncherData === 'function') window.onLauncherData(window.launcher); });
@@ -200,6 +238,12 @@ object HtmlVariables {
     private fun cssValue(v: String) = if (v.toDoubleOrNull() != null || (v.startsWith("#") && v.length <= 9 && v.none { it.isWhitespace() })) v
     else "\"" + v.replace("\\", "\\\\").replace("\"", "'").replace("\n", "\\A ").replace("<", "\\3C ") + "\""
 }
+
+/** Onde um widget HTML é usado. */
+enum class HtmlRole(val label: String) { DESKTOP("Área de trabalho"), LOCK("Tela de bloqueio"), APPS("Lista de apps") }
+
+/** Modelo pronto: nome, código e para onde ele foi pensado. */
+data class HtmlTemplate(val name: String, val html: String, val role: HtmlRole = HtmlRole.DESKTOP)
 
 /** Modelos prontos para começar. */
 object HtmlTemplates {
@@ -938,7 +982,155 @@ function onLauncherData(d){
 }
 </script>""".trimIndent()
 
-    val all: List<Pair<String, String>> = listOf(
+    val APPS_GRID = HtmlTemplate("Lista de apps · Material", """
+<style>
+*{box-sizing:border-box;margin:0}
+.w{position:fixed;inset:0;display:flex;flex-direction:column;font-family:Roboto,'Google Sans',sans-serif;color:var(--corTexto);
+  background:color-mix(in srgb,var(--corFundo) 94%,transparent);padding:calc(var(--barraTopo) * 1px + 12px) 0 calc(var(--barraBase) * 1px)}
+.top{display:flex;gap:10px;align-items:center;padding:0 16px 8px}
+.s{flex:1;display:flex;align-items:center;gap:10px;height:52px;padding:0 18px;border-radius:26px;background:var(--corSuperficie);color:var(--corTextoSuave)}
+.s svg{width:22px;height:22px;flex:none}
+.s input{flex:1;min-width:0;border:0;outline:0;background:transparent;font:inherit;font-size:16px;color:var(--corTexto)}
+.s input::placeholder{color:var(--corTextoSuave)}
+.x{width:52px;height:52px;border-radius:26px;display:grid;place-items:center;background:var(--corSuperficie);color:var(--corTexto);text-decoration:none;font-size:20px}
+.list{flex:1;overflow-y:auto;padding:0 22px 28px 12px}
+h3{font-size:13px;font-weight:600;color:var(--corPrimaria);margin:16px 10px 4px;letter-spacing:.06em}
+.g{display:grid;grid-template-columns:repeat(4,1fr);gap:2px}
+.rec{background:var(--corSuperficie);border-radius:26px;padding:4px}
+.a{display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px 2px;border-radius:20px;text-decoration:none;color:inherit;min-width:0}
+.a:active{background:color-mix(in srgb,var(--corPrimaria) 18%,transparent)}
+.a img{width:52px;height:52px}
+.a span{font-size:12px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.idx{position:fixed;right:4px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;align-items:center}
+.idx b{font-size:10px;font-weight:600;padding:1px 5px;color:var(--corTextoSuave)}
+.empty{text-align:center;color:var(--corTextoSuave);padding:48px 0}
+</style>
+<div class="w">
+  <div class="top">
+    <label class="s">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M15.5 14h-.8l-.3-.3A6.5 6.5 0 1 0 9.5 16a6.5 6.5 0 0 0 4.2-1.6l.3.3v.8l5 5 1.5-1.5-5-5zm-6 0a4.5 4.5 0 1 1 0-9 4.5 4.5 0 0 1 0 9z"/></svg>
+      <input id="q" placeholder="Buscar apps" autocomplete="off" enterkeyhint="go">
+    </label>
+    <a class="x" href="launcher://fechar">✕</a>
+  </div>
+  <div class="list" id="list"></div>
+  <div class="idx" id="idx"></div>
+</div>
+<script>
+/* Dados: launcher.appsLista, launcher.appsRecentes e launcher.modoBusca. Segure um app para ver as informações. */
+var apps = [], recent = [], lastA = null, lastR = null;
+var q = document.getElementById('q'), list = document.getElementById('list'), idx = document.getElementById('idx');
+function esc(t){ return String(t).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+function norm(t){ return String(t).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase(); }
+function tile(a){
+  return '<a class="a" href="launcher://app/' + esc(a.pacote) + '" data-p="' + esc(a.pacote) + '">' +
+    '<img loading="lazy" src="' + esc(a.icone) + '" alt=""><span>' + esc(a.nome) + '</span></a>';
+}
+function draw(){
+  var term = norm(q.value.trim()), html = '', letters = [];
+  if (term) {
+    var hits = apps.filter(function(a){ return norm(a.nome).indexOf(term) >= 0; });
+    html = hits.length ? '<div class="g">' + hits.map(tile).join('') + '</div>' : '<div class="empty">Nenhum app encontrado</div>';
+  } else {
+    if (recent.length) html += '<h3>RECENTES</h3><div class="g rec">' + recent.slice(0, 4).map(tile).join('') + '</div>';
+    // Grade contínua; o índice à direita pula para o primeiro app de cada letra.
+    var sorted = apps.slice().sort(function(a, b){ return a.letra === b.letra ? norm(a.nome).localeCompare(norm(b.nome)) : (a.letra < b.letra ? -1 : 1); });
+    html += '<h3>TODOS OS APPS</h3><div class="g">' + sorted.map(function(a){
+      var t = tile(a);
+      if (letters.indexOf(a.letra) < 0) { letters.push(a.letra); t = t.replace('<a class="a"', '<a class="a" id="L' + a.letra + '"'); }
+      return t;
+    }).join('') + '</div>';
+  }
+  list.innerHTML = html;
+  idx.innerHTML = letters.map(function(l){ return '<b data-l="' + l + '">' + l + '</b>'; }).join('');
+}
+idx.addEventListener('click', function(e){
+  var h = document.getElementById('L' + e.target.getAttribute('data-l'));
+  if (h) list.scrollTop = h.offsetTop - list.offsetTop - 6;
+});
+q.addEventListener('input', draw);
+q.addEventListener('keydown', function(e){
+  if (e.key === 'Enter') { var f = list.querySelector('a.a'); if (f) location.href = f.href; }
+});
+var timer = null, held = false;
+list.addEventListener('touchstart', function(e){
+  var a = e.target.closest('a.a'); if (!a) return;
+  held = false;
+  timer = setTimeout(function(){ held = true; location.href = 'launcher://info/' + a.getAttribute('data-p'); }, 600);
+}, {passive: true});
+['touchend', 'touchmove', 'touchcancel'].forEach(function(t){ list.addEventListener(t, function(){ clearTimeout(timer); }, {passive: true}); });
+list.addEventListener('click', function(e){ if (held) { e.preventDefault(); held = false; } }, true);
+function onLauncherData(d){
+  var changed = false;
+  if (d.appsLista !== lastA) { lastA = d.appsLista; try { apps = JSON.parse(lastA || '[]'); } catch (x) { apps = []; } changed = true; }
+  if (d.appsRecentes !== lastR) { lastR = d.appsRecentes; try { recent = JSON.parse(lastR || '[]'); } catch (x) { recent = []; } changed = true; }
+  if (changed) draw();
+  if (d.modoBusca === 'sim' && !q.dataset.f) { q.dataset.f = '1'; q.focus(); }
+}
+</script>""".trimIndent(), HtmlRole.APPS)
+
+    val APPS_TERMINAL = HtmlTemplate("Lista de apps · Terminal", """
+<style>
+*{box-sizing:border-box;margin:0}
+.w{position:fixed;inset:0;display:flex;flex-direction:column;background:rgba(2,10,4,.94);color:#39ff6a;
+  font:14px/1.35 'JetBrains Mono','Fira Code',monospace;text-shadow:0 0 6px rgba(57,255,106,.55);
+  padding:calc(var(--barraTopo) * 1px + 10px) 12px calc(var(--barraBase) * 1px + 8px)}
+.w:after{content:'';position:fixed;inset:0;pointer-events:none;
+  background:repeating-linear-gradient(0deg,rgba(0,0,0,.22) 0 1px,transparent 1px 3px)}
+.hd{display:flex;justify-content:space-between;border:1px solid #1d7a36;padding:6px 10px;font-size:12px;color:#7dffa0}
+.hd a{color:#ff5a5a;text-decoration:none}
+.list{flex:1;overflow-y:auto;margin:8px 0;border-left:1px solid #1d7a36;padding-left:8px}
+.sec{color:#1fbf4f;margin:10px 0 2px;font-size:12px}
+.a{display:flex;align-items:center;gap:10px;padding:5px 4px;color:inherit;text-decoration:none}
+.a:active{background:#39ff6a;color:#021004;text-shadow:none}
+.a img{width:24px;height:24px;filter:grayscale(1) sepia(1) hue-rotate(70deg) saturate(5) brightness(1.1)}
+.a i{font-style:normal;opacity:.45;font-size:11px;margin-left:auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:45%}
+.p{display:flex;align-items:center;gap:6px;border:1px solid #39ff6a;padding:10px;box-shadow:0 0 12px rgba(57,255,106,.35) inset}
+.p input{flex:1;min-width:0;border:0;outline:0;background:transparent;color:inherit;font:inherit;text-shadow:inherit;caret-color:#39ff6a}
+.c{animation:b 1s steps(1) infinite}
+@keyframes b{50%{opacity:0}}
+</style>
+<div class="w">
+  <div class="hd"><span>NAV-01 :: <b id="n">0</b> PROGRAMAS</span><a href="launcher://fechar">[ X ]</a></div>
+  <div class="list" id="list"></div>
+  <label class="p"><span>root@apps:~${"$"}</span><input id="q" autocomplete="off" enterkeyhint="go" placeholder="run ..."><span class="c">█</span></label>
+</div>
+<script>
+/* Dados: launcher.appsLista, launcher.appsTotal e launcher.modoBusca. Enter abre o primeiro resultado. */
+var apps = [], lastA = null;
+var q = document.getElementById('q'), list = document.getElementById('list');
+function esc(t){ return String(t).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+function norm(t){ return String(t).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase(); }
+function row(a){
+  return '<a class="a" href="launcher://app/' + esc(a.pacote) + '"><img loading="lazy" src="' + esc(a.icone) + '" alt="">' +
+    '<span>&gt; ' + esc(a.nome.toLowerCase()) + '</span><i>' + esc(a.pacote) + '</i></a>';
+}
+function draw(){
+  var term = norm(q.value.trim()), html = '', cur = '';
+  apps.filter(function(a){ return !term || norm(a.nome).indexOf(term) >= 0 || a.pacote.indexOf(term) >= 0; }).forEach(function(a){
+    if (!term && a.letra !== cur) { cur = a.letra; html += '<div class="sec">-- ' + cur + ' --</div>'; }
+    html += row(a);
+  });
+  list.innerHTML = html || '<div class="sec">comando não encontrado: ' + esc(q.value) + '</div>';
+}
+q.addEventListener('input', draw);
+q.addEventListener('keydown', function(e){
+  if (e.key === 'Enter') { var f = list.querySelector('a.a'); if (f) location.href = f.href; }
+});
+function onLauncherData(d){
+  document.getElementById('n').textContent = d.appsTotal;
+  if (d.appsLista !== lastA) { lastA = d.appsLista; try { apps = JSON.parse(lastA || '[]'); } catch (x) { apps = []; } draw(); }
+  if (d.modoBusca === 'sim' && !q.dataset.f) { q.dataset.f = '1'; q.focus(); }
+}
+</script>""".trimIndent(), HtmlRole.APPS)
+
+    val all: List<HtmlTemplate> by lazy {
+        listOf(APPS_GRID, APPS_TERMINAL) + widgets.map { (name, html) ->
+            HtmlTemplate(name, html, if (name == LOCK.first || name == MOTO.first) HtmlRole.LOCK else HtmlRole.DESKTOP)
+        }
+    }
+
+    private val widgets: List<Pair<String, String>> = listOf(
         CLAUDE,
         LOCK,
         MOTO,

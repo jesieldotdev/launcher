@@ -83,6 +83,7 @@ fun HtmlWidgetEditor(
     var network by remember { mutableStateOf(initial.network) }
     var software by remember { mutableStateOf(initial.software) }
     var status by remember { mutableStateOf("Carregando a prévia…") }
+    var role by remember { mutableStateOf(controller.htmlEditingRole) }
     androidx.compose.runtime.LaunchedEffect(importedHtml) {
         if (importedHtml != null) {
             code.set(importedHtml)
@@ -104,23 +105,39 @@ fun HtmlWidgetEditor(
             IconButton(onClick = { controller.htmlEditing = null }) { Icon(Icons.Default.Close, "Fechar", tint = colors.onBackground) }
             Text(if (isNew) "Novo widget HTML" else "Editar widget HTML", fontSize = 18.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f), color = colors.onBackground)
             Button(onClick = {
-                vm.saveHtmlWidget(draft)
+                // Novo widget vai só para onde foi escolhido; um existente continua onde já estava.
+                val saved = if (isNew) draft.copy(onDesktop = role == dev.jesiel.launcher.data.HtmlRole.DESKTOP)
+                else if (role == dev.jesiel.launcher.data.HtmlRole.DESKTOP) draft.copy(onDesktop = true) else draft
+                vm.saveHtmlWidget(saved)
                 controller.htmlEditing = null
-                controller.toast(if (isNew) "Widget adicionado à área de trabalho" else "Widget salvo")
+                when (role) {
+                    dev.jesiel.launcher.data.HtmlRole.LOCK -> controller.useOnLockScreen(saved)
+                    dev.jesiel.launcher.data.HtmlRole.APPS -> controller.useAsAppList(saved)
+                    dev.jesiel.launcher.data.HtmlRole.DESKTOP -> controller.toast(if (isNew) "Widget adicionado à área de trabalho" else "Widget salvo")
+                }
             }) { Text("Salvar") }
         }
 
-        // Prévia sobre um fundo escuro, parecido com um papel de parede.
-        Box(
-            Modifier
-                .padding(horizontal = 14.dp)
-                .fillMaxWidth()
-                .height(if (fullscreen) 120.dp else 190.dp)
-                .clip(RoundedCornerShape(18.dp))
-                .background(Brush.linearGradient(listOf(Color(0xFF1B2A4A), Color(0xFF3A5BA0))))
-                .padding(8.dp),
-        ) {
-            HtmlWidgetView(draft, controller, palette, Modifier.fillMaxSize(), onStatus = { status = it })
+        // Prévia sobre um fundo escuro, parecido com um papel de parede. Tela de bloqueio e
+        // lista de apps aparecem no formato de um celular.
+        if (role == dev.jesiel.launcher.data.HtmlRole.DESKTOP) {
+            Box(
+                Modifier
+                    .padding(horizontal = 14.dp)
+                    .fillMaxWidth()
+                    .height(if (fullscreen) 120.dp else 190.dp)
+                    .clip(RoundedCornerShape(18.dp))
+                    .background(Brush.linearGradient(listOf(Color(0xFF1B2A4A), Color(0xFF3A5BA0))))
+                    .padding(8.dp),
+            ) {
+                HtmlWidgetView(draft, controller, palette, Modifier.fillMaxSize(), onStatus = { status = it })
+            }
+        } else {
+            HtmlPreview(
+                draft, role, controller, palette,
+                Modifier.padding(horizontal = 14.dp).fillMaxWidth().height(if (fullscreen) 170.dp else 320.dp),
+                onStatus = { status = it },
+            )
         }
         val webViewVersion = remember {
             if (android.os.Build.VERSION.SDK_INT >= 26) android.webkit.WebView.getCurrentWebViewPackage()?.let { "${it.packageName} ${it.versionName}" } else null
@@ -145,13 +162,38 @@ fun HtmlWidgetEditor(
         } else Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(14.dp)) {
             OutlinedTextField(name, { name = it }, label = { Text("Nome") }, singleLine = true, modifier = Modifier.fillMaxWidth())
             Spacer(Modifier.height(10.dp))
+            Text(if (isNew) "Usar em" else "Ao salvar, usar também em", fontWeight = FontWeight.SemiBold, color = colors.onBackground)
+            Row(Modifier.horizontalScroll(rememberScrollState()).padding(vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                dev.jesiel.launcher.data.HtmlRole.entries.forEach { r ->
+                    val on = r == role
+                    Text(
+                        r.label,
+                        fontSize = 13.sp,
+                        color = if (on) colors.onPrimary else colors.onSurface,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(if (on) colors.primary else colors.onSurface.copy(alpha = 0.08f))
+                            .clickable { role = r }
+                            .padding(horizontal = 12.dp, vertical = 7.dp),
+                    )
+                }
+            }
+            if (role == dev.jesiel.launcher.data.HtmlRole.APPS) {
+                Text(
+                    "Lista de apps: use launcher.appsLista (JSON) e ícones em <img src=\"launcher-icon://pacote\">. Ligue o modo Interativo.",
+                    fontSize = 12.sp, color = Color.Gray,
+                )
+            }
+            Spacer(Modifier.height(6.dp))
             Text("Modelos", fontWeight = FontWeight.SemiBold, color = colors.onBackground)
             Row(Modifier.horizontalScroll(rememberScrollState()).padding(vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                HtmlTemplates.all.forEach { (label, template) ->
-                    Chip(label) {
-                        code.set(template)
-                        interactive = template.contains("<script")
-                        network = template.contains("fetch(") || template.contains("https://fonts.")
+                // Modelos do mesmo uso primeiro.
+                HtmlTemplates.all.sortedBy { if (it.role == role) 0 else 1 }.forEach { t ->
+                    Chip(t.name) {
+                        code.set(t.html)
+                        interactive = t.html.contains("<script")
+                        network = t.html.contains("fetch(") || t.html.contains("https://fonts.")
+                        role = t.role
                     }
                 }
                 Chip("Importar .html") { controller.importHtmlFile?.invoke() }
@@ -324,64 +366,3 @@ private fun Chip(text: String, onClick: () -> Unit) {
             .padding(horizontal = 12.dp, vertical = 7.dp),
     )
 }
-
-
-/** Biblioteca dos widgets HTML salvos: pôr ou tirar da área de trabalho, editar, duplicar, excluir. */
-@Composable
-fun HtmlWidgetLibrary(controller: LauncherController, palette: LauncherPalette) {
-    val vm = controller.viewModel
-    val state by vm.state.collectAsStateWithLifecycle()
-    var confirmDelete by remember { mutableStateOf<HtmlWidget?>(null) }
-    androidx.compose.material3.AlertDialog(
-        onDismissRequest = { controller.htmlLibraryOpen = false },
-        title = { Text("Widgets HTML") },
-        text = {
-            Column(Modifier.heightIn(max = 520.dp).verticalScroll(rememberScrollState())) {
-                if (state.htmlWidgets.isEmpty()) Text("Nenhum widget salvo ainda.", color = Color.Gray)
-                state.htmlWidgets.forEach { w ->
-                    Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
-                        Box(
-                            Modifier
-                                .fillMaxWidth()
-                                .height(96.dp)
-                                .clip(RoundedCornerShape(14.dp))
-                                .background(Brush.linearGradient(listOf(Color(0xFF1B2A4A), Color(0xFF3A5BA0)))),
-                        ) {
-                            HtmlWidgetView(w, controller, palette, Modifier.fillMaxSize())
-                            // Camada por cima: a prévia não recebe toques.
-                            Box(Modifier.fillMaxSize().clickable { controller.htmlLibraryOpen = false; controller.htmlEditing = w })
-                        }
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Column(Modifier.weight(1f)) {
-                                Text(w.name, fontWeight = FontWeight.SemiBold)
-                                Text(if (w.onDesktop) "Na área de trabalho" else "Guardado", fontSize = 12.sp, color = Color.Gray)
-                            }
-                            androidx.compose.material3.TextButton(onClick = { vm.setHtmlWidgetOnDesktop(w.id, !w.onDesktop) }) {
-                                Text(if (w.onDesktop) "Tirar" else "Adicionar")
-                            }
-                        }
-                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                            androidx.compose.material3.TextButton(onClick = { controller.htmlLibraryOpen = false; controller.htmlEditing = w }) { Text("Editar") }
-                            androidx.compose.material3.TextButton(onClick = { vm.duplicateHtmlWidget(w.id) }) { Text("Duplicar") }
-                            androidx.compose.material3.TextButton(onClick = { confirmDelete = w }) { Text("Excluir") }
-                        }
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            androidx.compose.material3.TextButton(onClick = { controller.htmlLibraryOpen = false; controller.newHtmlWidget() }) { Text("Novo widget") }
-        },
-        dismissButton = { androidx.compose.material3.TextButton(onClick = { controller.htmlLibraryOpen = false }) { Text("Fechar") } },
-    )
-    confirmDelete?.let { w ->
-        androidx.compose.material3.AlertDialog(
-            onDismissRequest = { confirmDelete = null },
-            title = { Text("Excluir \"${w.name}\"?") },
-            text = { Text("O widget sai da área de trabalho e da biblioteca. Um backup é feito antes.") },
-            confirmButton = { androidx.compose.material3.TextButton(onClick = { vm.removeHtmlWidget(w.id); confirmDelete = null }) { Text("Excluir") } },
-            dismissButton = { androidx.compose.material3.TextButton(onClick = { confirmDelete = null }) { Text("Cancelar") } },
-        )
-    }
-}
-

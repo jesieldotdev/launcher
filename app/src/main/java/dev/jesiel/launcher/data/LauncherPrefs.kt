@@ -111,6 +111,8 @@ data class LauncherData(
     /** Apps, pastas e widgets ficam na mesma posição em todos os temas. */
     val sharedLayout: Boolean,
     val htmlWidgets: List<HtmlWidget>,
+    /** Widget HTML usado no lugar da lista de apps do tema (nulo = a do tema). */
+    val appsHtmlId: String? = null,
 ) {
     fun layoutFor(themeId: String) = layouts[themeId] ?: defaultLayout(themeId)
 
@@ -262,6 +264,7 @@ class LauncherPrefs(context: Context) {
             controlCenter = prefs.getBoolean(KEY_CONTROL_CENTER, true),
             sharedLayout = prefs.getBoolean(KEY_SHARED_LAYOUT, true),
             htmlWidgets = HtmlWidget.listFromJson(prefs.getString(KEY_HTML_WIDGETS, null)),
+            appsHtmlId = prefs.getString(KEY_APPS_HTML, null),
         )
     }
 
@@ -336,6 +339,7 @@ class LauncherPrefs(context: Context) {
             .putBoolean(KEY_CONTROL_CENTER, d.controlCenter)
             .putBoolean(KEY_SHARED_LAYOUT, d.sharedLayout)
             .putString(KEY_HTML_WIDGETS, HtmlWidget.listToJson(d.htmlWidgets))
+            .putString(KEY_APPS_HTML, d.appsHtmlId)
             .apply()
     }
 
@@ -366,5 +370,6 @@ class LauncherPrefs(context: Context) {
         const val KEY_CONTROL_CENTER = "controlCenter"
         const val KEY_SHARED_LAYOUT = "sharedLayout"
         const val KEY_HTML_WIDGETS = "htmlWidgets"
+        const val KEY_APPS_HTML = "appsHtml"
     }
 }
