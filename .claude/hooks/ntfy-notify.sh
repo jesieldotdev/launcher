@@ -14,20 +14,24 @@ event="$(field .hook_event_name)"
 repo="$(basename "$(git -C "$dir/.." rev-parse --show-toplevel 2>/dev/null || echo "$dir/..")")"
 
 case "$event" in
-  PostToolUse)
+  PostToolUse|PostToolUseFailure)
     cmd="$(field .tool_input.command)"
     # Só builds/testes do Gradle.
     printf '%s' "$cmd" | grep -qE '(^|[ /;&])gradlew? ' || exit 0
-    out="$(printf '%s' "$input" | jq -r '[.tool_response.stdout, .tool_response.stderr, .tool_response.output] | map(select(. != null)) | join("\n")' 2>/dev/null)"
-    task="$(printf '%s' "$cmd" | grep -oE 'gradlew? +[^|;&>]*' | head -1 | sed -E 's/gradlew? +//; s/ -[^ ]+//g; s/ +$//')"
+    out="$(printf '%s' "$input" | jq -r '[.tool_response.stdout, .tool_response.stderr, .tool_response.output, .error] | map(select(. != null) | tostring) | join("\n")' 2>/dev/null)"
+    # Só os nomes das tarefas (sem opções, filtros de teste nem redirecionamentos).
+    task="$(printf '%s' "$cmd" | grep -oE 'gradlew? +[^|;&>]*' | head -1 | sed -E 's/gradlew? +//; s/--tests +[^ ]+//g' \
+      | tr ' ' '\n' | grep -vE '^(-|[0-9]*$)' | tr '\n' ' ' | sed -E 's/ +$//')"
     took="$(printf '%s' "$out" | grep -oE 'BUILD (SUCCESSFUL|FAILED) in [0-9a-z ]+' | tail -1 | sed -E 's/BUILD [A-Z]+ in //')"
-    if printf '%s' "$out" | grep -q 'BUILD SUCCESSFUL'; then
-      title="build ok"; tags="white_check_mark,build"; prio=3; msg="${task:-gradle} · ${took:-concluído}"
-    elif printf '%s' "$out" | grep -q 'BUILD FAILED\|FAILURE:'; then
+    # Com -q o Gradle não imprime "BUILD SUCCESSFUL": vale o resultado do comando e os erros na saída.
+    if [ "$event" = "PostToolUseFailure" ] || printf '%s' "$out" | grep -qE 'BUILD FAILED|FAILURE:|^e: |tests completed, [0-9]+ failed'; then
       title="build falhou"; tags="x,build"; prio=4; msg="${task:-gradle} · ${took:-erro}"
     else
-      exit 0
+      title="build ok"; tags="white_check_mark,build"; prio=3; msg="${task:-gradle}${took:+ · $took}"
     fi ;;
+  UserPromptSubmit)
+    title="trabalhando"; tags="gear,work"; prio=2
+    msg="$(field .prompt | tr '\n' ' ' | cut -c1-120)"; msg="${msg:-Novo pedido}" ;;
   Notification)
     title="esperando você"; tags="bell,wait"; prio=4
     msg="$(field .message)"

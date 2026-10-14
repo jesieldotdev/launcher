@@ -228,6 +228,7 @@ object HtmlTemplates {
 .big.err{background:repeating-linear-gradient(180deg,#ff8a6a 0 2px,rgba(255,110,80,.45) 2px 3px);-webkit-background-clip:text;background-clip:text;
   filter:drop-shadow(0 0 6px rgba(255,90,60,.6))}
 .big.wait{animation:pulse 1.4s ease-in-out infinite}
+.big.work{animation:pulse 2.6s ease-in-out infinite}
 @keyframes pulse{50%{opacity:.45}}
 .when{text-align:right;font-size:min(4.2vh,2.4vw);color:#c9a464;line-height:1.35}
 .when b{display:block;font-size:min(5.4vh,3vw);color:#e9c27a;font-weight:700}
@@ -240,13 +241,13 @@ object HtmlTemplates {
 .log span:last-child{overflow:hidden;text-overflow:ellipsis}
 .log .t{color:#7d6136;flex:none}
 .log .l{flex:none;width:5.6em;font-weight:700}
-.log .ok .l{color:#e9c27a}.log .bad .l{color:#ff7a5a}.log .wait .l{color:#fff0c0}.log .stop .l{color:#b8955a}
+.log .ok .l{color:#e9c27a}.log .bad .l{color:#ff7a5a}.log .wait .l{color:#fff0c0}.log .stop .l{color:#b8955a}.log .work .l{color:#8fd0c0}
 .ft{font-size:min(4.2vh,2.4vw);letter-spacing:.1em;color:#c9a464;text-transform:uppercase}
 .dot{display:inline-block;width:.8em;height:.8em;border-radius:50%;background:#c9a464;margin-right:.6em;vertical-align:-.05em}
 .dot.run{animation:pulse 1s infinite}.dot.bad{background:#ff6a4a;box-shadow:0 0 8px #ff6a4a}.dot.ok{background:#ffd98c;box-shadow:0 0 8px #ffbe5a}
 .cells{display:inline-flex;gap:2px;margin-left:.6em;vertical-align:middle}
 .cells b{width:min(2.2vh,1.2vw);height:min(3vh,1.7vw);border:1px solid #6b5330}
-.cells b.ok{background:#e9c27a}.cells b.bad{background:#ff6a4a}.cells b.stop{background:#7d6136}.cells b.wait{background:#fff0c0}
+.cells b.ok{background:#e9c27a}.cells b.bad{background:#ff6a4a}.cells b.stop{background:#7d6136}.cells b.wait{background:#fff0c0}.cells b.work{background:#4f8f80}
 </style>
 <div class="k">
   <a class="row hd" href="launcher://url?u=https%3A%2F%2Fclaude.ai%2Fcode"><span><i></i>Claude Code</span><span id="repo">cc_01</span></a>
@@ -267,10 +268,11 @@ var events = [], lastNtfy = 0, lastCi = 0, ntfyFail = false, sig = '';
 function kind(e){
   var t = e.tags || [];
   if (t.indexOf('wait') >= 0) return 'wait';
+  if (t.indexOf('work') >= 0) return 'work';
   if (t.indexOf('build') >= 0) return t.indexOf('x') >= 0 ? 'bad' : 'ok';
   return 'stop';
 }
-var LABEL = {wait:'SUA VEZ', bad:'FALHOU', ok:'BUILD OK', stop:'PRONTO'};
+var LABEL = {wait:'SUA VEZ', work:'RODANDO', bad:'FALHOU', ok:'BUILD OK', stop:'PRONTO'};
 function ago(t){
   var s = Math.max(0, Math.floor(Date.now()/1000 - t));
   if (s < 60) return 'agora';
@@ -301,6 +303,7 @@ function draw(){
     big.textContent = LABEL[k];
     if (k == 'bad') big.className = 'big err';
     if (k == 'wait') big.className = 'big wait';
+    if (k == 'work') big.className = 'big work';
     el('msg').textContent = e.message || e.title || '';
     el('hm').textContent = hhmm(e.time); el('ago').textContent = ago(e.time);
     var t = (e.tags || []); var repo = t[t.length-1];
