@@ -156,10 +156,43 @@ fun HtmlWidgetEditor(
                 }
                 Chip("Importar .html") { controller.importHtmlFile?.invoke() }
             }
+            Text("Opções", fontWeight = FontWeight.SemiBold, color = colors.onBackground, modifier = Modifier.padding(top = 4.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Interativo (JavaScript)", color = colors.onBackground)
+                    Text(
+                        if (interactive) "Animações e scripts; recebe dados novos sem recarregar." else "Leve: sem scripts, redesenha só quando um valor muda.",
+                        fontSize = 12.sp,
+                        color = Color.Gray,
+                    )
+                }
+                Switch(interactive, { interactive = it })
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Acesso à internet", color = colors.onBackground)
+                    Text("Para imagens ou fontes online. Desligado economiza dados e bateria.", fontSize = 12.sp, color = Color.Gray)
+                }
+                Switch(network, { network = it })
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Modo de compatibilidade", color = colors.onBackground)
+                    Text("Desenha por software. Use se o widget aparecer em branco no seu aparelho.", fontSize = 12.sp, color = Color.Gray)
+                }
+                Switch(software, { software = it })
+            }
+            Text(
+                "O widget fica pausado sempre que a tela inicial não está visível, então não gasta bateria enquanto você usa outros apps.",
+                fontSize = 12.sp,
+                color = colors.primary,
+                modifier = Modifier.padding(top = 4.dp, bottom = 10.dp),
+            )
             CodeHeader(problem, fontSize, { fontSize = it }, fullscreen = false, onFullscreen = { fullscreen = true })
             CodeEditor(
                 code,
-                Modifier.padding(vertical = 6.dp).fillMaxWidth().then(CodeEditorMinHeight),
+                // Altura limitada com rolagem própria: o código longo não empurra o resto da tela.
+                Modifier.padding(vertical = 6.dp).fillMaxWidth().heightIn(min = 220.dp, max = 380.dp).verticalScroll(rememberScrollState()),
                 fontSize = fontSize.sp,
                 onFocus = { codeFocused = it },
             )
@@ -239,38 +272,6 @@ fun HtmlWidgetEditor(
                     "\nCapa no modo interativo: <img data-lsrc=\"musicaCapa\" src=\"{{musicaCapa}}\"> troca sozinha a cada faixa.",
                 fontSize = 12.sp,
                 color = Color.Gray,
-            )
-            Spacer(Modifier.height(10.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text("Interativo (JavaScript)", color = colors.onBackground)
-                    Text(
-                        if (interactive) "Animações e scripts; recebe dados novos sem recarregar." else "Leve: sem scripts, redesenha só quando um valor muda.",
-                        fontSize = 12.sp,
-                        color = Color.Gray,
-                    )
-                }
-                Switch(interactive, { interactive = it })
-            }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text("Acesso à internet", color = colors.onBackground)
-                    Text("Para imagens ou fontes online. Desligado economiza dados e bateria.", fontSize = 12.sp, color = Color.Gray)
-                }
-                Switch(network, { network = it })
-            }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text("Modo de compatibilidade", color = colors.onBackground)
-                    Text("Desenha por software. Use se o widget aparecer em branco no seu aparelho.", fontSize = 12.sp, color = Color.Gray)
-                }
-                Switch(software, { software = it })
-            }
-            Text(
-                "O widget fica pausado sempre que a tela inicial não está visível, então não gasta bateria enquanto você usa outros apps.",
-                fontSize = 12.sp,
-                color = colors.primary,
-                modifier = Modifier.padding(top = 8.dp),
             )
             if (!isNew) {
                 Spacer(Modifier.height(12.dp))
