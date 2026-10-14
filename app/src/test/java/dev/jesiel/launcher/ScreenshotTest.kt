@@ -43,6 +43,8 @@ import dev.jesiel.launcher.ui.windows.WindowsLauncher
 import dev.jesiel.launcher.widgets.WidgetHost
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import org.junit.Rule
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.background
@@ -668,5 +670,29 @@ class ScreenshotTest {
         compose.onNodeWithText("Whicons").assertExists()
         compose.onNodeWithText("Pacote de ícones").performScrollTo()
         compose.onRoot().captureRoboImage(shot("settings-icon-pack"))
+    }
+
+    /** Com uma dock em HTML escolhida, os temas mostram ela no lugar da dock (e da barra do Windows). */
+    @Test
+    fun htmlDockReplacesThemeDock() {
+        val controller = controller()
+        val dock = dev.jesiel.launcher.data.HtmlTemplates.DOCK_GLASS
+        val widget = dev.jesiel.launcher.data.HtmlWidget("d1", dock.name, dock.html, interactive = true, onDesktop = false)
+        val base = sampleState().copy(home = emptyList())
+        var html by androidx.compose.runtime.mutableStateOf(false)
+        var windows by androidx.compose.runtime.mutableStateOf(false)
+        compose.setContent {
+            val state = if (html) base.copy(dockHtml = widget, dockHtmlHeight = 96) else base
+            if (windows) WindowsLauncher(state, controller) else IosLauncher(state, controller)
+        }
+        compose.onNodeWithContentDescription(apps[4].label).assertExists()
+        html = true
+        compose.waitForIdle()
+        compose.onNodeWithContentDescription(apps[4].label).assertDoesNotExist()
+        compose.onRoot().captureRoboImage(shot("ios-html-dock"))
+        windows = true
+        compose.waitForIdle()
+        compose.onNodeWithContentDescription("Iniciar").assertDoesNotExist()
+        org.junit.Assert.assertNotNull("a dock em HTML informa onde está", controller.dockBounds)
     }
 }

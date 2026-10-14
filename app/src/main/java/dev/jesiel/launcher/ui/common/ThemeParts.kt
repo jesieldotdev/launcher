@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -79,6 +80,11 @@ fun AppDock(
     leading: @Composable () -> Unit = {},
     trailing: @Composable () -> Unit = {},
 ) {
+    // Dock em HTML (escolhida no Estúdio): substitui a do tema, inclusive os botões dele.
+    state.dockHtml?.let { widget ->
+        HtmlDock(widget, state, controller, palette, modifier, vertical)
+        return
+    }
     val size = if (state.layout.dockIconSizeDp > 0) state.layout.dockIconSizeDp.dp else iconSize
     // Segurar e arrastar reordena: a ordem muda ao vivo e é salva ao soltar.
     val keys = state.dock.map { it.key }
@@ -165,6 +171,32 @@ fun AppDock(
             trailing()
         }
     }
+}
+
+/**
+ * Dock feita em HTML: ocupa a largura (ou, na vertical, a altura) que o tema dá à dock, com a
+ * altura configurada nos ajustes. Os apps vêm de `launcher.appsDock`.
+ */
+@Composable
+fun HtmlDock(
+    widget: dev.jesiel.launcher.data.HtmlWidget,
+    state: LauncherUiState,
+    controller: LauncherController,
+    palette: LauncherPalette,
+    modifier: Modifier = Modifier,
+    vertical: Boolean = false,
+) {
+    val thickness = state.dockHtmlHeight.dp
+    val extra = remember(vertical) { mapOf("dockVertical" to if (vertical) "sim" else "") }
+    HtmlWidgetView(
+        widget,
+        controller,
+        palette,
+        modifier
+            .reportDockBounds(controller)
+            .then(if (vertical) Modifier.width(thickness) else Modifier.fillMaxWidth().height(thickness)),
+        extra = extra,
+    )
 }
 
 /** Informa ao controlador onde a dock está, para o modo janela abrir os apps acima dela. */

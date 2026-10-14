@@ -115,6 +115,7 @@ fun HtmlStudio(controller: LauncherController, palette: LauncherPalette) {
         if (w.onDesktop) add(HtmlRole.DESKTOP)
         if (lockWidget?.id == w.id && lock?.enabled == true) add(HtmlRole.LOCK)
         if (state.appsHtml?.id == w.id) add(HtmlRole.APPS)
+        if (state.dockHtml?.id == w.id) add(HtmlRole.DOCK)
     }
 
     Box(Modifier.fillMaxSize().background(colors.background)) {
@@ -129,9 +130,9 @@ fun HtmlStudio(controller: LauncherController, palette: LauncherPalette) {
                 }
             }
 
-            // Onde o HTML está em uso agora: tocar troca o escolhido.
+            // Onde o HTML está em uso agora (em duas linhas): tocar troca o escolhido.
             Row(
-                Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp),
+                Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, top = 6.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 UsageCard(
@@ -148,7 +149,13 @@ fun HtmlStudio(controller: LauncherController, palette: LauncherPalette) {
                     },
                     active = lock?.enabled == true && lockWidget != null,
                 ) { choosing = HtmlRole.LOCK }
+            }
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
                 UsageCard("Lista de apps", state.appsHtml?.name ?: "Do tema", active = state.appsHtml != null) { choosing = HtmlRole.APPS }
+                UsageCard("Dock", state.dockHtml?.name ?: "Do tema", active = state.dockHtml != null) { choosing = HtmlRole.DOCK }
             }
 
             Row(Modifier.padding(horizontal = 12.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -200,6 +207,11 @@ fun HtmlStudio(controller: LauncherController, palette: LauncherPalette) {
                             } else {
                                 DropdownMenuItem(text = { Text("Usar como lista de apps") }, onClick = { close(); controller.useAsAppList(w) })
                             }
+                            if (HtmlRole.DOCK in roles) {
+                                DropdownMenuItem(text = { Text("Voltar à dock do tema") }, onClick = { close(); vm.setDockHtml(null) })
+                            } else {
+                                DropdownMenuItem(text = { Text("Usar como dock") }, onClick = { close(); controller.useAsDock(w) })
+                            }
                             DropdownMenuItem(text = { Text("Duplicar") }, onClick = { close(); vm.duplicateHtmlWidget(w.id) })
                             DropdownMenuItem(text = { Text("Compartilhar código") }, onClick = { close(); shareHtml(controller, w.name, w.html) })
                             DropdownMenuItem(text = { Text("Excluir", color = colors.error) }, onClick = { close(); confirmDelete = w })
@@ -235,13 +247,21 @@ fun HtmlStudio(controller: LauncherController, palette: LauncherPalette) {
         RoleChooser(
             role = role,
             widgets = state.htmlWidgets,
-            current = if (role == HtmlRole.LOCK) lockWidget?.takeIf { lock?.enabled == true }?.id else state.appsHtml?.id,
+            current = when (role) {
+                HtmlRole.LOCK -> lockWidget?.takeIf { lock?.enabled == true }?.id
+                HtmlRole.DOCK -> state.dockHtml?.id
+                else -> state.appsHtml?.id
+            },
             onTheme = {
-                if (role == HtmlRole.LOCK) LockScreen.update(context) { it.copy(style = LockStyle.THEME) } else vm.setAppsHtml(null)
+                when (role) {
+                    HtmlRole.LOCK -> LockScreen.update(context) { it.copy(style = LockStyle.THEME) }
+                    HtmlRole.DOCK -> vm.setDockHtml(null)
+                    else -> vm.setAppsHtml(null)
+                }
                 choosing = null
             },
             onPick = { w ->
-                if (role == HtmlRole.LOCK) controller.useOnLockScreen(w) else controller.useAsAppList(w)
+                controller.useHtml(w, role)
                 choosing = null
             },
             onTemplate = { tab = 1; choosing = null },
@@ -253,10 +273,11 @@ fun HtmlStudio(controller: LauncherController, palette: LauncherPalette) {
         AlertDialog(
             onDismissRequest = { confirmDelete = null },
             title = { Text("Excluir \"${w.name}\"?") },
-            text = { Text("O widget sai da área de trabalho, da tela de bloqueio e da lista de apps. Um backup é feito antes.") },
+            text = { Text("O widget sai da área de trabalho, da tela de bloqueio, da lista de apps e da dock. Um backup é feito antes.") },
             confirmButton = {
                 TextButton(onClick = {
                     if (state.appsHtml?.id == w.id) vm.setAppsHtml(null)
+                    if (state.dockHtml?.id == w.id) vm.setDockHtml(null)
                     if (lockWidget?.id == w.id) LockScreen.update(context) { it.copy(style = LockStyle.THEME, htmlWidgetId = null) }
                     vm.removeHtmlWidget(w.id)
                     confirmDelete = null
@@ -316,6 +337,23 @@ fun HtmlPreview(widget: HtmlWidget, role: HtmlRole, controller: LauncherControll
     BoxWithConstraints(modifier.clip(RoundedCornerShape(16.dp)).background(PreviewBackground)) {
         if (role == HtmlRole.DESKTOP) {
             HtmlWidgetView(widget, controller, palette, Modifier.fillMaxWidth().height(maxWidth * 0.62f).padding(6.dp), onStatus = onStatus)
+        } else if (role == HtmlRole.DOCK) {
+            // Dock: a largura de um celular e a altura configurada, reduzidas para caber.
+            val dockH = controller.viewModel.state.value.dockHtmlHeight.dp
+            val scale = maxWidth / PHONE_W
+            Box(Modifier.size(PHONE_W * scale, (dockH + 24.dp) * scale).clipToBounds()) {
+                Box(
+                    Modifier
+                        .wrapContentSize(Alignment.TopStart, unbounded = true)
+                        .requiredSize(PHONE_W, dockH + 24.dp)
+                        .graphicsLayer {
+                            scaleX = scale
+                            scaleY = scale
+                            transformOrigin = TransformOrigin(0f, 0f)
+                        }
+                        .padding(12.dp),
+                ) { HtmlWidgetView(widget, controller, palette, Modifier.fillMaxSize(), onStatus = onStatus) }
+            }
         } else {
             val scale = (maxWidth / PHONE_W).coerceAtMost(if (constraints.hasBoundedHeight) maxHeight / PHONE_H else 1f)
             Box(Modifier.align(Alignment.Center).size(PHONE_W * scale, PHONE_H * scale).clipToBounds()) {
@@ -453,7 +491,8 @@ private fun RoleChooser(
                 widgets.forEach { w -> ChooserRow(w.name, current == w.id) { onPick(w) } }
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    if (role == HtmlRole.APPS) "A lista em HTML abre no lugar da gaveta em todos os temas (deslizar para cima, botão de apps e busca)."
+                    if (role == HtmlRole.DOCK) "A dock em HTML aparece no lugar da dock (ou barra de tarefas) em todos os temas. A altura fica em Ajustes › Tela inicial › Dock."
+                    else if (role == HtmlRole.APPS) "A lista em HTML abre no lugar da gaveta em todos os temas (deslizar para cima, botão de apps e busca)."
                     else "Escolher um widget liga a tela de bloqueio do Launcher.",
                     fontSize = 12.sp,
                     color = colors.onSurfaceVariant,

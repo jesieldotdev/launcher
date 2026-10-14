@@ -117,6 +117,9 @@ data class LauncherData(
     val iconPack: String? = null,
     /** Apps que o pacote não cobre ganham o fundo e a máscara do pacote. */
     val iconPackStyleUnthemed: Boolean = true,
+    /** Widget HTML no lugar da dock do tema (nulo = a do tema) e a altura dela, em dp. */
+    val dockHtmlId: String? = null,
+    val dockHtmlHeight: Int = 84,
 ) {
     fun layoutFor(themeId: String) = layouts[themeId] ?: defaultLayout(themeId)
 
@@ -271,6 +274,8 @@ class LauncherPrefs(context: Context) {
             appsHtmlId = prefs.getString(KEY_APPS_HTML, null),
             iconPack = prefs.getString(KEY_ICON_PACK, null),
             iconPackStyleUnthemed = prefs.getBoolean(KEY_ICON_PACK_STYLE, true),
+            dockHtmlId = prefs.getString(KEY_DOCK_HTML, null),
+            dockHtmlHeight = prefs.getInt(KEY_DOCK_HTML_HEIGHT, 84),
         )
     }
 
@@ -348,6 +353,8 @@ class LauncherPrefs(context: Context) {
             .putString(KEY_APPS_HTML, d.appsHtmlId)
             .putString(KEY_ICON_PACK, d.iconPack)
             .putBoolean(KEY_ICON_PACK_STYLE, d.iconPackStyleUnthemed)
+            .putString(KEY_DOCK_HTML, d.dockHtmlId)
+            .putInt(KEY_DOCK_HTML_HEIGHT, d.dockHtmlHeight)
             .apply()
     }
 
@@ -381,5 +388,7 @@ class LauncherPrefs(context: Context) {
         const val KEY_APPS_HTML = "appsHtml"
         const val KEY_ICON_PACK = "iconPack"
         const val KEY_ICON_PACK_STYLE = "iconPackStyle"
+        const val KEY_DOCK_HTML = "dockHtml"
+        const val KEY_DOCK_HTML_HEIGHT = "dockHtmlHeight"
     }
 }

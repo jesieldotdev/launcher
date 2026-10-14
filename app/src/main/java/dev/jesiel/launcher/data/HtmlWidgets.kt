@@ -97,6 +97,8 @@ object HtmlVariables {
         "appsLista" to "Apps instalados em JSON: [{nome, pacote, categoria, letra, favorito, dock, icone}] (use em JS)",
         "appsRecentes" to "Últimos apps abertos, no mesmo formato de appsLista (use em JS)",
         "appsTotal" to "Quantidade de apps instalados",
+        "appsDock" to "Apps da dock, na ordem dela, no formato de appsLista (use em JS)",
+        "dockVertical" to "\"sim\" quando a dock é vertical (tema Ubuntu)",
         "modoBusca" to "\"sim\" quando a lista de apps foi aberta pela busca",
         "barraTopo" to "Altura da barra de status (px do CSS), para telas cheias",
         "barraBase" to "Altura da barra de navegação (px do CSS), para telas cheias",
@@ -116,7 +118,7 @@ object HtmlVariables {
         "corPrimaria" to "colorPrimary", "corPrimariaFundo" to "colorPrimaryContainer", "corSecundaria" to "colorSecondary",
         "corTerciaria" to "colorTertiary", "corFundo" to "colorBackground", "corSuperficie" to "colorSurface",
         "corTexto" to "colorOnSurface", "corTextoSuave" to "colorOnSurfaceVariant", "corContorno" to "colorOutline",
-        "appsLista" to "appsList", "appsRecentes" to "recentApps", "appsTotal" to "appsCount", "modoBusca" to "searchMode",
+        "appsLista" to "appsList", "appsRecentes" to "recentApps", "appsTotal" to "appsCount", "appsDock" to "dockApps", "dockVertical" to "dockVertical", "modoBusca" to "searchMode",
         "barraTopo" to "insetTop", "barraBase" to "insetBottom",
     )
     private val fromEnglish: Map<String, String> = english.entries.associate { (pt, en) -> en to pt }
@@ -171,7 +173,7 @@ object HtmlVariables {
     const val ICON_SCHEME = "launcher-icon://"
 
     /** Listas em JSON: grandes demais para virar variável CSS. */
-    private val JSON_KEYS = setOf("notificacoesLista", "appsLista", "appsRecentes", "notificationsList", "appsList", "recentApps")
+    private val JSON_KEYS = setOf("notificacoesLista", "appsLista", "appsRecentes", "appsDock", "notificationsList", "appsList", "recentApps", "dockApps")
 
     private val PLACEHOLDER = Regex("""\{\{\s*([a-zA-Z]+)\s*\}\}""")
     private val TAG = Regex("""<[^>]*>""")
@@ -240,7 +242,7 @@ object HtmlVariables {
 }
 
 /** Onde um widget HTML é usado. */
-enum class HtmlRole(val label: String) { DESKTOP("Área de trabalho"), LOCK("Tela de bloqueio"), APPS("Lista de apps") }
+enum class HtmlRole(val label: String) { DESKTOP("Área de trabalho"), LOCK("Tela de bloqueio"), APPS("Lista de apps"), DOCK("Dock") }
 
 /** Modelo pronto: nome, código e para onde ele foi pensado. */
 data class HtmlTemplate(val name: String, val html: String, val role: HtmlRole = HtmlRole.DESKTOP)
@@ -1124,8 +1126,82 @@ function onLauncherData(d){
 }
 </script>""".trimIndent(), HtmlRole.APPS)
 
+    val DOCK_GLASS = HtmlTemplate("Dock · Vidro", """
+<style>
+*{box-sizing:border-box;margin:0}
+.d{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:4px}
+.p{display:flex;align-items:center;gap:2px;height:100%;max-width:100%;padding:6px 10px;border-radius:28px;overflow-x:auto;
+  background:linear-gradient(180deg,rgba(255,255,255,.30),rgba(255,255,255,.12));border:1px solid rgba(255,255,255,.38);
+  box-shadow:0 8px 24px rgba(0,0,0,.25),inset 0 1px 0 rgba(255,255,255,.45)}
+.a,.b{flex:0 1 60px;min-width:0;display:grid;place-items:center;aspect-ratio:1;max-height:100%;border-radius:18px;text-decoration:none;transition:transform .15s}
+.a:active,.b:active{transform:scale(.84)}
+.a img{width:78%;height:78%}
+.b{color:#fff;background:rgba(255,255,255,.16)}
+.b svg{width:46%;height:46%}
+.sep{flex:none;width:1px;height:56%;background:rgba(255,255,255,.4);margin:0 6px}
+.v .p{flex-direction:column;height:auto;width:100%;max-height:100%;padding:10px 6px;overflow-x:hidden;overflow-y:auto}
+.v .a,.v .b{flex:0 1 auto;width:100%;max-width:64px}
+.v .sep{width:56%;height:1px;margin:6px 0}
+</style>
+<div class="d"><div class="p" id="p"></div></div>
+<script>
+/* Dados: launcher.appsDock (apps da dock, na ordem) e launcher.dockVertical. */
+var last = null;
+var GRID = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 4h4v4H4zm6 0h4v4h-4zm6 0h4v4h-4zM4 10h4v4H4zm6 0h4v4h-4zm6 0h4v4h-4zM4 16h4v4H4zm6 0h4v4h-4zm6 0h4v4h-4z"/></svg>';
+var FIND = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M15.5 14h-.8l-.3-.3A6.5 6.5 0 1 0 9.5 16a6.5 6.5 0 0 0 4.2-1.6l.3.3v.8l5 5 1.5-1.5-5-5zm-6 0a4.5 4.5 0 1 1 0-9 4.5 4.5 0 0 1 0 9z"/></svg>';
+function esc(t){ return String(t).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+function onLauncherData(d){
+  document.body.classList.toggle('v', d.dockVertical === 'sim');
+  if (d.appsDock === last) return;
+  last = d.appsDock;
+  var apps = []; try { apps = JSON.parse(last || '[]'); } catch (x) {}
+  document.getElementById('p').innerHTML = apps.map(function(a){
+    return '<a class="a" href="launcher://app/' + esc(a.pacote) + '"><img src="' + esc(a.icone) + '" alt="' + esc(a.nome) + '"></a>';
+  }).join('') + '<i class="sep"></i><a class="b" href="launcher://apps">' + GRID + '</a><a class="b" href="launcher://busca">' + FIND + '</a>';
+}
+</script>""".trimIndent(), HtmlRole.DOCK)
+
+    val DOCK_RETRO = HtmlTemplate("Dock · Barra retrô", """
+<style>
+*{box-sizing:border-box;margin:0}
+.t{position:fixed;inset:0;display:flex;align-items:stretch;gap:6px;padding:6px;background:rgba(2,10,4,.88);border:1px solid #39ff6a;
+  font:12px/1.2 'JetBrains Mono',monospace;color:#39ff6a;text-shadow:0 0 6px rgba(57,255,106,.6);box-shadow:0 0 14px rgba(57,255,106,.25) inset}
+.t:after{content:'';position:fixed;inset:0;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(0,0,0,.25) 0 1px,transparent 1px 3px)}
+.s{display:flex;align-items:center;padding:0 12px;background:#39ff6a;color:#021004;text-shadow:none;font-weight:800;text-decoration:none;letter-spacing:.08em}
+.s:active{background:#7dffa0}
+.apps{flex:1;display:flex;gap:4px;overflow-x:auto;min-width:0}
+.a{flex:none;display:flex;align-items:center;gap:6px;padding:0 10px;border:1px solid #1d7a36;color:inherit;text-decoration:none}
+.a:active{background:#39ff6a;color:#021004;text-shadow:none}
+.a img{width:24px;height:24px;filter:grayscale(1) sepia(1) hue-rotate(70deg) saturate(5) brightness(1.1)}
+.a span{max-width:9ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.c{display:flex;flex-direction:column;justify-content:center;align-items:flex-end;padding:0 4px 0 8px;border-left:1px solid #1d7a36;white-space:nowrap}
+.c b{font-size:16px}
+.c i{font-style:normal;opacity:.7;font-size:10px}
+</style>
+<div class="t">
+  <a class="s" href="launcher://apps">&#9654; RUN</a>
+  <div class="apps" id="apps"></div>
+  <a class="c" href="launcher://painel" style="color:inherit;text-decoration:none"><b>{{hora}}</b><i>PWR {{bateria}}%</i></a>
+</div>
+<script>
+/* Dados: launcher.appsDock, launcher.hora e launcher.bateria. Nomes curtos aparecem se couberem. */
+var last = null;
+function esc(t){ return String(t).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+function onLauncherData(d){
+  if (d.appsDock === last) return;
+  last = d.appsDock;
+  var apps = []; try { apps = JSON.parse(last || '[]'); } catch (x) {}
+  var box = document.getElementById('apps');
+  box.innerHTML = apps.map(function(a){
+    return '<a class="a" href="launcher://app/' + esc(a.pacote) + '"><img src="' + esc(a.icone) + '" alt=""><span>' + esc(a.nome.toLowerCase()) + '</span></a>';
+  }).join('');
+  // Sem espaço para os nomes: só os ícones.
+  if (box.scrollWidth > box.clientWidth) box.querySelectorAll('span').forEach(function(s){ s.remove(); });
+}
+</script>""".trimIndent(), HtmlRole.DOCK)
+
     val all: List<HtmlTemplate> by lazy {
-        listOf(APPS_GRID, APPS_TERMINAL) + widgets.map { (name, html) ->
+        listOf(APPS_GRID, APPS_TERMINAL, DOCK_GLASS, DOCK_RETRO) + widgets.map { (name, html) ->
             HtmlTemplate(name, html, if (name == LOCK.first || name == MOTO.first) HtmlRole.LOCK else HtmlRole.DESKTOP)
         }
     }

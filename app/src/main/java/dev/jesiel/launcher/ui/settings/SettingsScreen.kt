@@ -244,6 +244,23 @@ fun SettingsScreen(state: LauncherUiState, controller: LauncherController, onClo
                         SectionTitle(if (state.themeId == "windows") "Barra de tarefas" else "Dock")
                         Card {
                             val isWindows = state.themeId == "windows"
+                            Text("Estilo", fontWeight = FontWeight.SemiBold)
+                            Spacer(Modifier.height(6.dp))
+                            val htmlDocks = state.htmlWidgets.filter { it.id == state.dockHtml?.id || it.html.contains("appsDock") || it.html.contains("dockApps") }
+                            Choices(listOf<dev.jesiel.launcher.data.HtmlWidget?>(null) + htmlDocks, state.dockHtml, { it?.name ?: "Do tema" }) { vm.setDockHtml(it?.id) }
+                            if (state.dockHtml != null) {
+                                SliderRow("Altura da dock em HTML", "${state.dockHtmlHeight} dp", state.dockHtmlHeight.toFloat(), 48f..200f, 18) { v ->
+                                    vm.setDockHtmlHeight(v.roundToInt())
+                                }
+                            }
+                            Text(
+                                "Uma dock em HTML aparece no lugar da do tema em todos os temas. Crie a sua a partir dos modelos do Estúdio HTML.",
+                                fontSize = 12.sp,
+                                color = Color.Gray,
+                                modifier = Modifier.padding(top = 4.dp),
+                            )
+                            androidx.compose.material3.TextButton(onClick = { onClose(); controller.htmlLibraryOpen = true }) { Text("Abrir Estúdio HTML") }
+                            Spacer(Modifier.height(8.dp))
                             SwitchRow(if (isWindows) "Mostrar barra de tarefas" else "Mostrar dock / painel", layout.showDock) { on ->
                                 vm.updateLayout { it.copy(showDock = on) }
                             }

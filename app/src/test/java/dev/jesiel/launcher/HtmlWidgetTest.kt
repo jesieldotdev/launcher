@@ -198,4 +198,15 @@ class HtmlWidgetTest {
         }
         assertTrue(HtmlTemplates.all.any { it.role == dev.jesiel.launcher.data.HtmlRole.LOCK })
     }
+
+    @Test
+    fun dockTemplatesUseTheDockApps() {
+        val docks = HtmlTemplates.all.filter { it.role == dev.jesiel.launcher.data.HtmlRole.DOCK }
+        assertTrue(docks.size >= 2)
+        docks.forEach { t -> assertTrue(t.name, t.html.contains("<script") && "appsDock" in HtmlVariables.used(t.html)) }
+        assertTrue("appsDock" in HtmlVariables.used("<script>launcher.dockApps</script>"))
+        val html = HtmlVariables.render("<p>x</p>", mapOf("appsDock" to "[]", "dockVertical" to "sim"), interactive = true)
+        assertFalse(html.contains("--appsDock"))
+        assertTrue(html.contains("--dockVertical:\"sim\""))
+    }
 }

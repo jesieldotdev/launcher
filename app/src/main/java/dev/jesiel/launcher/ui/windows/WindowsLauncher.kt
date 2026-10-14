@@ -116,7 +116,8 @@ fun WindowsLauncher(state: LauncherUiState, controller: LauncherController) {
         startOpen = true
     }
 
-    val bar = if (state.layout.showDock) TaskbarHeight else 0.dp
+    // Com a dock em HTML, a barra tem a altura escolhida nos ajustes.
+    val bar = if (!state.layout.showDock) 0.dp else if (state.dockHtml != null) state.dockHtmlHeight.dp else TaskbarHeight
 
     val builtins = remember(palette, state.recents) {
         listOf(
@@ -290,6 +291,10 @@ private fun Taskbar(
     onLaunched: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    state.dockHtml?.let { widget ->
+        dev.jesiel.launcher.ui.common.HtmlDock(widget, state, controller, palette, modifier)
+        return
+    }
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier

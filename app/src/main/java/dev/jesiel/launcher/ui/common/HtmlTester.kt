@@ -127,6 +127,18 @@ fun HtmlTester(widget: HtmlWidget, initialRole: HtmlRole, controller: LauncherCo
                             .padding(4.dp),
                     ) { HtmlWidgetView(widget, controller, palette, Modifier.fillMaxSize(), onStatus = onStatus, extra = extra, onConsole = onConsole) }
                 }
+                HtmlRole.DOCK -> Box(
+                    Modifier.fillMaxSize().background(Brush.linearGradient(listOf(Color(0xFF1B2A4A), Color(0xFF3A5BA0), Color(0xFF6B4A8C)))),
+                ) {
+                    Box(
+                        Modifier
+                            .align(Alignment.BottomCenter)
+                            .navigationBarsPadding()
+                            .padding(start = 12.dp, end = 12.dp, bottom = 110.dp)
+                            .fillMaxWidth()
+                            .height(state.dockHtmlHeight.dp),
+                    ) { HtmlWidgetView(widget, controller, palette, Modifier.fillMaxSize(), onStatus = onStatus, extra = extra, onConsole = onConsole) }
+                }
                 HtmlRole.APPS -> Box(Modifier.fillMaxSize().imePadding()) {
                     HtmlWidgetView(widget, controller, palette, Modifier.fillMaxSize(), onStatus = onStatus, extra = extra, onConsole = onConsole)
                 }
@@ -168,6 +180,11 @@ fun HtmlTester(widget: HtmlWidget, initialRole: HtmlRole, controller: LauncherCo
                 HtmlRole.entries.forEach { r -> TesterChip(r.label, role == r) { role = r } }
                 if (role == HtmlRole.DESKTOP) TEST_SIZES.forEach { s -> TesterChip("${s.first}×${s.second}", size == s) { size = s } }
                 if (role == HtmlRole.APPS) TesterChip("Aberta pela busca", search) { search = !search; reload++ }
+                if (role == HtmlRole.DOCK) {
+                    TesterChip("Altura −", false) { controller.viewModel.setDockHtmlHeight(state.dockHtmlHeight - 8) }
+                    TesterChip("${state.dockHtmlHeight} dp", false) {}
+                    TesterChip("Altura +", false) { controller.viewModel.setDockHtmlHeight(state.dockHtmlHeight + 8) }
+                }
                 TesterChip(if (runLinks) "Links: executar" else "Links: só registrar", runLinks) { runLinks = !runLinks }
             }
         }

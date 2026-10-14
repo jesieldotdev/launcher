@@ -67,6 +67,9 @@ data class LauncherUiState(
     val appsHtml: HtmlWidget? = null,
     val iconPack: String? = null,
     val iconPackStyleUnthemed: Boolean = true,
+    /** Widget HTML que substitui a dock do tema, se houver. */
+    val dockHtml: HtmlWidget? = null,
+    val dockHtmlHeight: Int = 84,
 )
 
 class LauncherViewModel(application: Application) : AndroidViewModel(application) {
@@ -150,6 +153,8 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
             appsHtml = data.appsHtmlId?.let { id -> data.htmlWidgets.firstOrNull { it.id == id } },
             iconPack = data.iconPack,
             iconPackStyleUnthemed = data.iconPackStyleUnthemed,
+            dockHtml = data.dockHtmlId?.let { id -> data.htmlWidgets.firstOrNull { it.id == id } },
+            dockHtmlHeight = data.dockHtmlHeight,
         )
     }
 
@@ -377,6 +382,10 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
 
     /** Usa o widget [id] como lista de apps (nulo volta à do tema). */
     fun setAppsHtml(id: String?) = prefs.update { it.copy(appsHtmlId = id) }
+
+    /** Usa o widget [id] como dock (nulo volta à do tema). */
+    fun setDockHtml(id: String?) = prefs.update { it.copy(dockHtmlId = id) }
+    fun setDockHtmlHeight(dp: Int) = prefs.update { it.copy(dockHtmlHeight = dp.coerceIn(40, 240)) }
 
     fun setIconPack(packageName: String?) = prefs.update { it.copy(iconPack = packageName) }
     fun setIconPackStyleUnthemed(on: Boolean) = prefs.update { it.copy(iconPackStyleUnthemed = on) }

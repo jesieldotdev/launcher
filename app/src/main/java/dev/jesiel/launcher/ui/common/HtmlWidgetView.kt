@@ -74,6 +74,9 @@ fun rememberHtmlValues(
         remember(launcherState.recents) { HtmlVariables.appsJson(launcherState.recents.map { it.app }.distinctBy { it.key }.take(8)) }
     } else ""
     val appsCount = launcherState?.apps?.size ?: 0
+    val dockApps = if ("appsDock" in used && launcherState != null) {
+        remember(launcherState.dock) { HtmlVariables.appsJson(launcherState.dock, launcherState.favoriteKeys, launcherState.dockKeys) }
+    } else ""
     // Posição da música: só anda (1×/s) se o widget mostra posição ou progresso e algo está tocando.
     val tick = if (music?.playing == true && ("musicaPosicao" in used || "musicaProgresso" in used)) rememberTicker(1_000) else 0L
     // A configuração muda quando o papel de parede (e com ele a paleta do Material You) muda.
@@ -84,7 +87,7 @@ fun rememberHtmlValues(
     val density = androidx.compose.ui.platform.LocalDensity.current
     val insetTop = (WindowInsets.statusBars.getTop(density) / density.density).toInt()
     val insetBottom = (WindowInsets.navigationBars.getBottom(density) / density.density).toInt()
-    return remember(now, battery, memory, palette, used, ntfy, music, notifications, notificationItems, network, volume, lastApp, tick, material, appsList, recentApps, appsCount, extra, insetTop, insetBottom) {
+    return remember(now, battery, memory, palette, used, ntfy, music, notifications, notificationItems, network, volume, lastApp, tick, material, appsList, recentApps, appsCount, dockApps, extra, insetTop, insetBottom) {
         val date = Date(now)
         fun fmt(p: String) = SimpleDateFormat(p, locale).format(date)
         val hour = Calendar.getInstance().apply { timeInMillis = now }.get(Calendar.HOUR_OF_DAY)
@@ -138,6 +141,8 @@ fun rememberHtmlValues(
             if ("appsLista" in used) put("appsLista", appsList)
             if ("appsRecentes" in used) put("appsRecentes", recentApps)
             put("appsTotal", appsCount.toString())
+            if ("appsDock" in used) put("appsDock", dockApps)
+            put("dockVertical", "")
             put("modoBusca", "")
             put("barraTopo", insetTop.toString())
             put("barraBase", insetBottom.toString())

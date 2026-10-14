@@ -363,6 +363,7 @@ class LauncherController(
     /** Onde o widget é usado hoje (para a prévia do editor ter o formato certo). */
     fun roleOf(widget: dev.jesiel.launcher.data.HtmlWidget): dev.jesiel.launcher.data.HtmlRole = when {
         viewModel.state.value.appsHtml?.id == widget.id -> dev.jesiel.launcher.data.HtmlRole.APPS
+        viewModel.state.value.dockHtml?.id == widget.id -> dev.jesiel.launcher.data.HtmlRole.DOCK
         dev.jesiel.launcher.data.LockScreen.settings(activity).value?.let { it.style == dev.jesiel.launcher.data.LockStyle.HTML && it.htmlWidgetId == widget.id } == true ->
             dev.jesiel.launcher.data.HtmlRole.LOCK
         else -> dev.jesiel.launcher.data.HtmlRole.DESKTOP
@@ -372,6 +373,19 @@ class LauncherController(
     fun useOnLockScreen(widget: dev.jesiel.launcher.data.HtmlWidget) {
         dev.jesiel.launcher.data.LockScreen.update(activity) { it.copy(enabled = true, style = dev.jesiel.launcher.data.LockStyle.HTML, htmlWidgetId = widget.id) }
         toast("\"${widget.name}\" na tela de bloqueio")
+    }
+
+    fun useAsDock(widget: dev.jesiel.launcher.data.HtmlWidget) {
+        viewModel.setDockHtml(widget.id)
+        toast("\"${widget.name}\" como dock")
+    }
+
+    /** Aplica o widget no uso escolhido (ao salvar no editor ou pelo Estúdio). */
+    fun useHtml(widget: dev.jesiel.launcher.data.HtmlWidget, role: dev.jesiel.launcher.data.HtmlRole) = when (role) {
+        dev.jesiel.launcher.data.HtmlRole.LOCK -> useOnLockScreen(widget)
+        dev.jesiel.launcher.data.HtmlRole.APPS -> useAsAppList(widget)
+        dev.jesiel.launcher.data.HtmlRole.DOCK -> useAsDock(widget)
+        dev.jesiel.launcher.data.HtmlRole.DESKTOP -> viewModel.setHtmlWidgetOnDesktop(widget.id, true)
     }
 
     fun useAsAppList(widget: dev.jesiel.launcher.data.HtmlWidget) {
@@ -399,6 +413,7 @@ class LauncherController(
                 "app" -> uri.lastPathSegment?.let(::launchPackage)
                 // Na lista de apps em HTML: fechar, informações e desinstalar.
                 "fechar", "close" -> htmlDrawerOpen = false
+                "estudio", "studio" -> htmlLibraryOpen = true
                 "info" -> uri.lastPathSegment?.let { pkg -> viewModel.state.value.apps.firstOrNull { it.packageName == pkg } }?.let(::openAppInfo)
                 "desinstalar", "uninstall" -> uri.lastPathSegment?.let { pkg -> viewModel.state.value.apps.firstOrNull { it.packageName == pkg } }?.let(::uninstall)
                 "painel", "panel" -> controlCenterOpen = true

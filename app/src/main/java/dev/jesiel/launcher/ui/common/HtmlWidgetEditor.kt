@@ -112,11 +112,8 @@ fun HtmlWidgetEditor(
                 else if (role == dev.jesiel.launcher.data.HtmlRole.DESKTOP) draft.copy(onDesktop = true) else draft
                 vm.saveHtmlWidget(saved)
                 controller.htmlEditing = null
-                when (role) {
-                    dev.jesiel.launcher.data.HtmlRole.LOCK -> controller.useOnLockScreen(saved)
-                    dev.jesiel.launcher.data.HtmlRole.APPS -> controller.useAsAppList(saved)
-                    dev.jesiel.launcher.data.HtmlRole.DESKTOP -> controller.toast(if (isNew) "Widget adicionado à área de trabalho" else "Widget salvo")
-                }
+                if (role == dev.jesiel.launcher.data.HtmlRole.DESKTOP) controller.toast(if (isNew) "Widget adicionado à área de trabalho" else "Widget salvo")
+                else controller.useHtml(saved, role)
             }) { Text("Salvar") }
         }
 
@@ -137,7 +134,8 @@ fun HtmlWidgetEditor(
         } else {
             HtmlPreview(
                 draft, role, controller, palette,
-                Modifier.padding(horizontal = 14.dp).fillMaxWidth().height(if (fullscreen) 170.dp else 320.dp),
+                if (role == dev.jesiel.launcher.data.HtmlRole.DOCK) Modifier.padding(horizontal = 14.dp).fillMaxWidth()
+                else Modifier.padding(horizontal = 14.dp).fillMaxWidth().height(if (fullscreen) 170.dp else 320.dp),
                 onStatus = { status = it },
             )
         }
@@ -179,6 +177,12 @@ fun HtmlWidgetEditor(
                             .padding(horizontal = 12.dp, vertical = 7.dp),
                     )
                 }
+            }
+            if (role == dev.jesiel.launcher.data.HtmlRole.DOCK) {
+                Text(
+                    "Dock: use launcher.appsDock (JSON, na ordem da dock) e launcher://apps para abrir a lista. A altura fica em Ajustes › Tela inicial › Dock.",
+                    fontSize = 12.sp, color = Color.Gray,
+                )
             }
             if (role == dev.jesiel.launcher.data.HtmlRole.APPS) {
                 Text(
