@@ -717,9 +717,153 @@ function onLauncherData(d){
   </div>
 </div>""".trimIndent()
 
+    /** Tela de bloqueio no estilo do Moto Display dos Motorola antigos. */
+    val MOTO = "Moto Display" to """
+<style>
+.moto{
+  --ring:#4fc3f7;--dim:rgba(79,195,247,.18);
+  position:relative;height:100%;box-sizing:border-box;overflow:hidden;
+  background:#000;color:#fff;font-family:Roboto,'Segoe UI',sans-serif;
+  display:flex;flex-direction:column;align-items:center;
+}
+.moto *{box-sizing:border-box}
+.dial{position:relative;margin-top:16vh;width:min(78vw,52vh);aspect-ratio:1;flex:none}
+.dial svg{position:absolute;inset:0;width:100%;height:100%;transform:rotate(-90deg)}
+.dial .track{fill:none;stroke:var(--dim);stroke-width:1.6}
+.dial .level{fill:none;stroke:var(--ring);stroke-width:1.6;stroke-linecap:round;
+  transition:stroke-dasharray .8s ease;filter:drop-shadow(0 0 2px var(--ring))}
+.moto.charging .level{animation:pulse 2.4s ease-in-out infinite}
+@keyframes pulse{50%{opacity:.45}}
+.face{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  transition:opacity .25s}
+.pct{font-size:min(5vw,3.4vh);font-weight:500;letter-spacing:.04em;margin-bottom:1vh}
+.time{font-size:min(21vw,14vh);font-weight:100;line-height:1;letter-spacing:-.01em;font-variant-numeric:tabular-nums}
+.date{display:flex;align-items:center;gap:2.2vw;margin-top:1.6vh;font-size:min(3.8vw,2.6vh);letter-spacing:.08em;opacity:.85}
+.date b{font-size:min(8vw,5.2vh);font-weight:300;letter-spacing:0;opacity:1}
+.preview{position:absolute;inset:14%;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  text-align:center;opacity:0;pointer-events:none;transition:opacity .25s;text-decoration:none;color:#fff}
+.preview .app{font-size:min(3.6vw,2.4vh);letter-spacing:.12em;text-transform:uppercase;color:var(--ring)}
+.preview .title{font-size:min(5.6vw,3.6vh);font-weight:400;margin-top:1.2vh;max-width:100%;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.preview .text{font-size:min(4vw,2.6vh);font-weight:300;opacity:.8;margin-top:.8vh;line-height:1.35;
+  display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.preview .open{margin-top:1.6vh;font-size:min(3vw,2vh);letter-spacing:.1em;opacity:.55}
+.moto.peek .face{opacity:0}
+.moto.peek .preview{opacity:1;pointer-events:auto}
+.moto.peek .level{stroke:var(--dim)}
+.music{margin-top:3vh;font-size:min(3.6vw,2.4vh);opacity:.7;max-width:80vw;letter-spacing:.02em;
+  display:flex;flex-direction:column;align-items:center;gap:1vh}
+.music .t{max-width:80vw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.music a{color:#fff;text-decoration:none;margin:0 2.5vw;font-size:1.3em}
+.icons{position:absolute;bottom:21vh;left:0;right:0;display:flex;justify-content:center;gap:4vw}
+.icon{width:min(15vw,9vh);aspect-ratio:1;border-radius:50%;border:1.5px solid var(--ring);
+  display:flex;align-items:center;justify-content:center;font-size:min(6vw,4vh);font-weight:300;color:#fff;
+  background:rgba(79,195,247,.06);transition:transform .15s,background .15s}
+.icon.on{background:rgba(79,195,247,.28);transform:scale(1.08)}
+.icon.more{font-size:min(4.4vw,2.8vh);border-style:dashed}
+</style>
+
+<div class="moto" id="moto">
+  <div class="dial">
+    <svg viewBox="0 0 100 100">
+      <circle class="track" cx="50" cy="50" r="48"/>
+      <circle class="level" id="level" cx="50" cy="50" r="48" stroke-dasharray="0 302"/>
+    </svg>
+    <div class="face">
+      <div class="pct"><span id="pct">--</span>%</div>
+      <div class="time" id="time">--:--</div>
+      <div class="date"><span id="wd"></span><b id="day"></b><span id="mon"></span></div>
+    </div>
+    <a class="preview" id="preview" href="#">
+      <div class="app" id="pApp"></div>
+      <div class="title" id="pTitle"></div>
+      <div class="text" id="pText"></div>
+      <div class="open">TOQUE PARA ABRIR</div>
+    </a>
+  </div>
+  <div class="music" id="music"></div>
+  <div class="icons" id="icons"></div>
+</div>
+
+<script>
+// Variáveis usadas: launcher.hora launcher.bateria launcher.carregando launcher.diaSemana launcher.dia launcher.mes
+// launcher.notificacoesLista launcher.musicaTitulo launcher.musicaArtista launcher.musicaTocando
+var notes = [], peekIndex = -1, peekTimer = null;
+function el(id){ return document.getElementById(id); }
+function short(s){ return String(s || '').replace(/[-\s].*/, '').slice(0, 3).toUpperCase(); }
+
+function peek(i){
+  clearTimeout(peekTimer);
+  var moto = el('moto');
+  if (i === peekIndex || i < 0 || !notes[i]) {
+    peekIndex = -1; moto.classList.remove('peek'); markIcons(); return;
+  }
+  peekIndex = i;
+  var n = notes[i];
+  el('pApp').textContent = n.app || '';
+  el('pTitle').textContent = n.titulo || n.app || '';
+  el('pText').textContent = n.texto || '';
+  // Abrir o app: na tela de bloqueio, o Launcher pede o desbloqueio antes.
+  el('preview').setAttribute('href', n.pacote ? 'launcher://app/' + n.pacote : '#');
+  moto.classList.add('peek');
+  markIcons();
+  peekTimer = setTimeout(function(){ peek(-1); }, 6000);
+}
+function markIcons(){
+  var kids = el('icons').children;
+  for (var k = 0; k < kids.length; k++) kids[k].classList.toggle('on', +kids[k].dataset.i === peekIndex);
+}
+
+function onLauncherData(d){
+  el('time').textContent = d.hora || '--:--';
+  var b = Math.max(0, Math.min(100, parseInt(d.bateria, 10) || 0));
+  el('pct').textContent = b;
+  var c = 2 * Math.PI * 48;
+  el('level').setAttribute('stroke-dasharray', (c * b / 100).toFixed(1) + ' ' + c.toFixed(1));
+  el('moto').classList.toggle('charging', !!d.carregando);
+  el('wd').textContent = short(d.diaSemana);
+  el('day').textContent = d.dia || '';
+  el('mon').textContent = short(d.mes);
+
+  // Música: título e controles, só quando há algo tocando.
+  var m = el('music');
+  if (d.musicaTitulo) {
+    m.innerHTML = '';
+    var prev = document.createElement('a'); prev.href = 'launcher://musica/anterior'; prev.textContent = '⏮';
+    var play = document.createElement('a'); play.href = 'launcher://musica/alternar'; play.textContent = d.musicaTocando ? '⏸' : '▶';
+    var next = document.createElement('a'); next.href = 'launcher://musica/proxima'; next.textContent = '⏭';
+    var t = document.createElement('div'); t.className = 't';
+    t.textContent = d.musicaTitulo + (d.musicaArtista ? ' · ' + d.musicaArtista : '');
+    var row = document.createElement('div');
+    row.appendChild(prev); row.appendChild(play); row.appendChild(next);
+    m.appendChild(t); m.appendChild(row);
+  } else m.textContent = '';
+
+  // Notificações: um círculo por app (a mais recente de cada), até 4.
+  try { notes = JSON.parse(d.notificacoesLista || '[]'); } catch (e) { notes = []; }
+  var seen = {}, byApp = [];
+  notes.forEach(function(n, i){ if (!seen[n.pacote]) { seen[n.pacote] = 1; byApp.push(i); } });
+  var box = el('icons'); box.innerHTML = '';
+  byApp.slice(0, 4).forEach(function(i){
+    var n = notes[i], dot = document.createElement('div');
+    dot.className = 'icon'; dot.dataset.i = i;
+    dot.textContent = (n.app || '?').trim().charAt(0).toUpperCase();
+    dot.onclick = function(){ peek(i); };
+    box.appendChild(dot);
+  });
+  if (byApp.length > 4) {
+    var more = document.createElement('div');
+    more.className = 'icon more'; more.textContent = '+' + (byApp.length - 4);
+    box.appendChild(more);
+  }
+  if (peekIndex >= notes.length) peek(-1); else markIcons();
+}
+</script>""".trimIndent()
+
     val all: List<Pair<String, String>> = listOf(
         CLAUDE,
         LOCK,
+        MOTO,
         MUSIC,
         MATERIAL_CLOCK,
         RETRO,
