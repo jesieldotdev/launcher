@@ -171,6 +171,8 @@ fun HtmlWidgetView(
     extra: Map<String, String> = emptyMap(),
     /** Todas as mensagens do console da página (log, aviso, erro), para o testador. */
     onConsole: ((level: String, message: String, line: Int) -> Unit)? = null,
+    /** Onde o `localStorage` do widget é salvo: o id dele; nulo guarda só na memória (prévias). */
+    storageId: String? = widget.id,
 ) {
     val used = remember(widget.html) { HtmlVariables.used(widget.html) }
     val values = rememberHtmlValues(palette, used, controller, extra)
@@ -206,6 +208,8 @@ fun HtmlWidgetView(
     AndroidView(
         factory = { ctx ->
             WebView(ctx).apply {
+                // localStorage do widget, salvo pelo launcher (só funciona com JavaScript ligado).
+                storageId?.let { addJavascriptInterface(dev.jesiel.launcher.data.WidgetStorage.Bridge(ctx, it), "__launcherStorage") }
                 // Sem isso o WebView é medido pelo conteúdo; como o widget usa height:100%, a
                 // página ficava com altura zero e nada aparecia.
                 layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)

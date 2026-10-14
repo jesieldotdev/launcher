@@ -72,6 +72,9 @@ fun HtmlTester(widget: HtmlWidget, initialRole: HtmlRole, controller: LauncherCo
     var search by remember { mutableStateOf(false) }
     var panel by remember { mutableStateOf<String?>(null) }
     var runLinks by remember { mutableStateOf(true) }
+    // Por padrão o teste salva num espaço próprio, para não mexer nos dados de verdade do widget.
+    var realData by remember { mutableStateOf(false) }
+    val storageId = if (realData) widget.id else "teste:" + widget.id
     // Recarregar: troca a chave e o WebView é recriado do zero.
     var reload by remember { mutableStateOf(0) }
     val logs = remember { mutableStateListOf<TestLog>() }
@@ -113,7 +116,7 @@ fun HtmlTester(widget: HtmlWidget, initialRole: HtmlRole, controller: LauncherCo
     val extra = remember(search) { mapOf("modoBusca" to if (search) "sim" else "") }
 
     Box(Modifier.fillMaxSize().background(Color.Black)) {
-        androidx.compose.runtime.key(reload, role) {
+        androidx.compose.runtime.key(reload, role, storageId) {
             when (role) {
                 HtmlRole.DESKTOP -> BoxWithConstraints(
                     Modifier.fillMaxSize().background(Brush.linearGradient(listOf(Color(0xFF1B2A4A), Color(0xFF3A5BA0), Color(0xFF6B4A8C)))),
@@ -125,7 +128,7 @@ fun HtmlTester(widget: HtmlWidget, initialRole: HtmlRole, controller: LauncherCo
                         Modifier
                             .size(cell * size.first, cell * size.second)
                             .padding(4.dp),
-                    ) { HtmlWidgetView(widget, controller, palette, Modifier.fillMaxSize(), onStatus = onStatus, extra = extra, onConsole = onConsole) }
+                    ) { HtmlWidgetView(widget, controller, palette, Modifier.fillMaxSize(), onStatus = onStatus, extra = extra, onConsole = onConsole, storageId = storageId) }
                 }
                 HtmlRole.DOCK -> Box(
                     Modifier.fillMaxSize().background(Brush.linearGradient(listOf(Color(0xFF1B2A4A), Color(0xFF3A5BA0), Color(0xFF6B4A8C)))),
@@ -137,10 +140,10 @@ fun HtmlTester(widget: HtmlWidget, initialRole: HtmlRole, controller: LauncherCo
                             .padding(start = 12.dp, end = 12.dp, bottom = 110.dp)
                             .fillMaxWidth()
                             .height(state.dockHtmlHeight.dp),
-                    ) { HtmlWidgetView(widget, controller, palette, Modifier.fillMaxSize(), onStatus = onStatus, extra = extra, onConsole = onConsole) }
+                    ) { HtmlWidgetView(widget, controller, palette, Modifier.fillMaxSize(), onStatus = onStatus, extra = extra, onConsole = onConsole, storageId = storageId) }
                 }
                 HtmlRole.APPS -> Box(Modifier.fillMaxSize().imePadding()) {
-                    HtmlWidgetView(widget, controller, palette, Modifier.fillMaxSize(), onStatus = onStatus, extra = extra, onConsole = onConsole)
+                    HtmlWidgetView(widget, controller, palette, Modifier.fillMaxSize(), onStatus = onStatus, extra = extra, onConsole = onConsole, storageId = storageId)
                 }
                 HtmlRole.LOCK -> LockScreenContent(
                     settings = LockSettings(enabled = true, style = LockStyle.HTML, htmlWidgetId = widget.id),
@@ -150,6 +153,7 @@ fun HtmlTester(widget: HtmlWidget, initialRole: HtmlRole, controller: LauncherCo
                     onUnlock = { log("info", "Desbloqueio (deslizar para cima)"); controller.toast("A tela desbloquearia aqui") },
                     widgetOverride = widget,
                     onConsole = onConsole,
+                    storageId = storageId,
                 )
             }
         }
@@ -164,7 +168,8 @@ fun HtmlTester(widget: HtmlWidget, initialRole: HtmlRole, controller: LauncherCo
                 .clip(RoundedCornerShape(18.dp))
                 .background(Color(0xE6101418)),
         ) {
-            if (panel != null) TesterPanel(panel!!, logs, widget, palette, controller, extra) { logs.clear() }
+            if (panel == "data") StoragePanel(storageId, realData, reload) { reload++ }
+            else if (panel != null) TesterPanel(panel!!, logs, widget, palette, controller, extra) { logs.clear() }
             Row(
                 Modifier.horizontalScroll(rememberScrollState()).padding(6.dp),
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -176,6 +181,8 @@ fun HtmlTester(widget: HtmlWidget, initialRole: HtmlRole, controller: LauncherCo
                     panel = if (panel == "console") null else "console"
                 }
                 TesterChip("Variáveis", panel == "vars") { panel = if (panel == "vars") null else "vars" }
+                TesterChip("Dados", panel == "data") { panel = if (panel == "data") null else "data" }
+                TesterChip(if (realData) "Dados reais" else "Dados de teste", realData) { realData = !realData }
                 TesterChip("↻ Recarregar", false) { reload++ }
                 HtmlRole.entries.forEach { r -> TesterChip(r.label, role == r) { role = r } }
                 if (role == HtmlRole.DESKTOP) TEST_SIZES.forEach { s -> TesterChip("${s.first}×${s.second}", size == s) { size = s } }
@@ -290,4 +297,42 @@ private fun TesterChip(text: String, selected: Boolean, alert: Boolean = false, 
             .clickable(onClick = onClick)
             .padding(horizontal = 11.dp, vertical = 7.dp),
     )
+}
+
+/** O que o widget salvou no localStorage (no espaço do teste ou no de verdade). */
+@Composable
+private fun StoragePanel(storageId: String, real: Boolean, reload: Int, onCleared: () -> Unit) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    var tick by remember { mutableStateOf(0) }
+    // Relê de tempos em tempos: a página pode salvar a qualquer momento.
+    LaunchedEffect(storageId, reload) {
+        while (true) {
+            kotlinx.coroutines.delay(1_000)
+            tick++
+        }
+    }
+    val entries = remember(storageId, tick) { dev.jesiel.launcher.data.WidgetStorage.entries(context, storageId) }
+    Column(Modifier.fillMaxWidth().heightIn(max = 260.dp).padding(start = 10.dp, end = 10.dp, top = 10.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                "localStorage · ${if (real) "dados reais do widget" else "espaço do teste"} (${entries.size})",
+                color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 13.sp, modifier = Modifier.weight(1f),
+            )
+            TesterChip("Apagar", false) {
+                dev.jesiel.launcher.data.WidgetStorage.clear(context, storageId)
+                tick++
+                onCleared()
+            }
+        }
+        LazyColumn(Modifier.fillMaxWidth().heightIn(max = 220.dp)) {
+            if (entries.isEmpty()) item { Text("Nada salvo. Use localStorage.setItem(\"chave\", \"valor\") no código.", color = Color.Gray, fontSize = 12.sp) }
+            items(entries.entries.toList()) { (k, v) ->
+                Row(Modifier.padding(vertical = 2.dp)) {
+                    Text(k, color = Color(0xFF80D8FF), fontSize = 11.sp, fontFamily = FontFamily.Monospace, modifier = Modifier.weight(0.38f))
+                    Text(v.replace('\n', '⏎'), color = Color(0xFFE0E0E0), fontSize = 11.sp, fontFamily = FontFamily.Monospace, maxLines = 3, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(0.62f))
+                }
+            }
+        }
+        Spacer(Modifier.height(4.dp))
+    }
 }

@@ -231,6 +231,17 @@ fun HtmlStudio(controller: LauncherController, palette: LauncherPalette) {
                                 DropdownMenuItem(text = { Text("Usar como dock") }, onClick = { close(); controller.useAsDock(w) })
                             }
                             DropdownMenuItem(text = { Text("Duplicar") }, onClick = { close(); vm.duplicateHtmlWidget(w.id) })
+                            val saved = remember(w.id) { dev.jesiel.launcher.data.WidgetStorage.size(context, w.id) }
+                            if (saved > 0) {
+                                DropdownMenuItem(
+                                    text = { Text("Apagar dados salvos (${(saved + 1023) / 1024} KB)") },
+                                    onClick = {
+                                        close()
+                                        dev.jesiel.launcher.data.WidgetStorage.clear(context, w.id)
+                                        controller.toast("Dados de \"${w.name}\" apagados")
+                                    },
+                                )
+                            }
                             DropdownMenuItem(text = { Text("Publicar na loja") }, onClick = { close(); publishing = w })
                             DropdownMenuItem(text = { Text("Compartilhar código") }, onClick = { close(); shareHtml(controller, w.name, w.html) })
                             DropdownMenuItem(text = { Text("Excluir", color = colors.error) }, onClick = { close(); confirmDelete = w })
@@ -406,10 +417,19 @@ private fun StudioChip(text: String, selected: Boolean, onClick: () -> Unit) {
  * se ela não deve receber toques.
  */
 @Composable
-fun HtmlPreview(widget: HtmlWidget, role: HtmlRole, controller: LauncherController, palette: LauncherPalette, modifier: Modifier = Modifier, onStatus: ((String) -> Unit)? = null) {
+fun HtmlPreview(
+    widget: HtmlWidget,
+    role: HtmlRole,
+    controller: LauncherController,
+    palette: LauncherPalette,
+    modifier: Modifier = Modifier,
+    onStatus: ((String) -> Unit)? = null,
+    /** Modelos e loja passam nulo: a prévia não salva nada. */
+    storageId: String? = widget.id,
+) {
     BoxWithConstraints(modifier.clip(RoundedCornerShape(16.dp)).background(PreviewBackground)) {
         if (role == HtmlRole.DESKTOP) {
-            HtmlWidgetView(widget, controller, palette, Modifier.fillMaxWidth().height(maxWidth * 0.62f).padding(6.dp), onStatus = onStatus)
+            HtmlWidgetView(widget, controller, palette, Modifier.fillMaxWidth().height(maxWidth * 0.62f).padding(6.dp), onStatus = onStatus, storageId = storageId)
         } else if (role == HtmlRole.DOCK) {
             // Dock: a largura de um celular e a altura configurada, reduzidas para caber.
             val dockH = controller.viewModel.state.value.dockHtmlHeight.dp
@@ -425,7 +445,7 @@ fun HtmlPreview(widget: HtmlWidget, role: HtmlRole, controller: LauncherControll
                             transformOrigin = TransformOrigin(0f, 0f)
                         }
                         .padding(12.dp),
-                ) { HtmlWidgetView(widget, controller, palette, Modifier.fillMaxSize(), onStatus = onStatus) }
+                ) { HtmlWidgetView(widget, controller, palette, Modifier.fillMaxSize(), onStatus = onStatus, storageId = storageId) }
             }
         } else {
             val scale = (maxWidth / PHONE_W).coerceAtMost(if (constraints.hasBoundedHeight) maxHeight / PHONE_H else 1f)
@@ -439,7 +459,7 @@ fun HtmlPreview(widget: HtmlWidget, role: HtmlRole, controller: LauncherControll
                             scaleY = scale
                             transformOrigin = TransformOrigin(0f, 0f)
                         },
-                ) { HtmlWidgetView(widget, controller, palette, Modifier.fillMaxSize(), onStatus = onStatus) }
+                ) { HtmlWidgetView(widget, controller, palette, Modifier.fillMaxSize(), onStatus = onStatus, storageId = storageId) }
             }
         }
     }
@@ -505,7 +525,7 @@ private fun TemplateCard(template: HtmlTemplate, controller: LauncherController,
             .padding(8.dp),
     ) {
         Box {
-            HtmlPreview(widget, template.role, controller, palette, Modifier.fillMaxWidth())
+            HtmlPreview(widget, template.role, controller, palette, Modifier.fillMaxWidth(), storageId = null)
             Box(Modifier.matchParentSize().clickable(onClick = onUse))
         }
         Text(template.name, fontWeight = FontWeight.SemiBold, color = colors.onSurface, modifier = Modifier.padding(start = 4.dp, top = 6.dp))
@@ -651,7 +671,7 @@ private fun StoreCard(
             .padding(8.dp),
     ) {
         Box {
-            HtmlPreview(preview, item.role, controller, palette, Modifier.fillMaxWidth())
+            HtmlPreview(preview, item.role, controller, palette, Modifier.fillMaxWidth(), storageId = null)
             // Tocar na prévia testa o widget (links e scripts ficam para o testador).
             Box(Modifier.matchParentSize().clickable(onClick = onTest))
         }

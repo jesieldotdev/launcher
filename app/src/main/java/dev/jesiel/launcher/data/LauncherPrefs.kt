@@ -151,6 +151,7 @@ data class LauncherData(
 }
 
 class LauncherPrefs(context: Context) {
+    private val appContext = context.applicationContext
 
     private val prefs = context.getSharedPreferences("launcher", Context.MODE_PRIVATE)
 
@@ -178,6 +179,8 @@ class LauncherPrefs(context: Context) {
             .put("format", 1)
             .put("createdAt", System.currentTimeMillis())
             .put("prefs", values)
+            // Dados salvos pelos widgets HTML (localStorage deles).
+            .put("widgetStorage", WidgetStorage.exportJson(appContext))
     }
 
     /** Substitui todas as preferências pelas do backup e recarrega o estado. */
@@ -194,6 +197,7 @@ class LauncherPrefs(context: Context) {
             }
         }
         editor.commit()
+        backup.optJSONObject("widgetStorage")?.let { WidgetStorage.importJson(appContext, it) }
         _data.value = read()
     }
 

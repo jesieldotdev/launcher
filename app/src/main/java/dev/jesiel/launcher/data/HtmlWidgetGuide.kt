@@ -22,7 +22,7 @@ object HtmlWidgetGuide {
         appendLine("- O WebView tem o tamanho do widget, então `100vw`/`100vh` = largura/altura do widget. Faça o elemento raiz ocupar `width:100%; height:100%` e use unidades relativas (`vw`, `vh`, `%`, `min(…)`, ou `container-type:size` com `cqw`/`cqh`) para caber em qualquer tamanho. Tamanhos comuns: de 2×1 a 4×2 células (largo e baixo).")
         appendLine("- O fundo é transparente: o papel de parede aparece atrás. Para um cartão, use cores com transparência (ex.: `rgba(0,0,0,.45)`). `backdrop-filter` não desfoca o papel de parede (a página não o enxerga).")
         appendLine("- Sem rolagem por padrão. Uma área rolável interna (`overflow-y:auto`) funciona, mas o resto do widget deve caber.")
-        appendLine("- `localStorage` e cookies não estão disponíveis; não há acesso a arquivos.")
+        appendLine("- **Salvar dados** (listas de tarefas, notas, preferências): use o `localStorage` normal (`setItem`, `getItem`, `removeItem`, `clear`, `JSON.stringify`/`JSON.parse`), no modo Interativo. O launcher guarda os dados de cada widget separados, entre reinícios e nos backups, até 1 MB por widget. `sessionStorage` existe, mas só na memória. Cookies e IndexedDB não funcionam; não há acesso a arquivos.")
         appendLine()
         appendLine("## Variáveis")
         appendLine("Use de três formas:")

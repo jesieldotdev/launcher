@@ -372,12 +372,15 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     fun removeHtmlWidget(id: String) {
         backups.snapshot("Antes de excluir um widget HTML")
         prefs.update { d -> d.copy(htmlWidgets = d.htmlWidgets.filter { it.id != id }) }
+        dev.jesiel.launcher.data.WidgetStorage.clear(getApplication(), id)
     }
 
     /** Cria uma cópia de um widget salvo, já na área de trabalho. */
     fun duplicateHtmlWidget(id: String) = prefs.update { d ->
         val source = d.htmlWidgets.firstOrNull { it.id == id } ?: return@update d
-        d.copy(htmlWidgets = d.htmlWidgets + source.copy(id = UUID.randomUUID().toString().take(8), name = source.name + " (cópia)", onDesktop = true))
+        val copyId = UUID.randomUUID().toString().take(8)
+        dev.jesiel.launcher.data.WidgetStorage.copy(getApplication(), id, copyId)
+        d.copy(htmlWidgets = d.htmlWidgets + source.copy(id = copyId, name = source.name + " (cópia)", onDesktop = true))
     }
 
     /** Usa o widget [id] como lista de apps (nulo volta à do tema). */

@@ -178,6 +178,42 @@ object HtmlVariables {
     /** Endereço dos ícones dos apps dentro dos widgets. */
     const val ICON_SCHEME = "launcher-icon://"
 
+    /**
+     * `localStorage` e `sessionStorage` da página. A página não tem origem própria (o navegador
+     * recusaria o armazenamento comum); este substituto salva pelo launcher (`__launcherStorage`,
+     * ver [WidgetStorage]), separado por widget. Sem a ponte, guarda só na memória.
+     */
+    private val STORAGE_SCRIPT = """
+(function(){
+  var b = window.__launcherStorage;
+  function make(bridge){
+    var mem = {};
+    function keys(){ return bridge ? JSON.parse(bridge.keys()) : Object.keys(mem); }
+    var api = {
+      getItem: function(k){ k = String(k); if (bridge) { var v = bridge.getItem(k); return v === undefined ? null : v; } return Object.prototype.hasOwnProperty.call(mem, k) ? mem[k] : null; },
+      setItem: function(k, v){ k = String(k); v = String(v);
+        if (bridge) { if (!bridge.setItem(k, v)) throw new DOMException('Limite de dados do widget atingido', 'QuotaExceededError'); }
+        else mem[k] = v; },
+      removeItem: function(k){ k = String(k); if (bridge) bridge.removeItem(k); else delete mem[k]; },
+      clear: function(){ if (bridge) bridge.clear(); else mem = {}; },
+      key: function(i){ var ks = keys(); return i >= 0 && i < ks.length ? ks[i] : null; }
+    };
+    return new Proxy(api, {
+      get: function(t, k){ if (k === 'length') return keys().length; if (typeof k === 'symbol' || k in t) return t[k]; return t.getItem(k); },
+      set: function(t, k, v){ t.setItem(k, v); return true; },
+      deleteProperty: function(t, k){ t.removeItem(k); return true; },
+      has: function(t, k){ return k in t || t.getItem(k) !== null; },
+      ownKeys: function(){ return keys(); },
+      getOwnPropertyDescriptor: function(t, k){ var v = t.getItem(k); return v === null ? undefined : {value: v, enumerable: true, configurable: true, writable: true}; }
+    });
+  }
+  var local = make(b), session = make(null);
+  try { Object.defineProperty(window, 'localStorage', {value: local, configurable: true}); } catch (e) {}
+  try { Object.defineProperty(window, 'sessionStorage', {value: session, configurable: true}); } catch (e) {}
+  window.launcherStorage = local;
+})();
+    """.trimIndent()
+
     /** Listas em JSON: grandes demais para virar variável CSS. */
     private val JSON_KEYS = setOf("notificacoesLista", "appsLista", "appsRecentes", "appsDock", "notificationsList", "appsList", "recentApps", "dockApps")
 
@@ -218,7 +254,7 @@ object HtmlVariables {
             <style>:root{$cssVars}html,body{margin:0;padding:0;background:transparent;overflow:hidden;height:100%}
             *{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}</style>
         """.trimIndent()
-        val script = if (!interactive) "" else """
+        val script = if (!interactive) "" else "<script>$STORAGE_SCRIPT</script>" + """
             <script>
             window.launcher = ${JSONObject(values as Map<*, *>)};
             window.__launcherUpdate = function(d){
