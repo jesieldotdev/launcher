@@ -196,6 +196,11 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         else d.copy(dock = (d.dock + app.key).takeLast(d.layoutFor(d.themeId).dockMaxApps.coerceIn(1, MAX_DOCK)))
     }
 
+    /** Reordena a dock: coloca [keys] nessa ordem (os demais, ocultos pelo limite, ficam no fim). */
+    fun reorderDock(keys: List<String>) = prefs.update { d ->
+        d.copy(dock = keys + d.dock.filter { it !in keys })
+    }
+
     /** Move o app para uma pasta existente ou cria uma nova (quando [folderId] é nulo). */
     fun moveToFolder(app: AppInfo, folderId: String?, newFolderName: String = "Pasta") = prefs.update { d ->
         val current = d.folders.values.firstOrNull { app.key in it.appKeys }

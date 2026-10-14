@@ -764,7 +764,7 @@ private fun ComponentWithMenu(
  * antes do toque longo solta o gesto (rolagem, troca de tela e toques seguem normais); segurar
  * sem mover deixa o conteúdo abrir o menu; mover depois de segurar arrasta o item.
  */
-private fun Modifier.holdToDrag(onStart: () -> Unit, onDrag: (Offset) -> Unit, onEnd: () -> Unit, onCancel: () -> Unit): Modifier =
+internal fun Modifier.holdToDrag(onStart: () -> Unit, onDrag: (Offset) -> Unit, onEnd: () -> Unit, onCancel: () -> Unit): Modifier =
     pointerInput(Unit) {
         awaitEachGesture {
             val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)

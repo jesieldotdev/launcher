@@ -386,6 +386,29 @@ class ScreenshotTest {
         org.junit.Assert.assertTrue("algum item deve ter ido para a tela 2: $pages", pages.any { it == 1 })
     }
 
+    /** Segurar um app da dock e arrastar para o lado troca a ordem dele. */
+    @Test
+    fun holdAndDragReordersDock() {
+        val controller = controller()
+        val state = sampleState().copy(home = emptyList())
+        compose.setContent { IosLauncher(state, controller) }
+        val first = apps[4]
+        compose.onNodeWithContentDescription(first.label).performTouchInput {
+            down(center)
+            advanceEventTime(viewConfiguration.longPressTimeoutMillis + 100)
+            moveBy(androidx.compose.ui.geometry.Offset(width * 0.5f, 0f))
+            moveBy(androidx.compose.ui.geometry.Offset(width * 0.7f, 0f))
+        }
+        compose.mainClock.advanceTimeBy(300)
+        compose.waitForIdle()
+        compose.onRoot().captureRoboImage(shot("ios-dock-drag"))
+        compose.onNodeWithContentDescription(first.label).performTouchInput { up() }
+        compose.mainClock.advanceTimeBy(1_000)
+        compose.waitForIdle()
+        val order = controller.viewModel.state.value.dockKeys.toList()
+        org.junit.Assert.assertEquals("o app deve ter ido para a 2ª posição: $order", listOf(apps[1].key, first.key), order.take(2))
+    }
+
     /** Arrastar rápido, sem segurar, não move ícone nenhum. */
     @Test
     fun quickSwipeDoesNotMoveIcons() {

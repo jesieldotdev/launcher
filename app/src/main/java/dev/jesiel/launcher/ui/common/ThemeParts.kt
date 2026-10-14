@@ -26,6 +26,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -71,18 +80,72 @@ fun AppDock(
     trailing: @Composable () -> Unit = {},
 ) {
     val size = if (state.layout.dockIconSizeDp > 0) state.layout.dockIconSizeDp.dp else iconSize
+    // Segurar e arrastar reordena: a ordem muda ao vivo e é salva ao soltar.
+    val keys = state.dock.map { it.key }
+    var order by remember { mutableStateOf(keys) }
+    var dragging by remember { mutableStateOf<String?>(null) }
+    var offset by remember { mutableFloatStateOf(0f) }
+    var extent by remember { mutableFloatStateOf(0f) }
+    if (dragging == null && order != keys) order = keys
+    val byKey = state.dock.associateBy { it.key }
+    val haptics = LocalHapticFeedback.current
+    fun step(delta: Float) {
+        val key = dragging ?: return
+        offset += delta
+        if (extent <= 0f) return
+        val index = order.indexOf(key)
+        val target = when {
+            offset > extent / 2 && index < order.lastIndex -> index + 1
+            offset < -extent / 2 && index > 0 -> index - 1
+            else -> return
+        }
+        order = order.toMutableList().apply { add(target, removeAt(index)) }
+        offset -= if (target > index) extent else -extent
+    }
     val apps: @Composable () -> Unit = {
-        state.dock.forEach { app ->
-            AppTile(
-                app = app,
-                state = state,
-                controller = controller,
-                iconSize = size,
-                showLabel = false,
-                labels = labels,
-                iconBackground = palette.iconBackground,
-                onLaunched = onLaunched,
-            )
+        order.mapNotNull(byKey::get).forEach { app ->
+            key(app.key) {
+                val lifted = dragging == app.key
+                AppTile(
+                    app = app,
+                    state = state,
+                    controller = controller,
+                    modifier = Modifier
+                        .onSizeChanged { extent = (if (vertical) it.height else it.width).toFloat() }
+                        .zIndex(if (lifted) 1f else 0f)
+                        .graphicsLayer {
+                            if (lifted) {
+                                if (vertical) translationY = offset else translationX = offset
+                                scaleX = 1.12f
+                                scaleY = 1.12f
+                            }
+                        }
+                        .holdToDrag(
+                            onStart = {
+                                controller.desktopDragTick++
+                                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                dragging = app.key
+                                offset = 0f
+                            },
+                            onDrag = { step(if (vertical) it.y else it.x) },
+                            onEnd = {
+                                dragging = null
+                                offset = 0f
+                                if (order != keys) controller.viewModel.reorderDock(order)
+                            },
+                            onCancel = {
+                                dragging = null
+                                offset = 0f
+                                order = keys
+                            },
+                        ),
+                    iconSize = size,
+                    showLabel = false,
+                    labels = labels,
+                    iconBackground = palette.iconBackground,
+                    onLaunched = onLaunched,
+                )
+            }
         }
     }
     val base = modifier.reportDockBounds(controller).dockPanel(state.layout.dockBackground, palette, shape).padding(6.dp)
