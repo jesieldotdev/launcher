@@ -108,8 +108,8 @@ fun HtmlWidgetEditor(
             Spacer(Modifier.width(6.dp))
             Button(onClick = {
                 // Novo widget vai só para onde foi escolhido; um existente continua onde já estava.
-                val saved = if (isNew) draft.copy(onDesktop = role == dev.jesiel.launcher.data.HtmlRole.DESKTOP)
-                else if (role == dev.jesiel.launcher.data.HtmlRole.DESKTOP) draft.copy(onDesktop = true) else draft
+                val saved = (if (isNew) draft.copy(onDesktop = role == dev.jesiel.launcher.data.HtmlRole.DESKTOP)
+                else if (role == dev.jesiel.launcher.data.HtmlRole.DESKTOP) draft.copy(onDesktop = true) else draft).copy(role = role)
                 vm.saveHtmlWidget(saved)
                 controller.htmlEditing = null
                 if (role == dev.jesiel.launcher.data.HtmlRole.DESKTOP) controller.toast(if (isNew) "Widget adicionado à área de trabalho" else "Widget salvo")

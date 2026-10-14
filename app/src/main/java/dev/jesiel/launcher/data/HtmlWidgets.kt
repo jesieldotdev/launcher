@@ -25,11 +25,25 @@ data class HtmlWidget(
     /** Baixado da loja: id do item e data da versão (para mostrar "Atualizar"). */
     val storeId: String? = null,
     val storeUpdated: String? = null,
+    /** Para que o widget foi feito (nulo nos antigos: deduzido do código, ver [kind]). */
+    val role: HtmlRole? = null,
+    /** Última vez que foi salvo (para ordenar por recentes). */
+    val updatedAt: Long = 0,
 ) {
+    /** Tipo do widget: o escolhido ou, nos antigos, deduzido das variáveis que o código usa. */
+    val kind: HtmlRole
+        get() = role ?: when {
+            html.contains("appsDock") || html.contains("dockApps") -> HtmlRole.DOCK
+            html.contains("appsLista") || html.contains("appsList") -> HtmlRole.APPS
+            html.contains("launcher://desbloquear") || html.contains("launcher://unlock") -> HtmlRole.LOCK
+            else -> HtmlRole.DESKTOP
+        }
+
     fun toJson(): JSONObject = JSONObject()
         .put("id", id).put("name", name).put("html", html)
         .put("interactive", interactive).put("network", network).put("software", software).put("onDesktop", onDesktop)
         .put("storeId", storeId).put("storeUpdated", storeUpdated)
+        .put("role", role?.name).put("updatedAt", updatedAt)
 
     companion object {
         fun fromJson(o: JSONObject) = HtmlWidget(
@@ -42,6 +56,8 @@ data class HtmlWidget(
             onDesktop = o.optBoolean("onDesktop", true),
             storeId = o.optString("storeId").takeIf { it.isNotEmpty() },
             storeUpdated = o.optString("storeUpdated").takeIf { it.isNotEmpty() },
+            role = o.optString("role").takeIf { it.isNotEmpty() }?.let { r -> HtmlRole.entries.firstOrNull { it.name == r } },
+            updatedAt = o.optLong("updatedAt", 0),
         )
 
         fun listFromJson(text: String?): List<HtmlWidget> = runCatching {

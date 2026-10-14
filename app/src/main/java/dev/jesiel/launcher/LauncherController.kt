@@ -351,6 +351,7 @@ class LauncherController(
             interactive = t.html.contains("<script"),
             network = t.html.contains("fetch(") || t.html.contains("https://fonts."),
             onDesktop = r == dev.jesiel.launcher.data.HtmlRole.DESKTOP,
+            role = r,
         )
     }
 

@@ -1,5 +1,6 @@
 package dev.jesiel.launcher.ui.settings
 
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.material3.Tab
@@ -288,12 +289,36 @@ fun SettingsScreen(state: LauncherUiState, controller: LauncherController, onClo
                                 SliderRow("Máximo de apps", "${layout.dockMaxApps}", layout.dockMaxApps.toFloat(), 3f..8f, 4) { v ->
                                     vm.updateLayout { it.copy(dockMaxApps = v.roundToInt()) }
                                 }
-                                Text(
-                                    "Apps na dock: " + state.dock.joinToString { it.label }.ifEmpty { "nenhum" } +
-                                        ". Toque e segure um app para fixar ou desafixar.",
-                                    fontSize = 12.sp,
-                                    color = Color.Gray,
-                                )
+                                if (!isWindows) {
+                                    Spacer(Modifier.height(6.dp))
+                                    Text("Tamanho e espaçamento", fontWeight = FontWeight.SemiBold)
+                                    val padding = if (layout.dockPaddingDp >= 0) layout.dockPaddingDp else 6
+                                    SliderRow("Espaço interno", "$padding dp", padding.toFloat(), 0f..24f, 23) { v ->
+                                        vm.updateLayout { it.copy(dockPaddingDp = v.roundToInt()) }
+                                    }
+                                    SliderRow("Espaço entre ícones", "${layout.dockSpacingDp} dp", layout.dockSpacingDp.toFloat(), 0f..24f, 23) { v ->
+                                        vm.updateLayout { it.copy(dockSpacingDp = v.roundToInt()) }
+                                    }
+                                    SliderRow("Margem dos lados", "${layout.dockMarginDp} dp", layout.dockMarginDp.toFloat(), 0f..48f, 23) { v ->
+                                        vm.updateLayout { it.copy(dockMarginDp = v.roundToInt()) }
+                                    }
+                                    SliderRow("Distância da borda", "${layout.dockLiftDp} dp", layout.dockLiftDp.toFloat(), 0f..48f, 23) { v ->
+                                        vm.updateLayout { it.copy(dockLiftDp = v.roundToInt()) }
+                                    }
+                                    SwitchRow("Cantos do tema", layout.dockCornerDp < 0) { on ->
+                                        vm.updateLayout { it.copy(dockCornerDp = if (on) -1 else 20) }
+                                    }
+                                    if (layout.dockCornerDp >= 0) {
+                                        SliderRow("Arredondamento", "${layout.dockCornerDp} dp", layout.dockCornerDp.toFloat(), 0f..40f, 19) { v ->
+                                            vm.updateLayout { it.copy(dockCornerDp = v.roundToInt()) }
+                                        }
+                                    }
+                                    androidx.compose.material3.TextButton(onClick = {
+                                        vm.updateLayout { it.copy(dockPaddingDp = -1, dockSpacingDp = 2, dockMarginDp = 0, dockLiftDp = 0, dockCornerDp = -1, dockIconSizeDp = 0) }
+                                    }) { Text("Voltar ao padrão do tema") }
+                                }
+                                Spacer(Modifier.height(6.dp))
+                                DockAppsEditor(state, controller)
                                 Spacer(Modifier.height(14.dp))
                                 WindowModeSettings(state, controller)
                             } else {
@@ -1049,5 +1074,66 @@ private fun IconPackOption(label: String, icon: androidx.compose.ui.graphics.Ima
         }
         Spacer(Modifier.height(6.dp))
         Text(label, fontSize = 12.sp, maxLines = 2, textAlign = androidx.compose.ui.text.style.TextAlign.Center, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+    }
+}
+
+/**
+ * Apps da dock: remover, mudar de posição e adicionar. Vale também para a dock em HTML (que
+ * mostra os mesmos apps) e para quem não acha o toque longo.
+ */
+@Composable
+private fun DockAppsEditor(state: LauncherUiState, controller: LauncherController) {
+    val vm = controller.viewModel
+    var picking by remember { mutableStateOf(false) }
+    val dock = state.dock
+    Text("Apps na dock (${dock.size} de ${state.layout.dockMaxApps})", fontWeight = FontWeight.SemiBold)
+    Text(
+        "Também dá para segurar e arrastar na própria dock: para os lados muda a ordem, para fora remove.",
+        fontSize = 12.sp,
+        color = Color.Gray,
+    )
+    Spacer(Modifier.height(6.dp))
+    dock.forEachIndexed { i, app ->
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
+            androidx.compose.foundation.Image(app.icon, contentDescription = null, modifier = Modifier.size(32.dp))
+            Text(app.label, modifier = Modifier.weight(1f).padding(start = 10.dp), maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+            fun move(to: Int) = vm.reorderDock(dock.map { it.key }.toMutableList().apply { add(to, removeAt(i)) })
+            androidx.compose.material3.TextButton(enabled = i > 0, onClick = { move(i - 1) }) { Text("◀") }
+            androidx.compose.material3.TextButton(enabled = i < dock.lastIndex, onClick = { move(i + 1) }) { Text("▶") }
+            IconButton(onClick = { vm.toggleDock(app) }) { Icon(Icons.Default.Delete, "Remover ${app.label} da dock") }
+        }
+    }
+    if (dock.isEmpty()) Text("Nenhum app na dock.", fontSize = 13.sp, color = Color.Gray)
+    OutlinedButton(enabled = dock.size < state.layout.dockMaxApps, onClick = { picking = true }) { Text("Adicionar app") }
+    if (picking) {
+        var query by remember { mutableStateOf("") }
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { picking = false },
+            title = { Text("Adicionar à dock") },
+            text = {
+                Column {
+                    androidx.compose.material3.OutlinedTextField(query, { query = it }, label = { Text("Buscar") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    Spacer(Modifier.height(6.dp))
+                    val options = state.apps.filter { it.key !in state.dockKeys && it.label.contains(query.trim(), ignoreCase = true) }
+                    androidx.compose.foundation.lazy.LazyColumn(Modifier.heightIn(max = 360.dp)) {
+                        items(options.size) { i ->
+                            val app = options[i]
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .clickable { vm.toggleDock(app); picking = false }
+                                    .padding(vertical = 6.dp, horizontal = 4.dp),
+                            ) {
+                                androidx.compose.foundation.Image(app.icon, contentDescription = null, modifier = Modifier.size(32.dp))
+                                Text(app.label, modifier = Modifier.padding(start = 10.dp))
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = { androidx.compose.material3.TextButton(onClick = { picking = false }) { Text("Fechar") } },
+        )
     }
 }

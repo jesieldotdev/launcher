@@ -93,6 +93,7 @@ object HtmlStore {
         onDesktop = keepId == null && item.role == HtmlRole.DESKTOP,
         storeId = item.id,
         storeUpdated = item.updated,
+        role = item.role,
     )
 
     /** Texto da issue: explicação curta e o widget num bloco ```json (lido pelo Action). */

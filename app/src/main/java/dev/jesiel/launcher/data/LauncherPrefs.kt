@@ -31,6 +31,15 @@ data class ThemeLayout(
     /** Tamanho dos ícones da dock; 0 usa o padrão do tema. */
     val dockIconSizeDp: Int = 0,
     val dockMaxApps: Int = 5,
+    /** Espaço interno da dock (borda até os ícones); -1 usa o padrão do tema. */
+    val dockPaddingDp: Int = -1,
+    /** Espaço entre os ícones da dock. */
+    val dockSpacingDp: Int = 2,
+    /** Margem extra dos lados da tela e altura acima da borda de baixo. */
+    val dockMarginDp: Int = 0,
+    val dockLiftDp: Int = 0,
+    /** Cantos da dock; -1 usa o formato do tema. */
+    val dockCornerDp: Int = -1,
     /** Windows: ícones da barra centralizados (Windows 11) ou à esquerda (Windows 10). */
     val dockCentered: Boolean = true,
     val dockShowSearch: Boolean = true,
@@ -239,6 +248,11 @@ class LauncherPrefs(context: Context) {
                     trayShowStatus = l.optBoolean("trayStatus", true),
                     dockIconSizeDp = l.optInt("dockIcon", 0),
                     dockMaxApps = l.optInt("dockMax", 5),
+                    dockPaddingDp = l.optInt("dockPadding", -1),
+                    dockSpacingDp = l.optInt("dockSpacing", 2),
+                    dockMarginDp = l.optInt("dockMargin", 0),
+                    dockLiftDp = l.optInt("dockLift", 0),
+                    dockCornerDp = l.optInt("dockCorner", -1),
                     dockCentered = l.optBoolean("dockCentered", true),
                     dockShowSearch = l.optBoolean("dockSearch", true),
                     menuOpensAllApps = l.optBoolean("menuAllApps", false),
@@ -320,6 +334,11 @@ class LauncherPrefs(context: Context) {
                         .put("trayStatus", l.trayShowStatus)
                         .put("dockIcon", l.dockIconSizeDp)
                         .put("dockMax", l.dockMaxApps)
+                        .put("dockPadding", l.dockPaddingDp)
+                        .put("dockSpacing", l.dockSpacingDp)
+                        .put("dockMargin", l.dockMarginDp)
+                        .put("dockLift", l.dockLiftDp)
+                        .put("dockCorner", l.dockCornerDp)
                         .put("dockCentered", l.dockCentered)
                         .put("dockSearch", l.dockShowSearch)
                         .put("menuAllApps", l.menuOpensAllApps)

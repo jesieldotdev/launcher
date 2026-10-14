@@ -360,6 +360,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     /** Cria ou atualiza um widget HTML (todos ficam na área de trabalho). */
     fun saveHtmlWidget(widget: HtmlWidget) = prefs.update { d ->
         val exists = d.htmlWidgets.any { it.id == widget.id }
+        @Suppress("NAME_SHADOWING") val widget = widget.copy(updatedAt = System.currentTimeMillis())
         d.copy(htmlWidgets = if (exists) d.htmlWidgets.map { if (it.id == widget.id) widget else it } else d.htmlWidgets + widget)
     }
 

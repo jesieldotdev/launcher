@@ -39,6 +39,7 @@ import androidx.compose.ui.zIndex
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -91,13 +92,23 @@ fun AppDock(
     var order by remember { mutableStateOf(keys) }
     var dragging by remember { mutableStateOf<String?>(null) }
     var offset by remember { mutableFloatStateOf(0f) }
+    // Para fora da dock (para cima; na vertical, para a direita): soltar ali remove o app.
+    var away by remember { mutableFloatStateOf(0f) }
     var extent by remember { mutableFloatStateOf(0f) }
+    // Lido na hora (os gestos guardam as funções da primeira composição).
+    fun isRemoving() = dragging != null && extent > 0f && away > extent * 1.2f
+    val removing = isRemoving()
     if (dragging == null && order != keys) order = keys
+    val currentKeys by androidx.compose.runtime.rememberUpdatedState(keys)
     val byKey = state.dock.associateBy { it.key }
     val haptics = LocalHapticFeedback.current
-    fun step(delta: Float) {
+    fun step(delta: Offset) {
         val key = dragging ?: return
-        offset += delta
+        val wasRemoving = isRemoving()
+        away += if (vertical) delta.x else -delta.y
+        away = away.coerceAtLeast(0f)
+        if (extent > 0f && (away > extent * 1.2f) != wasRemoving) haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+        offset += if (vertical) delta.y else delta.x
         if (extent <= 0f) return
         val index = order.indexOf(key)
         val target = when {
@@ -121,9 +132,16 @@ fun AppDock(
                         .zIndex(if (lifted) 1f else 0f)
                         .graphicsLayer {
                             if (lifted) {
-                                if (vertical) translationY = offset else translationX = offset
+                                if (vertical) {
+                                    translationY = offset
+                                    translationX = away
+                                } else {
+                                    translationX = offset
+                                    translationY = -away
+                                }
                                 scaleX = 1.12f
                                 scaleY = 1.12f
+                                alpha = if (removing) 0.55f else 1f
                             }
                         }
                         .holdToDrag(
@@ -132,17 +150,24 @@ fun AppDock(
                                 haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                                 dragging = app.key
                                 offset = 0f
+                                away = 0f
                             },
-                            onDrag = { step(if (vertical) it.y else it.x) },
+                            onDrag = { step(it) },
                             onEnd = {
+                                val remove = isRemoving()
                                 dragging = null
                                 offset = 0f
-                                if (order != keys) controller.viewModel.reorderDock(order)
+                                away = 0f
+                                if (remove) {
+                                    controller.viewModel.toggleDock(app)
+                                    controller.toast("${app.label} removido da dock")
+                                } else if (order != currentKeys) controller.viewModel.reorderDock(order)
                             },
                             onCancel = {
                                 dragging = null
                                 offset = 0f
-                                order = keys
+                                away = 0f
+                                order = currentKeys
                             },
                         ),
                     iconSize = size,
@@ -151,23 +176,64 @@ fun AppDock(
                     iconBackground = palette.iconBackground,
                     onLaunched = onLaunched,
                 )
+                // Dica acima da dock enquanto o app é arrastado.
+                if (lifted) {
+                    androidx.compose.ui.window.Popup(
+                        alignment = if (vertical) Alignment.CenterEnd else Alignment.TopCenter,
+                        offset = with(androidx.compose.ui.platform.LocalDensity.current) {
+                            if (vertical) androidx.compose.ui.unit.IntOffset(96.dp.roundToPx(), 0) else androidx.compose.ui.unit.IntOffset(0, -64.dp.roundToPx())
+                        },
+                    ) {
+                        // O ícone sai da área da dock (que corta o que passa da borda): aparece aqui.
+                        androidx.compose.foundation.layout.Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                        if (removing) {
+                            androidx.compose.foundation.Image(app.icon, contentDescription = null, modifier = Modifier.size(40.dp).graphicsLayer { alpha = 0.85f })
+                        }
+                        androidx.compose.material3.Text(
+                            if (removing) "Solte para remover da dock" else if (vertical) "Arraste para a direita para remover" else "Arraste para cima para remover",
+                            color = Color.White,
+                            fontSize = androidx.compose.ui.unit.TextUnit(12f, androidx.compose.ui.unit.TextUnitType.Sp),
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(if (removing) Color(0xEEB3261E) else Color(0xCC202124))
+                                .padding(horizontal = 10.dp, vertical = 6.dp),
+                        )
+                        }
+                    }
+                }
             }
         }
     }
-    val base = modifier.reportDockBounds(controller).dockPanel(state.layout.dockBackground, palette, shape).padding(6.dp)
+    val l = state.layout
+    val panelShape = if (l.dockCornerDp >= 0) RoundedCornerShape(l.dockCornerDp.dp) else shape
+    val spacing = l.dockSpacingDp.coerceAtLeast(0).dp
+    val base = modifier
+        // Margem dos lados e altura acima da borda (na vertical, afastada da borda esquerda).
+        .then(if (vertical) Modifier.padding(start = l.dockLiftDp.dp, top = l.dockMarginDp.dp, bottom = l.dockMarginDp.dp) else Modifier.padding(start = l.dockMarginDp.dp, end = l.dockMarginDp.dp, bottom = l.dockLiftDp.dp))
+        .reportDockBounds(controller)
+        .dockPanel(l.dockBackground, palette, panelShape)
+        .padding(if (l.dockPaddingDp >= 0) l.dockPaddingDp.dp else 6.dp)
     if (vertical) {
-        Column(base, horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Column(base, horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(spacing)) {
             leading()
             Column(
                 Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()),
                 horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(spacing),
             ) { apps() }
             trailing()
         }
     } else {
-        Row(base, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp, Alignment.CenterHorizontally)) {
+        Row(base, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(spacing, Alignment.CenterHorizontally)) {
             leading()
-            Row(Modifier.weight(1f, fill = false).horizontalScroll(rememberScrollState()), verticalAlignment = Alignment.CenterVertically) { apps() }
+            Row(
+                Modifier.weight(1f, fill = false).horizontalScroll(rememberScrollState()),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(spacing),
+            ) { apps() }
             trailing()
         }
     }

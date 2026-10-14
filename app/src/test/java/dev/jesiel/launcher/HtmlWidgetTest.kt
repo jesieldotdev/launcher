@@ -209,4 +209,16 @@ class HtmlWidgetTest {
         assertFalse(html.contains("--appsDock"))
         assertTrue(html.contains("--dockVertical:\"sim\""))
     }
+
+    @Test
+    fun oldWidgetsGetTheirKindFromTheCode() {
+        fun kind(html: String) = dev.jesiel.launcher.data.HtmlWidget("x", "x", html).kind
+        assertTrue(kind("<script>launcher.appsDock</script>") == dev.jesiel.launcher.data.HtmlRole.DOCK)
+        assertTrue(kind("<script>launcher.appsLista</script>") == dev.jesiel.launcher.data.HtmlRole.APPS)
+        assertTrue(kind("<a href='launcher://desbloquear'>") == dev.jesiel.launcher.data.HtmlRole.LOCK)
+        assertTrue(kind("<b>{{hora}}</b>") == dev.jesiel.launcher.data.HtmlRole.DESKTOP)
+        val w = dev.jesiel.launcher.data.HtmlWidget("x", "x", "<b></b>", role = dev.jesiel.launcher.data.HtmlRole.LOCK, updatedAt = 5)
+        val back = dev.jesiel.launcher.data.HtmlWidget.fromJson(w.toJson())
+        assertTrue(back.kind == dev.jesiel.launcher.data.HtmlRole.LOCK && back.updatedAt == 5L)
+    }
 }

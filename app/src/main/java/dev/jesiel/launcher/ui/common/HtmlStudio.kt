@@ -1,5 +1,10 @@
 package dev.jesiel.launcher.ui.common
 
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -22,10 +27,6 @@ import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.wrapContentSize
-import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
-import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
-import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridItemSpan
-import androidx.compose.foundation.lazy.staggeredgrid.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -36,7 +37,6 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -78,6 +78,9 @@ import dev.jesiel.launcher.data.LockStyle
 private val PHONE_W = 360.dp
 private val PHONE_H = 760.dp
 
+/** Altura das prévias nos cartões do Estúdio: igual para todos, a grade fica alinhada. */
+private val PREVIEW_HEIGHT = 120.dp
+
 /** Fundo das prévias, parecido com um papel de parede. */
 private val PreviewBackground = Brush.linearGradient(listOf(Color(0xFF1B2A4A), Color(0xFF3A5BA0)))
 
@@ -102,6 +105,7 @@ fun HtmlAppList(widget: HtmlWidget, controller: LauncherController, palette: Lau
  * Estúdio HTML: todos os widgets HTML num só lugar, com prévia, onde cada um é usado
  * (área de trabalho, tela de bloqueio, lista de apps), modelos e o guia para outras IAs.
  */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun HtmlStudio(controller: LauncherController, palette: LauncherPalette) {
     val vm = controller.viewModel
@@ -117,8 +121,8 @@ fun HtmlStudio(controller: LauncherController, palette: LauncherPalette) {
     var storeLoading by remember { mutableStateOf(false) }
     var storeReload by remember { mutableStateOf(0) }
     var justDownloaded by remember { mutableStateOf<Pair<HtmlWidget, HtmlRole>?>(null) }
-    androidx.compose.runtime.LaunchedEffect(tab == 2, storeReload) {
-        if (tab != 2) return@LaunchedEffect
+    androidx.compose.runtime.LaunchedEffect(tab == 3, storeReload) {
+        if (tab != 3) return@LaunchedEffect
         storeLoading = true
         HtmlStore.fetch(context)
             .onSuccess { store = it.items; storeError = if (it.offline) "sem conexão" else null }
@@ -136,167 +140,237 @@ fun HtmlStudio(controller: LauncherController, palette: LauncherPalette) {
         if (state.dockHtml?.id == w.id) add(HtmlRole.DOCK)
     }
 
-    Box(Modifier.fillMaxSize().background(colors.background)) {
-        Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp)) {
-                IconButton(onClick = { controller.htmlLibraryOpen = false }) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, "Voltar", tint = colors.onBackground)
-                }
-                Column(Modifier.weight(1f)) {
-                    Text("Estúdio HTML", fontSize = 20.sp, fontWeight = FontWeight.SemiBold, color = colors.onBackground)
-                    Text("Widgets, tela de bloqueio e lista de apps", fontSize = 12.sp, color = colors.onSurfaceVariant)
-                }
-            }
+    // Busca, filtro por tipo e ordem (por aba).
+    var query by rememberSaveable { mutableStateOf("") }
+    var kindFilter by rememberSaveable { mutableStateOf<String?>(null) }
+    var sort by rememberSaveable { mutableStateOf(StudioSort.RECENT.name) }
+    val filterRole = kindFilter?.let { k -> HtmlRole.entries.firstOrNull { it.name == k } }
+    fun matches(name: String, kind: HtmlRole, extra: String = "") =
+        (filterRole == null || kind == filterRole) &&
+            (query.isBlank() || name.contains(query.trim(), ignoreCase = true) || extra.contains(query.trim(), ignoreCase = true))
 
-            // Onde o HTML está em uso agora (em duas linhas): tocar troca o escolhido.
-            Row(
-                Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, top = 6.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                UsageCard(
-                    "Área de trabalho",
-                    state.htmlWidgets.count { it.onDesktop }.let { if (it == 0) "Nenhum widget" else if (it == 1) "1 widget" else "$it widgets" },
-                    active = state.htmlWidgets.any { it.onDesktop },
-                ) { tab = 0 }
-                UsageCard(
-                    "Tela de bloqueio",
+    Column(Modifier.fillMaxSize().background(colors.background).statusBarsPadding().navigationBarsPadding()) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 4.dp, end = 12.dp, top = 4.dp)) {
+            IconButton(onClick = { controller.htmlLibraryOpen = false }) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, "Voltar", tint = colors.onBackground)
+            }
+            Text("Estúdio HTML", fontSize = 20.sp, fontWeight = FontWeight.SemiBold, color = colors.onBackground, modifier = Modifier.weight(1f))
+            androidx.compose.material3.FilledTonalButton(onClick = { controller.newHtmlWidget() }) {
+                Icon(Icons.Default.Add, null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(6.dp))
+                Text("Novo")
+            }
+        }
+
+        androidx.compose.material3.PrimaryTabRow(selectedTabIndex = tab, containerColor = colors.background) {
+            listOf("Meus (${state.htmlWidgets.size})", "Em uso", "Modelos", "Loja").forEachIndexed { i, label ->
+                androidx.compose.material3.Tab(
+                    selected = tab == i,
+                    onClick = { tab = i },
+                    text = { Text(label, maxLines = 1, fontWeight = if (tab == i) FontWeight.SemiBold else FontWeight.Normal) },
+                )
+            }
+        }
+
+        if (tab == 1) {
+            // Em uso: uma linha por lugar, com o que está lá e um botão para trocar.
+            Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                val onDesktop = state.htmlWidgets.filter { it.onDesktop }
+                UsageRow(
+                    HtmlRole.DESKTOP,
+                    if (onDesktop.isEmpty()) "Nenhum widget HTML" else onDesktop.joinToString { it.name },
+                    active = onDesktop.isNotEmpty(),
+                    action = "Ver",
+                ) { tab = 0; kindFilter = HtmlRole.DESKTOP.name }
+                UsageRow(
+                    HtmlRole.LOCK,
                     when {
-                        lock?.enabled != true -> "Desligada"
+                        lock?.enabled != true -> "Desligada (a do sistema)"
                         lockWidget != null -> lockWidget.name
                         else -> "Do tema"
                     },
                     active = lock?.enabled == true && lockWidget != null,
                 ) { choosing = HtmlRole.LOCK }
+                UsageRow(HtmlRole.APPS, state.appsHtml?.name ?: "Do tema", active = state.appsHtml != null) { choosing = HtmlRole.APPS }
+                UsageRow(
+                    HtmlRole.DOCK,
+                    state.dockHtml?.let { "${it.name} · ${state.dockHtmlHeight} dp de altura" } ?: "Do tema",
+                    active = state.dockHtml != null,
+                ) { choosing = HtmlRole.DOCK }
+                Text(
+                    "Lista de apps e dock em HTML valem para todos os temas. A altura da dock fica em Ajustes › Tela inicial › Dock.",
+                    fontSize = 12.sp,
+                    color = colors.onSurfaceVariant,
+                )
             }
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                UsageCard("Lista de apps", state.appsHtml?.name ?: "Do tema", active = state.appsHtml != null) { choosing = HtmlRole.APPS }
-                UsageCard("Dock", state.dockHtml?.name ?: "Do tema", active = state.dockHtml != null) { choosing = HtmlRole.DOCK }
-            }
-
-            Row(Modifier.padding(horizontal = 12.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf("Meus widgets (${state.htmlWidgets.size})", "Modelos", "Loja").forEachIndexed { i, label ->
-                    StudioChip(label, selected = tab == i) { tab = i }
+        } else {
+            // Barra de busca, filtro por tipo e ordem.
+            Column(Modifier.padding(start = 12.dp, end = 12.dp, top = 10.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    androidx.compose.material3.OutlinedTextField(
+                        query,
+                        { query = it },
+                        placeholder = { Text(if (tab == 3) "Buscar na loja (nome ou autor)" else "Buscar por nome") },
+                        singleLine = true,
+                        shape = RoundedCornerShape(24.dp),
+                        modifier = Modifier.weight(1f).height(52.dp),
+                        textStyle = androidx.compose.ui.text.TextStyle(fontSize = 14.sp),
+                    )
+                    if (tab != 2) {
+                        var sortOpen by remember { mutableStateOf(false) }
+                        Box {
+                            TextButton(onClick = { sortOpen = true }) { Text("⇅ " + StudioSort.valueOf(sort).label(tab), maxLines = 1) }
+                            DropdownMenu(expanded = sortOpen, onDismissRequest = { sortOpen = false }) {
+                                StudioSort.entries.filter { it.appliesTo(tab) }.forEach { o ->
+                                    DropdownMenuItem(
+                                        text = { Text((if (o.name == sort) "✓ " else "") + o.label(tab)) },
+                                        onClick = { sort = o.name; sortOpen = false },
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+                Row(Modifier.horizontalScroll(rememberScrollState()).padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    StudioChip("Todos", selected = filterRole == null) { kindFilter = null }
+                    HtmlRole.entries.forEach { r -> StudioChip(r.label, selected = filterRole == r) { kindFilter = if (filterRole == r) null else r.name } }
                 }
             }
 
-            LazyVerticalStaggeredGrid(
-                columns = StaggeredGridCells.Adaptive(160.dp),
+            LazyVerticalGrid(
+                columns = GridCells.Adaptive(160.dp),
                 modifier = Modifier.weight(1f).fillMaxWidth(),
-                contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 6.dp, bottom = 96.dp),
-                verticalItemSpacing = 12.dp,
+                contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 2.dp, bottom = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                if (tab == 0) {
-                    if (state.htmlWidgets.isEmpty()) {
-                        item(span = StaggeredGridItemSpan.FullLine) {
-                            Text(
-                                "Nenhum widget ainda. Toque em Novo ou escolha um modelo.",
-                                color = colors.onSurfaceVariant,
-                                modifier = Modifier.padding(vertical = 24.dp),
-                            )
+                when (tab) {
+                    0 -> {
+                        val order = StudioSort.valueOf(sort).takeIf { it.appliesTo(0) } ?: StudioSort.RECENT
+                        val list = state.htmlWidgets.withIndex()
+                            .filter { (_, w) -> matches(w.name, w.kind) }
+                            .let { all ->
+                                when (order) {
+                                    StudioSort.NAME -> all.sortedBy { it.value.name.lowercase() }
+                                    StudioSort.IN_USE -> all.sortedWith(compareBy({ rolesOf(it.value).isEmpty() }, { -it.value.updatedAt }, { -it.index }))
+                                    StudioSort.KIND -> all.sortedWith(compareBy({ it.value.kind.ordinal }, { it.value.name.lowercase() }))
+                                    else -> all.sortedWith(compareBy({ -it.value.updatedAt }, { -it.index }))
+                                }
+                            }
+                            .map { it.value }
+                        if (list.isEmpty()) {
+                            item(span = { GridItemSpan(maxLineSpan) }) {
+                                EmptyNote(if (state.htmlWidgets.isEmpty()) "Nenhum widget ainda. Toque em Novo ou veja os Modelos e a Loja." else "Nada com esse filtro.")
+                            }
                         }
-                    }
-                    items(state.htmlWidgets, key = { it.id }) { w ->
-                        val roles = rolesOf(w)
-                        WidgetCard(
-                            widget = w,
-                            role = roles.firstOrNull { it != HtmlRole.DESKTOP } ?: HtmlRole.DESKTOP,
-                            roles = roles,
-                            controller = controller,
-                            palette = palette,
-                            onOpen = { controller.editHtmlWidget(w) },
-                        ) { close ->
-                            DropdownMenuItem(text = { Text("Editar") }, onClick = { close(); controller.editHtmlWidget(w) })
-                            DropdownMenuItem(text = { Text("Testar") }, onClick = { close(); controller.testHtml(w) })
-                            DropdownMenuItem(
-                                text = { Text(if (w.onDesktop) "Tirar da área de trabalho" else "Pôr na área de trabalho") },
-                                onClick = { close(); vm.setHtmlWidgetOnDesktop(w.id, !w.onDesktop) },
-                            )
-                            if (HtmlRole.LOCK in roles) {
-                                DropdownMenuItem(text = { Text("Abrir a tela de bloqueio de verdade") }, onClick = { close(); LockScreen.show(context) })
-                            } else {
-                                DropdownMenuItem(text = { Text("Usar na tela de bloqueio") }, onClick = { close(); controller.useOnLockScreen(w) })
-                            }
-                            if (HtmlRole.APPS in roles) {
-                                DropdownMenuItem(text = { Text("Voltar à lista do tema") }, onClick = { close(); vm.setAppsHtml(null) })
-                            } else {
-                                DropdownMenuItem(text = { Text("Usar como lista de apps") }, onClick = { close(); controller.useAsAppList(w) })
-                            }
-                            if (HtmlRole.DOCK in roles) {
-                                DropdownMenuItem(text = { Text("Voltar à dock do tema") }, onClick = { close(); vm.setDockHtml(null) })
-                            } else {
-                                DropdownMenuItem(text = { Text("Usar como dock") }, onClick = { close(); controller.useAsDock(w) })
-                            }
-                            DropdownMenuItem(text = { Text("Duplicar") }, onClick = { close(); vm.duplicateHtmlWidget(w.id) })
-                            val saved = remember(w.id) { dev.jesiel.launcher.data.WidgetStorage.size(context, w.id) }
-                            if (saved > 0) {
+                        items(list, key = { it.id }) { w ->
+                            val roles = rolesOf(w)
+                            WidgetCard(
+                                widget = w,
+                                role = w.kind,
+                                roles = roles,
+                                controller = controller,
+                                palette = palette,
+                                onOpen = { controller.editHtmlWidget(w) },
+                            ) { close ->
+                                DropdownMenuItem(text = { Text("Editar") }, onClick = { close(); controller.editHtmlWidget(w) })
+                                DropdownMenuItem(text = { Text("Testar") }, onClick = { close(); controller.testHtml(w, w.kind) })
+                                androidx.compose.material3.HorizontalDivider()
                                 DropdownMenuItem(
-                                    text = { Text("Apagar dados salvos (${(saved + 1023) / 1024} KB)") },
-                                    onClick = {
-                                        close()
-                                        dev.jesiel.launcher.data.WidgetStorage.clear(context, w.id)
-                                        controller.toast("Dados de \"${w.name}\" apagados")
-                                    },
+                                    text = { Text(if (w.onDesktop) "Tirar da área de trabalho" else "Pôr na área de trabalho") },
+                                    onClick = { close(); vm.setHtmlWidgetOnDesktop(w.id, !w.onDesktop) },
                                 )
+                                if (HtmlRole.LOCK in roles) {
+                                    DropdownMenuItem(text = { Text("Abrir a tela de bloqueio") }, onClick = { close(); LockScreen.show(context) })
+                                } else {
+                                    DropdownMenuItem(text = { Text("Usar na tela de bloqueio") }, onClick = { close(); controller.useOnLockScreen(w) })
+                                }
+                                if (HtmlRole.APPS in roles) {
+                                    DropdownMenuItem(text = { Text("Voltar à lista do tema") }, onClick = { close(); vm.setAppsHtml(null) })
+                                } else {
+                                    DropdownMenuItem(text = { Text("Usar como lista de apps") }, onClick = { close(); controller.useAsAppList(w) })
+                                }
+                                if (HtmlRole.DOCK in roles) {
+                                    DropdownMenuItem(text = { Text("Voltar à dock do tema") }, onClick = { close(); vm.setDockHtml(null) })
+                                } else {
+                                    DropdownMenuItem(text = { Text("Usar como dock") }, onClick = { close(); controller.useAsDock(w) })
+                                }
+                                androidx.compose.material3.HorizontalDivider()
+                                DropdownMenuItem(text = { Text("Duplicar") }, onClick = { close(); vm.duplicateHtmlWidget(w.id) })
+                                val saved = remember(w.id) { dev.jesiel.launcher.data.WidgetStorage.size(context, w.id) }
+                                if (saved > 0) {
+                                    DropdownMenuItem(
+                                        text = { Text("Apagar dados salvos (${(saved + 1023) / 1024} KB)") },
+                                        onClick = {
+                                            close()
+                                            dev.jesiel.launcher.data.WidgetStorage.clear(context, w.id)
+                                            controller.toast("Dados de \"${w.name}\" apagados")
+                                        },
+                                    )
+                                }
+                                DropdownMenuItem(text = { Text("Publicar na loja") }, onClick = { close(); publishing = w })
+                                DropdownMenuItem(text = { Text("Compartilhar código") }, onClick = { close(); shareHtml(controller, w.name, w.html) })
+                                DropdownMenuItem(text = { Text("Excluir", color = colors.error) }, onClick = { close(); confirmDelete = w })
                             }
-                            DropdownMenuItem(text = { Text("Publicar na loja") }, onClick = { close(); publishing = w })
-                            DropdownMenuItem(text = { Text("Compartilhar código") }, onClick = { close(); shareHtml(controller, w.name, w.html) })
-                            DropdownMenuItem(text = { Text("Excluir", color = colors.error) }, onClick = { close(); confirmDelete = w })
                         }
                     }
-                } else if (tab == 2) {
-                    item(span = StaggeredGridItemSpan.FullLine) {
-                        StoreHeader(
-                            loading = storeLoading,
-                            error = storeError,
-                            count = store?.size,
-                            onRefresh = { storeReload++ },
-                            onOpenPage = { controller.openUrl(HtmlStore.PAGE_URL) },
-                        )
-                    }
-                    val items = store.orEmpty()
-                    items(items, key = { "s-" + it.id }) { item ->
-                        val local = state.htmlWidgets.firstOrNull { it.storeId == item.id }
-                        StoreCard(
-                            item = item,
-                            local = local,
-                            controller = controller,
-                            palette = palette,
-                            onDownload = {
-                                // Já baixado e com versão nova: atualiza no lugar (mantém onde está em uso).
-                                val widget = HtmlStore.toWidget(item, keepId = local?.id)
-                                vm.saveHtmlWidget(if (local != null) widget.copy(onDesktop = local.onDesktop, software = local.software) else widget)
-                                if (local == null) justDownloaded = widget to item.role else controller.toast("\"${item.name}\" atualizado")
-                            },
-                            onTest = { controller.testHtml(HtmlStore.toWidget(item), item.role) },
-                        )
-                    }
-                } else {
-                    item(span = StaggeredGridItemSpan.FullLine) { GuideCard(controller) }
-                    HtmlRole.entries.forEach { role ->
-                        val list = HtmlTemplates.all.filter { it.role == role }
-                        if (list.isEmpty()) return@forEach
-                        item(span = StaggeredGridItemSpan.FullLine, key = "h-${role.name}") {
-                            Text(role.label, fontWeight = FontWeight.SemiBold, color = colors.primary, modifier = Modifier.padding(top = 8.dp))
+                    2 -> {
+                        item(span = { GridItemSpan(maxLineSpan) }) { GuideCard(controller) }
+                        val list = HtmlTemplates.all.filter { matches(it.name, it.role) }
+                        if (list.isEmpty()) item(span = { GridItemSpan(maxLineSpan) }) { EmptyNote("Nenhum modelo com esse filtro.") }
+                        HtmlRole.entries.forEach { role ->
+                            val group = list.filter { it.role == role }
+                            if (group.isEmpty()) return@forEach
+                            item(span = { GridItemSpan(maxLineSpan) }, key = "h-${role.name}") {
+                                Text(role.label, fontWeight = FontWeight.SemiBold, color = colors.primary, modifier = Modifier.padding(top = 4.dp))
+                            }
+                            items(group, key = { "t-" + it.name }) { t ->
+                                TemplateCard(t, controller, palette) { controller.newHtmlWidget(t) }
+                            }
                         }
-                        items(list, key = { "t-" + it.name }) { t ->
-                            TemplateCard(t, controller, palette) { controller.newHtmlWidget(t) }
+                    }
+                    else -> {
+                        item(span = { GridItemSpan(maxLineSpan) }) {
+                            StoreHeader(
+                                loading = storeLoading,
+                                error = storeError,
+                                count = store?.size,
+                                onRefresh = { storeReload++ },
+                                onOpenPage = { controller.openUrl(HtmlStore.PAGE_URL) },
+                            )
+                        }
+                        val order = StudioSort.valueOf(sort).takeIf { it.appliesTo(3) } ?: StudioSort.RECENT
+                        val list = store.orEmpty()
+                            .filter { matches(it.name, it.role, it.author) }
+                            .let { all ->
+                                when (order) {
+                                    StudioSort.NAME -> all.sortedBy { it.name.lowercase() }
+                                    StudioSort.AUTHOR -> all.sortedWith(compareBy({ it.author.lowercase() }, { it.name.lowercase() }))
+                                    StudioSort.KIND -> all.sortedWith(compareBy({ it.role.ordinal }, { it.name.lowercase() }))
+                                    StudioSort.IN_USE -> all.sortedBy { item -> if (state.htmlWidgets.any { it.storeId == item.id }) 0 else 1 }
+                                    else -> all.sortedByDescending { it.updated }
+                                }
+                            }
+                        if (store != null && list.isEmpty()) item(span = { GridItemSpan(maxLineSpan) }) { EmptyNote("Nada com esse filtro.") }
+                        items(list, key = { "s-" + it.id }) { item ->
+                            val local = state.htmlWidgets.firstOrNull { it.storeId == item.id }
+                            StoreCard(
+                                item = item,
+                                local = local,
+                                controller = controller,
+                                palette = palette,
+                                onDownload = {
+                                    // Já baixado e com versão nova: atualiza no lugar (mantém onde está em uso).
+                                    val widget = HtmlStore.toWidget(item, keepId = local?.id)
+                                    vm.saveHtmlWidget(if (local != null) widget.copy(onDesktop = local.onDesktop, software = local.software) else widget)
+                                    if (local == null) justDownloaded = widget to item.role else controller.toast("\"${item.name}\" atualizado")
+                                },
+                                onTest = { controller.testHtml(HtmlStore.toWidget(item), item.role) },
+                            )
                         }
                     }
                 }
             }
-        }
-
-        if (tab == 0) {
-            ExtendedFloatingActionButton(
-                onClick = { controller.newHtmlWidget() },
-                icon = { Icon(Icons.Default.Add, null) },
-                text = { Text("Novo") },
-                modifier = Modifier.align(Alignment.BottomEnd).navigationBarsPadding().padding(20.dp),
-            )
         }
     }
 
@@ -321,7 +395,7 @@ fun HtmlStudio(controller: LauncherController, palette: LauncherPalette) {
                 controller.useHtml(w, role)
                 choosing = null
             },
-            onTemplate = { tab = 1; choosing = null },
+            onTemplate = { tab = 2; kindFilter = role.name; choosing = null },
             onDismiss = { choosing = null },
         )
     }
@@ -372,28 +446,52 @@ fun HtmlStudio(controller: LauncherController, palette: LauncherPalette) {
     }
 }
 
-/** Cartão de "onde está em uso". */
+/** Ordem das listas do Estúdio (algumas valem só para certas abas). */
+private enum class StudioSort {
+    RECENT, NAME, IN_USE, KIND, AUTHOR;
+
+    fun label(tab: Int) = when (this) {
+        RECENT -> if (tab == 3) "Mais novos" else "Recentes"
+        NAME -> "Nome"
+        IN_USE -> if (tab == 3) "Baixados primeiro" else "Em uso primeiro"
+        KIND -> "Tipo"
+        AUTHOR -> "Autor"
+    }
+
+    fun appliesTo(tab: Int) = this != AUTHOR || tab == 3
+}
+
+/** Uma linha da aba "Em uso": lugar, o que está nele e o botão para trocar. */
 @Composable
-private fun androidx.compose.foundation.layout.RowScope.UsageCard(title: String, value: String, active: Boolean, onClick: () -> Unit) {
+private fun UsageRow(role: HtmlRole, value: String, active: Boolean, action: String = "Trocar", onClick: () -> Unit) {
     val colors = MaterialTheme.colorScheme
-    Column(
-        Modifier
-            .weight(1f)
-            .clip(RoundedCornerShape(16.dp))
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(18.dp))
             .background(if (active) colors.primaryContainer else colors.surfaceContainerHigh)
             .clickable(onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 10.dp),
+            .padding(horizontal = 16.dp, vertical = 14.dp),
     ) {
-        Text(title, fontSize = 11.sp, color = if (active) colors.onPrimaryContainer else colors.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        Text(
-            value,
-            fontSize = 14.sp,
-            fontWeight = FontWeight.SemiBold,
-            color = if (active) colors.onPrimaryContainer else colors.onSurface,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
+        Column(Modifier.weight(1f)) {
+            Text(role.label, fontSize = 12.sp, color = if (active) colors.onPrimaryContainer else colors.onSurfaceVariant)
+            Text(
+                value,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = if (active) colors.onPrimaryContainer else colors.onSurface,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        Text(action, color = colors.primary, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
     }
+}
+
+@Composable
+private fun EmptyNote(text: String) {
+    Text(text, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 24.dp))
 }
 
 @Composable
@@ -429,12 +527,16 @@ fun HtmlPreview(
 ) {
     BoxWithConstraints(modifier.clip(RoundedCornerShape(16.dp)).background(PreviewBackground)) {
         if (role == HtmlRole.DESKTOP) {
-            HtmlWidgetView(widget, controller, palette, Modifier.fillMaxWidth().height(maxWidth * 0.62f).padding(6.dp), onStatus = onStatus, storageId = storageId)
+            HtmlWidgetView(
+                widget, controller, palette,
+                (if (constraints.hasBoundedHeight) Modifier.fillMaxSize() else Modifier.fillMaxWidth().height(maxWidth * 0.62f)).padding(6.dp),
+                onStatus = onStatus, storageId = storageId,
+            )
         } else if (role == HtmlRole.DOCK) {
             // Dock: a largura de um celular e a altura configurada, reduzidas para caber.
             val dockH = controller.viewModel.state.value.dockHtmlHeight.dp
-            val scale = maxWidth / PHONE_W
-            Box(Modifier.size(PHONE_W * scale, (dockH + 24.dp) * scale).clipToBounds()) {
+            val scale = (maxWidth / PHONE_W).coerceAtMost(if (constraints.hasBoundedHeight) maxHeight / (dockH + 24.dp) else 1f)
+            Box(Modifier.align(Alignment.Center).size(PHONE_W * scale, (dockH + 24.dp) * scale).clipToBounds()) {
                 Box(
                     Modifier
                         .wrapContentSize(Alignment.TopStart, unbounded = true)
@@ -485,22 +587,26 @@ private fun WidgetCard(
             .padding(8.dp),
     ) {
         Box {
-            HtmlPreview(widget, role, controller, palette, Modifier.fillMaxWidth())
+            HtmlPreview(widget, role, controller, palette, Modifier.fillMaxWidth().height(PREVIEW_HEIGHT))
             Box(Modifier.matchParentSize().clickable(onClick = onOpen))
         }
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 6.dp)) {
             Column(Modifier.weight(1f).padding(start = 4.dp)) {
                 Text(widget.name, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, color = colors.onSurface)
                 Text(
-                    if (roles.isEmpty()) "Guardado" else roles.joinToString(" · ") { it.label },
-                    fontSize = 11.sp,
-                    color = if (roles.isEmpty()) colors.onSurfaceVariant else colors.primary,
-                    maxLines = 2,
-                )
-                Text(
-                    listOfNotNull(if (widget.interactive) "JavaScript" else "Leve", if (widget.network) "Internet" else null).joinToString(" · "),
+                    listOfNotNull(widget.kind.label, if (widget.interactive) "JS" else null, if (widget.network) "Internet" else null).joinToString(" · "),
                     fontSize = 11.sp,
                     color = colors.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    if (roles.isEmpty()) "Guardado" else "Em uso: " + roles.joinToString(", ") { it.label.lowercase() },
+                    fontSize = 11.sp,
+                    fontWeight = if (roles.isEmpty()) FontWeight.Normal else FontWeight.SemiBold,
+                    color = if (roles.isEmpty()) colors.onSurfaceVariant else colors.primary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
             Box {
@@ -525,7 +631,7 @@ private fun TemplateCard(template: HtmlTemplate, controller: LauncherController,
             .padding(8.dp),
     ) {
         Box {
-            HtmlPreview(widget, template.role, controller, palette, Modifier.fillMaxWidth(), storageId = null)
+            HtmlPreview(widget, template.role, controller, palette, Modifier.fillMaxWidth().height(PREVIEW_HEIGHT), storageId = null)
             Box(Modifier.matchParentSize().clickable(onClick = onUse))
         }
         Text(template.name, fontWeight = FontWeight.SemiBold, color = colors.onSurface, modifier = Modifier.padding(start = 4.dp, top = 6.dp))
@@ -671,7 +777,7 @@ private fun StoreCard(
             .padding(8.dp),
     ) {
         Box {
-            HtmlPreview(preview, item.role, controller, palette, Modifier.fillMaxWidth(), storageId = null)
+            HtmlPreview(preview, item.role, controller, palette, Modifier.fillMaxWidth().height(PREVIEW_HEIGHT), storageId = null)
             // Tocar na prévia testa o widget (links e scripts ficam para o testador).
             Box(Modifier.matchParentSize().clickable(onClick = onTest))
         }

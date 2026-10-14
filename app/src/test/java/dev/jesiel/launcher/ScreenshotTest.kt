@@ -611,8 +611,25 @@ class ScreenshotTest {
         }
         compose.mainClock.advanceTimeBy(1_000)
         compose.waitForIdle()
-        org.junit.Assert.assertEquals("no cartão de uso e no do widget", 2, compose.onAllNodesWithText("Lista de apps · Material").fetchSemanticsNodes().size)
+        compose.onNodeWithText("Lista de apps · Material").assertExists()
         compose.onRoot().captureRoboImage(shot("html-studio"))
+        // Aba "Em uso": cada lugar com o widget escolhido.
+        compose.onNodeWithText("Em uso").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText("Lista de apps · Material").assertExists()
+        compose.onRoot().captureRoboImage(shot("html-studio-usage"))
+        // Filtro por tipo: só os docks; ordem por nome.
+        compose.onNodeWithText("Meus", substring = true).performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText("Dock").performScrollTo().performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText("Relógio").assertDoesNotExist()
+        compose.onNodeWithText("Todos").performScrollTo().performClick()
+        compose.onNodeWithText("⇅ Recentes").performClick()
+        compose.onNodeWithText("Nome").performClick()
+        compose.waitForIdle()
+        val names = listOf("Lista de apps · Material", "Relógio").map { compose.onNodeWithText(it).fetchSemanticsNode().boundsInRoot }
+        org.junit.Assert.assertTrue("ordem por nome: Lista antes de Relógio", names[0].top < names[1].top || (names[0].top == names[1].top && names[0].left < names[1].left))
         compose.onNodeWithText("Modelos").performClick()
         compose.waitForIdle()
         compose.onRoot().captureRoboImage(shot("html-studio-templates"))
@@ -715,5 +732,59 @@ class ScreenshotTest {
         compose.waitForIdle()
         org.junit.Assert.assertTrue(controller.viewModel.state.value.htmlWidgets.any { it.storeId != null })
         dev.jesiel.launcher.data.HtmlStore.indexUrl = dev.jesiel.launcher.data.HtmlStore.INDEX_URL
+    }
+
+    /** Segurar um app da dock (sem arrastar) abre o menu com "Remover do dock". */
+    @Test
+    fun longPressDockAppShowsRemove() {
+        val controller = controller()
+        compose.setContent { IosLauncher(sampleState().copy(home = emptyList()), controller) }
+        compose.onNodeWithContentDescription(apps[4].label).performTouchInput {
+            down(center)
+            advanceEventTime(viewConfiguration.longPressTimeoutMillis + 200)
+            up()
+        }
+        compose.mainClock.advanceTimeBy(500)
+        compose.waitForIdle()
+        compose.onRoot().captureRoboImage(shot("ios-dock-menu"))
+        compose.onNodeWithText("Remover do dock", substring = true, ignoreCase = true).assertExists()
+    }
+
+    /** Segurar um app da dock e arrastar para cima tira ele da dock. */
+    @Test
+    fun dragDockAppOutRemovesIt() {
+        val controller = controller()
+        val keys = listOf(apps[4].key, apps[1].key, apps[0].key, apps[2].key)
+        controller.viewModel.reorderDock(keys)
+        compose.setContent { IosLauncher(sampleState().copy(home = emptyList()), controller) }
+        compose.onNodeWithContentDescription(apps[4].label).performTouchInput {
+            down(center)
+            advanceEventTime(viewConfiguration.longPressTimeoutMillis + 100)
+            moveBy(androidx.compose.ui.geometry.Offset(0f, -height * 0.6f))
+            moveBy(androidx.compose.ui.geometry.Offset(0f, -height * 1.2f))
+        }
+        compose.mainClock.advanceTimeBy(200)
+        compose.waitForIdle()
+        compose.onNodeWithText("Solte para remover da dock").assertExists()
+        compose.onRoot().captureRoboImage(shot("ios-dock-drag-out"))
+        compose.onNodeWithContentDescription(apps[4].label).performTouchInput { up() }
+        compose.mainClock.advanceTimeBy(500)
+        compose.waitForIdle()
+        org.junit.Assert.assertFalse(apps[4].key in controller.viewModel.state.value.dockKeys)
+    }
+
+    /** Ajustes › Tela inicial › Dock: lista dos apps da dock com remover e reordenar. */
+    @Test
+    fun dockAppsEditorInSettings() {
+        val controller = controller()
+        controller.viewModel.reorderDock(listOf(apps[4].key, apps[1].key))
+        compose.setContent { SettingsScreen(sampleState(), controller, onClose = {}) }
+        compose.onNodeWithText("Tela inicial").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText("Apps na dock", substring = true).performScrollTo()
+        compose.onRoot().captureRoboImage(shot("settings-dock-apps"))
+        compose.onNodeWithContentDescription("Remover ${apps[4].label} da dock").performScrollTo().performClick()
+        compose.waitForIdle()
+        org.junit.Assert.assertFalse(apps[4].key in controller.viewModel.state.value.dockKeys)
     }
 }
