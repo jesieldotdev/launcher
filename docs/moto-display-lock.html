@@ -38,6 +38,7 @@
 .icon{width:min(15vw,9vh);aspect-ratio:1;border-radius:50%;border:1.5px solid var(--ring);
   display:flex;align-items:center;justify-content:center;font-size:min(6vw,4vh);font-weight:300;color:#fff;
   background:rgba(79,195,247,.06);transition:transform .15s,background .15s}
+.icon svg{width:46%;height:46%;fill:none;stroke:#fff;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
 .icon.on{background:rgba(79,195,247,.28);transform:scale(1.08)}
 .icon.more{font-size:min(4.4vw,2.8vh);border-style:dashed}
 </style>
@@ -70,6 +71,50 @@
 var notes = [], peekIndex = -1, peekTimer = null;
 function el(id){ return document.getElementById(id); }
 function short(s){ return String(s || '').replace(/[-\s].*/, '').slice(0, 3).toUpperCase(); }
+
+// Ícones de linha (24×24) por app; quem não está na lista ganha um sino.
+var ICONS = {
+  whatsapp: '<path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/><path d="M9.2 8.6c-.4 2.9 3.3 6.6 6.2 6.2l.8-1.3-1.7-1-.9.6a4.5 4.5 0 0 1-2.7-2.7l.6-.9-1-1.7z"/>',
+  messenger: '<path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/><path d="m7.5 13.5 3-3 2.5 2 3.5-3.5"/>',
+  sms: '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M8 9h8M8 13h5"/>',
+  mail: '<rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>',
+  send: '<path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/>',
+  instagram: '<rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="4"/><path d="M17.5 6.5h.01"/>',
+  facebook: '<path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/>',
+  x: '<path d="M4 4l11.7 16H20L8.3 4z"/><path d="M4 20l6.8-6.8M13.2 10.8 20 4"/>',
+  linkedin: '<path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-4 0v7h-4v-7a6 6 0 0 1 6-6z"/><rect x="2" y="9" width="4" height="12"/><circle cx="4" cy="4" r="2"/>',
+  youtube: '<path d="M2.5 17a24 24 0 0 1 0-10 2 2 0 0 1 1.4-1.4 49.6 49.6 0 0 1 16.2 0A2 2 0 0 1 21.5 7a24 24 0 0 1 0 10 2 2 0 0 1-1.4 1.4 49.6 49.6 0 0 1-16.2 0A2 2 0 0 1 2.5 17"/><path d="m10 15 5-3-5-3z"/>',
+  spotify: '<circle cx="12" cy="12" r="10"/><path d="M7 9.5c3.5-1 7-.7 10 1M7.6 12.6c2.8-.7 5.6-.4 8 .9M8.3 15.5c2.1-.5 4.2-.3 6 .7"/>',
+  music: '<path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>',
+  phone: '<path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.9.6 2.8.7a2 2 0 0 1 1.7 2z"/>',
+  calendar: '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',
+  clock: '<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2M5 3 2 6M22 6l-3-3"/>',
+  card: '<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20M6 15h4"/>',
+  bag: '<path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><path d="M3 6h18M16 10a4 4 0 0 1-8 0"/>',
+  game: '<rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 12h4M8 10v4M15 13h.01M18 11h.01"/>',
+  pin: '<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>',
+  image: '<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/>',
+  download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5M12 15V3"/>',
+  gear: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9 7 7M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/>',
+  bell: '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>'
+};
+// Ordem importa: o Messenger (facebook.orca) vem antes do Facebook.
+var RULES = [
+  [/whatsapp/, 'whatsapp'], [/orca|messenger/, 'messenger'], [/telegram|thunderdog|nekogram/, 'send'],
+  [/\.gm\b|gmail|mail|outlook/, 'mail'], [/messaging|\bmms|sms|mensag/, 'sms'],
+  [/instagram/, 'instagram'], [/facebook/, 'facebook'], [/twitter|com\.x\./, 'x'], [/linkedin/, 'linkedin'],
+  [/discord/, 'game'], [/youtube/, 'youtube'], [/spotify/, 'spotify'], [/musically|tiktok|deezer|music|soundcloud/, 'music'],
+  [/dialer|incallui|telecom|phone|contacts/, 'phone'], [/calendar|agenda/, 'calendar'], [/deskclock|clock|alarm/, 'clock'],
+  [/nubank|itau|bradesco|bancointer|\binter\b|caixa|bb\.android|picpay|mercadopago|santander|c6bank|banco/, 'card'],
+  [/shopee|amazon|mercadolibre|mercadolivre|aliexpress|magalu|shein/, 'bag'],
+  [/maps|waze|uber|taxis99|\b99\b|ifood/, 'pin'], [/photos|gallery|galeria|camera/, 'image'],
+  [/vending|play store/, 'download'], [/systemui|settings|securitycenter|^android\b/, 'gear']
+];
+function iconFor(n){
+  var key = ((n.pacote || '') + ' ' + (n.app || '')).toLowerCase(), name = 'bell';
+  for (var r = 0; r < RULES.length; r++) if (RULES[r][0].test(key)) { name = RULES[r][1]; break; }
+  return '<svg viewBox="0 0 24 24">' + ICONS[name] + '</svg>';
+}
 
 function peek(i){
   clearTimeout(peekTimer);
@@ -126,7 +171,8 @@ function onLauncherData(d){
   byApp.slice(0, 4).forEach(function(i){
     var n = notes[i], dot = document.createElement('div');
     dot.className = 'icon'; dot.dataset.i = i;
-    dot.textContent = (n.app || '?').trim().charAt(0).toUpperCase();
+    dot.innerHTML = iconFor(n);
+    dot.setAttribute('aria-label', n.app || '');
     dot.onclick = function(){ peek(i); };
     box.appendChild(dot);
   });
