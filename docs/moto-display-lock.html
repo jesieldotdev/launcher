@@ -20,7 +20,7 @@
 .date{display:flex;align-items:center;gap:2.2vw;margin-top:1.6vh;font-size:min(3.8vw,2.6vh);letter-spacing:.08em;opacity:.85}
 .date b{font-size:min(8vw,5.2vh);font-weight:300;letter-spacing:0;opacity:1}
 .preview{position:absolute;inset:14%;display:flex;flex-direction:column;align-items:center;justify-content:center;
-  text-align:center;opacity:0;pointer-events:none;transition:opacity .25s;text-decoration:none;color:#fff}
+  text-align:center;opacity:0;pointer-events:none;transition:opacity .2s;color:#fff}
 .preview .app{font-size:min(3.6vw,2.4vh);letter-spacing:.12em;text-transform:uppercase;color:var(--ring)}
 .preview .title{font-size:min(5.6vw,3.6vh);font-weight:400;margin-top:1.2vh;max-width:100%;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -28,14 +28,16 @@
   display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
 .preview .open{margin-top:1.6vh;font-size:min(3vw,2vh);letter-spacing:.1em;opacity:.55}
 .moto.peek .face{opacity:0}
-.moto.peek .preview{opacity:1;pointer-events:auto}
+.moto.peek .preview{opacity:1}
 .moto.peek .level{stroke:var(--dim)}
+.moto.peek.arm .level{stroke:var(--ring);filter:drop-shadow(0 0 6px var(--ring))}
+.moto.arm .preview .open{opacity:1;color:var(--ring)}
 .music{margin-top:3vh;font-size:min(3.6vw,2.4vh);opacity:.7;max-width:80vw;letter-spacing:.02em;
   display:flex;flex-direction:column;align-items:center;gap:1vh}
 .music .t{max-width:80vw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .music a{color:#fff;text-decoration:none;margin:0 2.5vw;font-size:1.3em}
 .icons{position:absolute;bottom:21vh;left:0;right:0;display:flex;justify-content:center;gap:4vw}
-.icon{width:min(15vw,9vh);aspect-ratio:1;border-radius:50%;border:1.5px solid var(--ring);
+.icon{width:min(15vw,9vh);aspect-ratio:1;border-radius:50%;border:1.5px solid var(--ring);touch-action:none;
   display:flex;align-items:center;justify-content:center;font-size:min(6vw,4vh);font-weight:300;color:#fff;
   background:rgba(79,195,247,.06);transition:transform .15s,background .15s}
 .icon svg{width:46%;height:46%;fill:none;stroke:#fff;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
@@ -54,12 +56,13 @@
       <div class="time" id="time">--:--</div>
       <div class="date"><span id="wd"></span><b id="day"></b><span id="mon"></span></div>
     </div>
-    <a class="preview" id="preview" href="#">
+    <div class="preview" id="preview">
       <div class="app" id="pApp"></div>
       <div class="title" id="pTitle"></div>
       <div class="text" id="pText"></div>
-      <div class="open">TOQUE PARA ABRIR</div>
-    </a>
+      <div class="open" id="pOpen">ARRASTE ATÉ AQUI PARA ABRIR</div>
+    </div>
+    <a id="openLink" href="#" hidden></a>
   </div>
   <div class="music" id="music"></div>
   <div class="icons" id="icons"></div>
@@ -68,7 +71,7 @@
 <script>
 // Variáveis usadas: launcher.hora launcher.bateria launcher.carregando launcher.diaSemana launcher.dia launcher.mes
 // launcher.notificacoesLista launcher.musicaTitulo launcher.musicaArtista launcher.musicaTocando
-var notes = [], peekIndex = -1, peekTimer = null;
+var notes = [], peekIndex = -1;
 function el(id){ return document.getElementById(id); }
 function short(s){ return String(s || '').replace(/[-\s].*/, '').slice(0, 3).toUpperCase(); }
 
@@ -116,22 +119,51 @@ function iconFor(n){
   return '<svg viewBox="0 0 24 24">' + ICONS[name] + '</svg>';
 }
 
-function peek(i){
-  clearTimeout(peekTimer);
-  var moto = el('moto');
-  if (i === peekIndex || i < 0 || !notes[i]) {
-    peekIndex = -1; moto.classList.remove('peek'); markIcons(); return;
-  }
-  peekIndex = i;
+// Como no Moto Display: a prévia só aparece enquanto o dedo segura o círculo.
+// Arrastar até o anel e soltar ali abre o app (na tela de bloqueio, pede o desbloqueio antes).
+function show(i){
   var n = notes[i];
+  if (!n) return;
+  peekIndex = i;
   el('pApp').textContent = n.app || '';
   el('pTitle').textContent = n.titulo || n.app || '';
   el('pText').textContent = n.texto || '';
-  // Abrir o app: na tela de bloqueio, o Launcher pede o desbloqueio antes.
-  el('preview').setAttribute('href', n.pacote ? 'launcher://app/' + n.pacote : '#');
-  moto.classList.add('peek');
+  el('moto').classList.add('peek');
   markIcons();
-  peekTimer = setTimeout(function(){ peek(-1); }, 6000);
+}
+function hide(){
+  peekIndex = -1;
+  el('moto').classList.remove('peek', 'arm');
+  el('pOpen').textContent = 'ARRASTE ATÉ AQUI PARA ABRIR';
+  markIcons();
+}
+function overDial(x, y){
+  var r = document.querySelector('.dial').getBoundingClientRect();
+  return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
+}
+function holdable(dot, i){
+  dot.addEventListener('pointerdown', function(e){
+    e.preventDefault();
+    dot.setPointerCapture(e.pointerId);
+    show(i);
+  });
+  dot.addEventListener('pointermove', function(e){
+    if (peekIndex !== i) return;
+    var arm = overDial(e.clientX, e.clientY);
+    el('moto').classList.toggle('arm', arm);
+    el('pOpen').textContent = arm ? 'SOLTE PARA ABRIR' : 'ARRASTE ATÉ AQUI PARA ABRIR';
+  });
+  dot.addEventListener('pointerup', function(e){
+    var n = notes[i], open = peekIndex === i && overDial(e.clientX, e.clientY);
+    hide();
+    if (open && n && n.pacote) {
+      var link = el('openLink');
+      link.setAttribute('href', 'launcher://app/' + n.pacote);
+      link.click();
+    }
+  });
+  dot.addEventListener('pointercancel', hide);
+  dot.addEventListener('contextmenu', function(e){ e.preventDefault(); });
 }
 function markIcons(){
   var kids = el('icons').children;
@@ -173,7 +205,7 @@ function onLauncherData(d){
     dot.className = 'icon'; dot.dataset.i = i;
     dot.innerHTML = iconFor(n);
     dot.setAttribute('aria-label', n.app || '');
-    dot.onclick = function(){ peek(i); };
+    holdable(dot, i);
     box.appendChild(dot);
   });
   if (byApp.length > 4) {
@@ -181,6 +213,6 @@ function onLauncherData(d){
     more.className = 'icon more'; more.textContent = '+' + (byApp.length - 4);
     box.appendChild(more);
   }
-  if (peekIndex >= notes.length) peek(-1); else markIcons();
+  if (peekIndex >= 0) hide(); else markIcons();
 }
 </script>
