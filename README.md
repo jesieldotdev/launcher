@@ -161,3 +161,9 @@ O Play Protect bloqueia, fora da Play Store, apps que pedem acesso a notificaç�
 
 - [`releases/launcher.apk`](releases/launcher.apk): completa, com as variáveis de música e notificações.
 - [`releases/launcher-leve.apk`](releases/launcher-leve.apk): sem o acesso a notificações; o resto é igual. Gerada com `./gradlew assembleLeve`.
+
+### Cores do Material You nos widgets
+
+`corPrimaria`, `corPrimariaFundo`, `corSecundaria`, `corTerciaria`, `corFundo`, `corSuperficie`, `corTexto`, `corTextoSuave` e `corContorno` trazem a paleta dinâmica do sistema (Android 12+), no tom certo para o modo claro ou escuro do Launcher. Use em CSS: `color: var(--corPrimaria)`; para transparência, `color-mix(in srgb, var(--corPrimaria) 35%, transparent)`. Exemplo: [`docs/material-clock-widget.html`](docs/material-clock-widget.html) (modelo "Relógio Material You").
+
+![Escuro](docs/screenshots/html-widget-material-dark.png) ![Claro](docs/screenshots/html-widget-material-light.png)

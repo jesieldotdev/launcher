@@ -55,7 +55,12 @@ fun rememberHtmlValues(palette: LauncherPalette, used: Set<String>, controller: 
     } else ""
     // Posição da música: só anda (1×/s) se o widget mostra posição ou progresso e algo está tocando.
     val tick = if (music?.playing == true && ("musicaPosicao" in used || "musicaProgresso" in used)) rememberTicker(1_000) else 0L
-    return remember(now, battery, memory, palette, used, ntfy, music, notifications, network, volume, lastApp, tick) {
+    // A configuração muda quando o papel de parede (e com ele a paleta do Material You) muda.
+    val configuration = androidx.compose.ui.platform.LocalConfiguration.current
+    val material = if (used.any { it in MaterialColors.names }) {
+        remember(configuration, palette.dark, palette.accent) { MaterialColors.of(context, palette.dark, palette.accent.toArgb()) }
+    } else emptyMap()
+    return remember(now, battery, memory, palette, used, ntfy, music, notifications, network, volume, lastApp, tick, material) {
         val date = Date(now)
         fun fmt(p: String) = SimpleDateFormat(p, locale).format(date)
         val hour = Calendar.getInstance().apply { timeInMillis = now }.get(Calendar.HOUR_OF_DAY)
@@ -99,6 +104,7 @@ fun rememberHtmlValues(palette: LauncherPalette, used: Set<String>, controller: 
             put("musicaDuracao", if (music != null && music.durationMs > 0) MediaWatcher.formatTime(music.durationMs) else "")
             put("musicaProgresso", if (music != null && music.durationMs > 0) (position * 100 / music.durationMs).toString() else "0")
             put("musicaCapa", music?.artDataUri.orEmpty())
+            putAll(material)
         }
     }
 }

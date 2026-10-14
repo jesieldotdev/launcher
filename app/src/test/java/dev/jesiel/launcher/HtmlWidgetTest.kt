@@ -87,4 +87,16 @@ class HtmlWidgetTest {
         assertTrue(base.copy(playing = false).positionNow(6_000) == 10_000L)
         assertTrue(base.positionNow(999_999) == 60_000L)
     }
+
+    @Test
+    fun materialYouColorsAreHexInBothModes() {
+        val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
+        listOf(true, false).forEach { dark ->
+            val colors = dev.jesiel.launcher.ui.common.MaterialColors.of(context, dark, 0xFF3366CC.toInt())
+            assertTrue(colors.keys == dev.jesiel.launcher.ui.common.MaterialColors.names.toSet())
+            colors.values.forEach { assertTrue("cor inválida: $it", Regex("#[0-9A-F]{6}").matches(it)) }
+        }
+        // Todas as cores do Material You aparecem na lista de variáveis do editor.
+        dev.jesiel.launcher.ui.common.MaterialColors.names.forEach { n -> assertTrue(HtmlVariables.all.any { it.first == n }) }
+    }
 }

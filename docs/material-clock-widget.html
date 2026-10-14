@@ -1,0 +1,191 @@
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700&display=swap');
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    overflow: hidden;
+    background: transparent;
+  }
+
+  .terminal {
+    /* Diminua este valor para deixar mais transparente */
+    --fundo: .55;
+    /* Cores do Material You (mudam com o papel de parede e com o modo claro/escuro) */
+    --cor: var(--corPrimaria);
+    --texto: var(--corTexto);
+    --suave: var(--corTextoSuave);
+
+    width: 100%;
+    height: 100%;
+    position: relative;
+    overflow: hidden;
+    container-type: size;
+    color: var(--cor);
+    font-family: 'Orbitron', 'Courier New', monospace;
+    border: 1px solid color-mix(in srgb, var(--cor) 35%, transparent);
+    border-radius: 16px;
+    background: transparent;
+    box-shadow:
+      inset 0 0 35px rgba(0, 0, 0, .25),
+      inset 0 1px 0 color-mix(in srgb, var(--cor) 12%, transparent);
+    isolation: isolate;
+  }
+
+  .terminal::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    opacity: var(--fundo);
+    background:
+      radial-gradient(
+        ellipse at center,
+        var(--corPrimariaFundo) 0%,
+        var(--corSuperficie) 65%,
+        var(--corFundo) 100%
+      );
+  }
+
+  .terminal::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 2;
+    background: repeating-linear-gradient(
+      to bottom,
+      transparent 0px,
+      transparent 3px,
+      rgba(0, 0, 0, .18) 3px,
+      rgba(0, 0, 0, .18) 4px
+    );
+    box-shadow: inset 0 0 45px rgba(0, 0, 0, .2);
+  }
+
+  .layout {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    padding: 4cqh 4cqw;
+  }
+
+  .top, .bottom {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    font-size: clamp(10px, 4cqh, 22px);
+    font-weight: 500;
+    letter-spacing: .08em;
+    text-shadow: 0 1px 4px rgba(0, 0, 0, .8);
+  }
+
+  .top {
+    padding-bottom: 3cqh;
+    border-bottom: 1px solid color-mix(in srgb, var(--cor) 25%, transparent);
+  }
+
+  .signal {
+    display: inline-block;
+    width: .55em;
+    height: .55em;
+    margin-right: .5em;
+    background: var(--cor);
+    box-shadow: 0 0 10px var(--cor);
+  }
+
+  .clock {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    white-space: nowrap;
+    font-size: min(25cqw, 47cqh);
+    line-height: 1;
+    font-weight: 600;
+    letter-spacing: -.04em;
+    padding-right: .04em;
+    font-variant-numeric: tabular-nums;
+    text-shadow:
+      0 2px 5px rgba(0, 0, 0, .5),
+      0 0 3px color-mix(in srgb, var(--cor) 60%, white),
+      0 0 18px color-mix(in srgb, var(--cor) 45%, transparent),
+      3px 0 0 color-mix(in srgb, var(--corTerciaria) 15%, transparent);
+  }
+
+  .date {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding-bottom: 3cqh;
+    font-size: clamp(11px, 4.5cqh, 25px);
+    font-weight: 400;
+    text-shadow: 0 1px 4px rgba(0, 0, 0, .8);
+  }
+
+  .greeting {
+    color: var(--texto);
+  }
+
+  .bottom {
+    padding-top: 3cqh;
+    border-top: 1px solid color-mix(in srgb, var(--cor) 25%, transparent);
+    color: var(--suave);
+    font-size: clamp(9px, 3.2cqh, 18px);
+  }
+
+  .battery {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    white-space: nowrap;
+  }
+
+  .meter {
+    width: 11cqw;
+    height: .65em;
+    padding: 2px;
+    border: 1px solid color-mix(in srgb, var(--suave) 50%, transparent);
+  }
+
+  .meter-fill {
+    height: 100%;
+    width: clamp(0%, calc(var(--bateria, 0) * 1%), 100%);
+    background: var(--cor);
+    box-shadow: 0 0 8px color-mix(in srgb, var(--cor) 40%, transparent);
+  }
+</style>
+
+<div class="terminal">
+  <div class="layout">
+    <div class="top">
+      <span><span class="signal"></span>LOCAL TIME</span>
+      <span>{{ano}} / CLOCK_01</span>
+    </div>
+
+    <div class="clock">{{hora}}</div>
+
+    <div class="date">
+      <span class="greeting">{{saudacao}}</span>
+      <span>{{data}}</span>
+    </div>
+
+    <div class="bottom">
+      <span>● SISTEMA ONLINE</span>
+      <div class="battery">
+        <span>BAT {{bateria}}%</span>
+        <div class="meter">
+          <div class="meter-fill"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
