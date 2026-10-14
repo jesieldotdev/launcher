@@ -168,6 +168,7 @@ class LauncherPrefs(context: Context) {
         prefs.all.forEach { (key, value) ->
             when (value) {
                 is Boolean -> values.put(key, value)
+                is Int, is Long, is Float -> values.put(key, value)
                 null -> Unit
                 else -> values.put(key, value.toString())
             }
@@ -186,12 +187,19 @@ class LauncherPrefs(context: Context) {
         values.keys().forEach { key ->
             when (val value = values.get(key)) {
                 is Boolean -> editor.putBoolean(key, value)
+                is Int -> editor.putInt(key, value)
+                is Long -> editor.putLong(key, value)
+                is Double -> editor.putFloat(key, value.toFloat())
                 else -> editor.putString(key, value.toString())
             }
         }
         editor.commit()
         _data.value = read()
     }
+
+    /** Número salvo; aceita também texto (backups antigos guardavam tudo como texto). */
+    private fun int(key: String, default: Int): Int =
+        runCatching { prefs.getInt(key, default) }.getOrElse { prefs.getString(key, null)?.toIntOrNull() ?: default }
 
     private fun read(): LauncherData {
         val folders = obj(KEY_FOLDERS).let { json ->
@@ -275,7 +283,7 @@ class LauncherPrefs(context: Context) {
             iconPack = prefs.getString(KEY_ICON_PACK, null),
             iconPackStyleUnthemed = prefs.getBoolean(KEY_ICON_PACK_STYLE, true),
             dockHtmlId = prefs.getString(KEY_DOCK_HTML, null),
-            dockHtmlHeight = prefs.getInt(KEY_DOCK_HTML_HEIGHT, 84),
+            dockHtmlHeight = int(KEY_DOCK_HTML_HEIGHT, 84),
         )
     }
 
