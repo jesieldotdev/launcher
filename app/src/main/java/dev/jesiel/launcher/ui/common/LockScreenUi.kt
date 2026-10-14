@@ -155,6 +155,21 @@ private fun ThemeLock(state: LauncherUiState, palette: LauncherPalette) {
                 )
             }
         }
+        val items by MediaWatcher.notificationItems.collectAsState()
+        if (items.isNotEmpty()) {
+            Spacer(Modifier.height(18.dp))
+            Column(
+                Modifier.fillMaxWidth().glass(palette.card, palette.cardShape, palette.cardStroke).padding(horizontal = 14.dp, vertical = 10.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                items.take(3).forEach { n ->
+                    Text(
+                        dev.jesiel.launcher.data.HtmlVariables.notificationLine(n),
+                        color = palette.cardText, fontSize = 13.sp, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+        }
         Spacer(Modifier.weight(1f))
         music?.let { m -> MusicCard(m, palette) }
         Spacer(Modifier.height(130.dp))

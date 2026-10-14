@@ -17,6 +17,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import java.io.ByteArrayOutputStream
 
+/** Uma notificação pendente, só com o que os widgets mostram. */
+data class NotificationItem(val app: String, val packageName: String, val title: String, val text: String, val postedAt: Long)
+
 /** O que está tocando agora (de qualquer app que publique uma sessão de mídia). */
 data class NowPlaying(
     val title: String,
@@ -49,6 +52,9 @@ object MediaWatcher {
     val nowPlaying: StateFlow<NowPlaying?> = _nowPlaying
     private val _notifications = MutableStateFlow(0)
     val notifications: StateFlow<Int> = _notifications
+    private val _notificationItems = MutableStateFlow<List<NotificationItem>>(emptyList())
+    /** As mais recentes primeiro (até 10). */
+    val notificationItems: StateFlow<List<NotificationItem>> = _notificationItems
 
     private var controller: MediaController? = null
     private var artKey: String? = null
@@ -107,8 +113,9 @@ object MediaWatcher {
 
     private var appLabel = ""
 
-    internal fun onNotifications(count: Int) {
+    internal fun onNotifications(count: Int, items: List<NotificationItem>) {
         _notifications.value = count
+        _notificationItems.value = items
     }
 
     internal fun clear() {
@@ -198,8 +205,31 @@ class MediaListenerService : NotificationListenerService() {
     override fun onNotificationRemoved(sbn: StatusBarNotification?) = countNotifications()
 
     /** Só as que o usuário pode dispensar (sem "tocando agora", downloads em andamento etc.). */
+    private val labels = HashMap<String, String>()
+
     private fun countNotifications() {
         val list = runCatching { activeNotifications }.getOrNull() ?: return
-        MediaWatcher.onNotifications(list.count { it.isClearable && !it.isOngoing && it.packageName != packageName })
+        val pending = list.filter { it.isClearable && !it.isOngoing && it.packageName != packageName }
+        // Resumos de grupo repetem as notificações do grupo; ficam de fora da lista.
+        val items = pending
+            .filter { it.notification.flags and android.app.Notification.FLAG_GROUP_SUMMARY == 0 }
+            .sortedByDescending { it.postTime }
+            .take(10)
+            .map { sbn ->
+                val extras = sbn.notification.extras
+                val app = labels.getOrPut(sbn.packageName) {
+                    runCatching { packageManager.getApplicationLabel(packageManager.getApplicationInfo(sbn.packageName, 0)).toString() }
+                        .getOrDefault(sbn.packageName)
+                }
+                NotificationItem(
+                    app = app,
+                    packageName = sbn.packageName,
+                    title = extras.getCharSequence(android.app.Notification.EXTRA_TITLE)?.toString().orEmpty(),
+                    text = (extras.getCharSequence(android.app.Notification.EXTRA_BIG_TEXT) ?: extras.getCharSequence(android.app.Notification.EXTRA_TEXT))
+                        ?.toString().orEmpty().replace('\n', ' ').take(200),
+                    postedAt = sbn.postTime,
+                )
+            }
+        MediaWatcher.onNotifications(pending.size, items)
     }
 }

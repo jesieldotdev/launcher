@@ -73,6 +73,9 @@ object HtmlVariables {
         "volume" to "Volume de mídia (0–100)",
         "ultimoApp" to "Último app aberto",
         "notificacoes" to "Notificações pendentes (precisa de acesso a notificações)",
+        "notificacoesTexto" to "Últimas notificações, uma por linha (\"WhatsApp · João: oi\")",
+        "notificacaoUltima" to "A notificação mais recente (\"WhatsApp · João: oi\")",
+        "notificacoesLista" to "Notificações em JSON: [{app, pacote, titulo, texto, hora}] (use em JS)",
         "musicaTitulo" to "Música: título",
         "musicaArtista" to "Música: artista",
         "musicaAlbum" to "Música: álbum",
@@ -100,6 +103,7 @@ object HtmlVariables {
         "memoria" to "memory", "armazenamento" to "storage", "tema" to "theme", "cor" to "accent", "ntfy" to "ntfy",
         "horas" to "hours", "minutos" to "minutes", "semana" to "week", "tempBateria" to "batteryTemp",
         "rede" to "network", "volume" to "volume", "ultimoApp" to "lastApp", "notificacoes" to "notifications",
+        "notificacoesTexto" to "notificationsText", "notificacaoUltima" to "lastNotification", "notificacoesLista" to "notificationsList",
         "musicaTitulo" to "musicTitle", "musicaArtista" to "musicArtist", "musicaAlbum" to "musicAlbum",
         "musicaApp" to "musicApp", "musicaTocando" to "musicPlaying", "musicaPosicao" to "musicPosition",
         "musicaDuracao" to "musicDuration", "musicaProgresso" to "musicProgress", "musicaCapa" to "musicCover",
@@ -114,7 +118,22 @@ object HtmlVariables {
         values + values.mapNotNull { (k, v) -> english[k]?.takeIf { it != k }?.let { it to v } }
 
     /** Variáveis que dependem do acesso a notificações. */
-    fun needsNotificationAccess(used: Set<String>) = used.any { it.startsWith("musica") || it == "notificacoes" }
+    fun needsNotificationAccess(used: Set<String>) = used.any { it.startsWith("musica") || it.startsWith("notificac") }
+
+    /** "App · Título: texto" de uma notificação. */
+    fun notificationLine(n: NotificationItem): String = buildString {
+        append(n.app)
+        if (n.title.isNotEmpty()) append(" · ").append(n.title)
+        if (n.text.isNotEmpty()) append(if (n.title.isNotEmpty()) ": " else " · ").append(n.text)
+    }
+
+    /** Lista em JSON para os widgets interativos. */
+    fun notificationsJson(items: List<NotificationItem>, timeFormat: (Long) -> String): String =
+        JSONArray().apply {
+            items.forEach { n ->
+                put(JSONObject().put("app", n.app).put("pacote", n.packageName).put("titulo", n.title).put("texto", n.text).put("hora", timeFormat(n.postedAt)))
+            }
+        }.toString()
 
     private val PLACEHOLDER = Regex("""\{\{\s*([a-zA-Z]+)\s*\}\}""")
     private val TAG = Regex("""<[^>]*>""")
@@ -177,7 +196,9 @@ object HtmlVariables {
         }
 
     /** Números ficam como número (para calc()); textos, entre aspas. */
-    private fun cssValue(v: String) = if (v.toDoubleOrNull() != null || v.startsWith("#")) v else "\"" + v.replace("\"", "'") + "\""
+    // Texto de fora (notificações, músicas) pode ter quebra de linha, aspas ou "</style>": escapados para não quebrar o CSS.
+    private fun cssValue(v: String) = if (v.toDoubleOrNull() != null || (v.startsWith("#") && v.length <= 9 && v.none { it.isWhitespace() })) v
+    else "\"" + v.replace("\\", "\\\\").replace("\"", "'").replace("\n", "\\A ").replace("<", "\\3C ") + "\""
 }
 
 /** Modelos prontos para começar. */

@@ -144,4 +144,21 @@ class HtmlWidgetTest {
         assertTrue(lock.needsUnlock("launcher://ajustes"))
         assertTrue(lock.needsUnlock("https://example.com"))
     }
+
+    @Test
+    fun notificationContentIsSafeInsideTheWidget() {
+        val n = dev.jesiel.launcher.data.NotificationItem("WhatsApp", "com.whatsapp", "João", "oi\n</style><b>x", 0L)
+        assertTrue(HtmlVariables.notificationLine(n) == "WhatsApp · João: oi\n</style><b>x")
+        assertTrue(HtmlVariables.notificationLine(n.copy(title = "")) == "WhatsApp · oi\n</style><b>x")
+        val text = HtmlVariables.notificationLine(n) + "\n" + "Gmail · Fatura"
+        val html = HtmlVariables.render("<p>{{notificacoesTexto}}</p>", mapOf("notificacoesTexto" to text, "musicaTitulo" to "#1 Hit"), interactive = false)
+        // Só o </style> da própria página existe; o do texto foi escapado no CSS e no HTML.
+        assertTrue(html.split("</style>").size == 2)
+        assertTrue(html.contains("&lt;/style&gt;"))
+        assertTrue(html.contains("--musicaTitulo:\"#1 Hit\""))
+        val json = HtmlVariables.notificationsJson(listOf(n)) { "12:30" }
+        val parsed = org.json.JSONArray(json).getJSONObject(0)
+        assertTrue(parsed.getString("app") == "WhatsApp" && parsed.getString("hora") == "12:30" && parsed.getString("pacote") == "com.whatsapp")
+        assertTrue(HtmlVariables.needsNotificationAccess(HtmlVariables.used("{{lastNotification}}")))
+    }
 }

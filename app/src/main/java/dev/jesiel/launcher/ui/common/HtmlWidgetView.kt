@@ -48,6 +48,9 @@ fun rememberHtmlValues(palette: LauncherPalette, used: Set<String>, controller: 
     val ntfy = if ("ntfy" in used) ClaudeLink.topic(context).collectAsState().value.orEmpty() else ""
     val music = if (used.any { it.startsWith("musica") }) MediaWatcher.nowPlaying.collectAsState().value else null
     val notifications = if ("notificacoes" in used) MediaWatcher.notifications.collectAsState().value else 0
+    val notificationItems = if (used.any { it == "notificacoesTexto" || it == "notificacaoUltima" || it == "notificacoesLista" }) {
+        MediaWatcher.notificationItems.collectAsState().value
+    } else emptyList()
     val network = if ("rede" in used) rememberNetworkType() else ""
     val volume = if ("volume" in used) rememberMediaVolume() else 0
     val lastApp = if ("ultimoApp" in used && controller != null) {
@@ -60,7 +63,7 @@ fun rememberHtmlValues(palette: LauncherPalette, used: Set<String>, controller: 
     val material = if (used.any { it in MaterialColors.names }) {
         remember(configuration, palette.dark, palette.accent) { MaterialColors.of(context, palette.dark, palette.accent.toArgb()) }
     } else emptyMap()
-    return remember(now, battery, memory, palette, used, ntfy, music, notifications, network, volume, lastApp, tick, material) {
+    return remember(now, battery, memory, palette, used, ntfy, music, notifications, notificationItems, network, volume, lastApp, tick, material) {
         val date = Date(now)
         fun fmt(p: String) = SimpleDateFormat(p, locale).format(date)
         val hour = Calendar.getInstance().apply { timeInMillis = now }.get(Calendar.HOUR_OF_DAY)
@@ -94,6 +97,12 @@ fun rememberHtmlValues(palette: LauncherPalette, used: Set<String>, controller: 
             put("volume", volume.toString())
             put("ultimoApp", lastApp)
             put("notificacoes", notifications.toString())
+            put("notificacoesTexto", notificationItems.take(5).joinToString("\n", transform = HtmlVariables::notificationLine))
+            put("notificacaoUltima", notificationItems.firstOrNull()?.let(HtmlVariables::notificationLine).orEmpty())
+            if ("notificacoesLista" in used) {
+                val hm = SimpleDateFormat("HH:mm", locale)
+                put("notificacoesLista", HtmlVariables.notificationsJson(notificationItems) { hm.format(Date(it)) })
+            }
             val position = music?.positionNow() ?: 0L
             put("musicaTitulo", music?.title.orEmpty())
             put("musicaArtista", music?.artist.orEmpty())
