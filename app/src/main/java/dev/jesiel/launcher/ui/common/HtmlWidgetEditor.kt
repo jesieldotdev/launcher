@@ -196,6 +196,29 @@ fun HtmlWidgetEditor(
                     }
                 }
             }
+            Text("Criar com outra IA", fontWeight = FontWeight.SemiBold, color = colors.onBackground)
+            Text(
+                "Copie o guia com todas as variáveis e regras, cole no ChatGPT, Claude ou Gemini, descreva o widget e cole a resposta no código.",
+                fontSize = 12.sp,
+                color = Color.Gray,
+            )
+            Row(Modifier.horizontalScroll(rememberScrollState()).padding(vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                fun copy(text: String, what: String) {
+                    val cm = context.getSystemService(android.content.ClipboardManager::class.java)
+                    cm?.setPrimaryClip(android.content.ClipData.newPlainText("Guia de widget HTML", text))
+                    controller.toast("$what copiado")
+                }
+                Chip("Copiar guia") { copy(dev.jesiel.launcher.data.HtmlWidgetGuide.build(), "Guia") }
+                Chip("Copiar guia + código atual") {
+                    copy(dev.jesiel.launcher.data.HtmlWidgetGuide.build(html, interactive, network), "Guia com o código")
+                }
+                Chip("Compartilhar…") {
+                    val send = android.content.Intent(android.content.Intent.ACTION_SEND)
+                        .setType("text/plain")
+                        .putExtra(android.content.Intent.EXTRA_TEXT, dev.jesiel.launcher.data.HtmlWidgetGuide.build(html.takeIf { !isNew }, interactive, network))
+                    controller.start(android.content.Intent.createChooser(send, "Enviar guia para"))
+                }
+            }
             Text("Variáveis (toque para inserir no cursor)", fontWeight = FontWeight.SemiBold, color = colors.onBackground)
             Row(Modifier.horizontalScroll(rememberScrollState()).padding(vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 HtmlVariables.all.forEach { (key, _) -> Chip("{{$key}}") { code.insert("{{$key}}") } }

@@ -99,4 +99,20 @@ class HtmlWidgetTest {
         // Todas as cores do Material You aparecem na lista de variáveis do editor.
         dev.jesiel.launcher.ui.common.MaterialColors.names.forEach { n -> assertTrue(HtmlVariables.all.any { it.first == n }) }
     }
+
+    @Test
+    fun aiGuideListsEveryVariableAndOptionalCode() {
+        val guide = dev.jesiel.launcher.data.HtmlWidgetGuide.build()
+        HtmlVariables.all.forEach { (k, _) -> assertTrue("$k fora do guia", guide.contains("`$k`")) }
+        listOf("launcher://musica/alternar", "onLauncherData", "data-lsrc", "Interativo", "Acesso à internet").forEach { assertTrue(it, guide.contains(it)) }
+        assertFalse(guide.contains("Código atual do widget"))
+        // O exemplo do guia segue as próprias regras.
+        val example = guide.substringAfter("```html\n").substringBefore("```")
+        assertTrue(dev.jesiel.launcher.data.CodeTools.tagProblem(example) == null)
+
+        val withCode = dev.jesiel.launcher.data.HtmlWidgetGuide.build("<b>{{hora}}</b>", interactive = true, network = false)
+        assertTrue(withCode.contains("<b>{{hora}}</b>"))
+        assertTrue(withCode.contains("Interativo = sim, Acesso à internet = não"))
+        assertTrue(withCode.trimEnd().endsWith("[descreva aqui o que mudar]"))
+    }
 }
