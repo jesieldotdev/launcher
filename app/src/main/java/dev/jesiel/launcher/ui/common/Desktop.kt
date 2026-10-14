@@ -328,6 +328,7 @@ fun DesktopCanvas(
                                 onSelect = { selected = entry.id },
                                 onMove = { move(entry.id, it) },
                                 onDragTarget = { previewMove(entry.id, it) },
+                                onDragStarted = { controller.desktopDragTick++ },
                             ) {
                                 EntryContent(entry, state, controller, palette, labels, onRemove = { remove(entry.id) })
                             }
@@ -479,9 +480,12 @@ private fun PlacedItem(
     onSelect: () -> Unit,
     onMove: (Placement) -> Unit,
     onDragTarget: (Placement?) -> Unit,
+    /** Arraste começou fora do modo de edição (segurar e arrastar): fecha menus abertos. */
+    onDragStarted: () -> Unit = {},
     content: @Composable () -> Unit,
 ) {
     val density = LocalDensity.current
+    val haptics = androidx.compose.ui.platform.LocalHapticFeedback.current
     val cellWpx = with(density) { cellW.toPx() }
     val cellHpx = with(density) { cellH.toPx() }
     var drag by remember { mutableStateOf(Offset.Zero) }
@@ -510,6 +514,33 @@ private fun PlacedItem(
     } else 0f
     val lift by animateFloatAsState(if (drag != Offset.Zero) 1.06f else 1f, label = "erguer")
 
+    fun dragBy(amount: Offset) {
+        drag += amount
+        onDragTarget(current.copy(x = ax.value + drag.x / cellWpx, y = ay.value + drag.y / cellHpx))
+    }
+
+    fun drop() {
+        val p = current
+        val dropX = ax.value + drag.x / cellWpx
+        val dropY = ay.value + drag.y / cellHpx
+        scope.launch {
+            ax.snapTo(dropX)
+            ay.snapTo(dropY)
+            drag = Offset.Zero
+            onMove(p.copy(x = dropX, y = dropY))
+            // Se a posição final for a mesma de antes, nada muda no estado e o
+            // item ficaria onde foi solto; então ele sempre desliza até a posição
+            // atual (se ela mudar, o LaunchedEffect acima assume a animação).
+            launch { ax.animateTo(current.x, spring(dampingRatio = 0.75f, stiffness = 400f)) }
+            launch { ay.animateTo(current.y, spring(dampingRatio = 0.75f, stiffness = 400f)) }
+        }
+    }
+
+    fun cancelDrag() {
+        drag = Offset.Zero
+        onDragTarget(null)
+    }
+
     val widthPx = (placement.w * cellWpx + resize.x).coerceAtLeast(cellWpx * 0.5f)
     val heightPx = (placement.h * cellHpx + resize.y).coerceAtLeast(cellHpx * 0.5f)
 
@@ -521,7 +552,16 @@ private fun PlacedItem(
                 rotationZ = wiggle
                 scaleX = lift
                 scaleY = lift
-            },
+            }
+            .then(if (edit) Modifier else Modifier.holdToDrag(
+                onStart = {
+                    haptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
+                    onDragStarted()
+                },
+                onDrag = ::dragBy,
+                onEnd = ::drop,
+                onCancel = ::cancelDrag,
+            )),
     ) {
         content()
         if (edit) {
@@ -535,30 +575,11 @@ private fun PlacedItem(
                     .pointerInput(Unit) {
                         detectDragGestures(
                             onDragStart = { onSelect() },
-                            onDragEnd = {
-                                val p = current
-                                val dropX = ax.value + drag.x / cellWpx
-                                val dropY = ay.value + drag.y / cellHpx
-                                scope.launch {
-                                    ax.snapTo(dropX)
-                                    ay.snapTo(dropY)
-                                    drag = Offset.Zero
-                                    onMove(p.copy(x = dropX, y = dropY))
-                                    // Se a posição final for a mesma de antes, nada muda no estado e o
-                                    // item ficaria onde foi solto; então ele sempre desliza até a posição
-                                    // atual (se ela mudar, o LaunchedEffect acima assume a animação).
-                                    launch { ax.animateTo(current.x, spring(dampingRatio = 0.75f, stiffness = 400f)) }
-                                    launch { ay.animateTo(current.y, spring(dampingRatio = 0.75f, stiffness = 400f)) }
-                                }
-                            },
-                            onDragCancel = {
-                                drag = Offset.Zero
-                                onDragTarget(null)
-                            },
+                            onDragEnd = ::drop,
+                            onDragCancel = ::cancelDrag,
                         ) { change, amount ->
                             change.consume()
-                            drag += amount
-                            onDragTarget(current.copy(x = ax.value + drag.x / cellWpx, y = ay.value + drag.y / cellHpx))
+                            dragBy(amount)
                         }
                     },
             )
@@ -672,6 +693,7 @@ private fun ComponentWithMenu(
     content: @Composable () -> Unit,
 ) {
     var menuAt by remember { mutableStateOf<DpOffset?>(null) }
+    LaunchedEffect(controller.desktopDragTick) { menuAt = null }
     val density = LocalDensity.current
     val haptics = androidx.compose.ui.platform.LocalHapticFeedback.current
     Box(
@@ -694,6 +716,51 @@ private fun ComponentWithMenu(
         }
     }
 }
+
+/**
+ * Segurar e arrastar (fora do modo de edição): na passagem inicial, antes do conteúdo. Mover
+ * antes do toque longo solta o gesto (rolagem, troca de tela e toques seguem normais); segurar
+ * sem mover deixa o conteúdo abrir o menu; mover depois de segurar arrasta o item.
+ */
+private fun Modifier.holdToDrag(onStart: () -> Unit, onDrag: (Offset) -> Unit, onEnd: () -> Unit, onCancel: () -> Unit): Modifier =
+    pointerInput(Unit) {
+        awaitEachGesture {
+            val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+            val longPress = viewConfiguration.longPressTimeoutMillis
+            val slop = viewConfiguration.touchSlop
+            var dragging = false
+            try {
+                while (true) {
+                    val event = awaitPointerEvent(PointerEventPass.Initial)
+                    val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                    if (!change.pressed) {
+                        if (dragging) {
+                            change.consume()
+                            dragging = false
+                            onEnd()
+                        }
+                        break
+                    }
+                    val moved = (change.position - down.position).getDistance() > slop
+                    if (!dragging) {
+                        if (change.uptimeMillis - down.uptimeMillis < longPress) {
+                            if (moved) break // gesto comum: deixa para a rolagem/troca de tela
+                            continue
+                        }
+                        if (!moved) continue // segurando parado: o menu do item cuida
+                        dragging = true
+                        onStart()
+                        onDrag(change.position - down.position)
+                    } else {
+                        onDrag(change.position - change.previousPosition)
+                    }
+                    change.consume()
+                }
+            } finally {
+                if (dragging) onCancel()
+            }
+        }
+    }
 
 /** Detecta toque longo na passagem inicial (antes dos filhos) e, se disparar, consome o gesto. */
 private fun Modifier.longPressFirst(enabled: Boolean, onLongPress: (Offset) -> Unit): Modifier =

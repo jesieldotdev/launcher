@@ -85,6 +85,8 @@ fun AppTile(
     val haptics = LocalHapticFeedback.current
     val interaction = remember { MutableInteractionSource() }
     val iconStyle = LocalIconStyle.current
+    // Segurar e arrastar o ícone fecha o menu que o toque longo abriu.
+    androidx.compose.runtime.LaunchedEffect(controller.desktopDragTick) { menuOpen = false }
 
     Box(modifier) {
         Column(

@@ -339,6 +339,46 @@ class ScreenshotTest {
         compose.onRoot().captureRoboImage(shot("windows-collision"))
     }
 
+    /** Fora do modo de edição: segurar o ícone e arrastar move ele (e afasta quem está no caminho). */
+    @Test
+    fun holdAndDragMovesIconWithoutEditMode() {
+        val controller = controller()
+        compose.setContent { WindowsLauncher(sampleState(), controller) }
+        val before = controller.viewModel.state.value.placements.toMap()
+        compose.onNodeWithText("Chrome").performTouchInput {
+            down(center)
+            advanceEventTime(viewConfiguration.longPressTimeoutMillis + 100)
+            moveBy(androidx.compose.ui.geometry.Offset(width * 0.6f, 0f))
+            moveBy(androidx.compose.ui.geometry.Offset(width * 0.5f, 0f))
+        }
+        compose.mainClock.advanceTimeBy(1_000)
+        compose.waitForIdle()
+        org.junit.Assert.assertFalse("não deve entrar no modo de edição", controller.editMode)
+        compose.onRoot().captureRoboImage(shot("windows-hold-drag"))
+        compose.onNodeWithText("Chrome").performTouchInput { up() }
+        compose.mainClock.advanceTimeBy(1_000)
+        compose.waitForIdle()
+        val after = controller.viewModel.state.value.placements
+        org.junit.Assert.assertTrue("a posição deve ter sido gravada", after != before)
+    }
+
+    /** Arrastar rápido, sem segurar, não move ícone nenhum. */
+    @Test
+    fun quickSwipeDoesNotMoveIcons() {
+        val controller = controller()
+        compose.setContent { WindowsLauncher(sampleState(), controller) }
+        val before = controller.viewModel.state.value.placements.toMap()
+        compose.onNodeWithText("Chrome").performTouchInput {
+            down(center)
+            moveBy(androidx.compose.ui.geometry.Offset(width * 0.6f, 0f))
+            moveBy(androidx.compose.ui.geometry.Offset(width * 0.5f, 0f))
+            up()
+        }
+        compose.mainClock.advanceTimeBy(1_000)
+        compose.waitForIdle()
+        org.junit.Assert.assertEquals(before, controller.viewModel.state.value.placements)
+    }
+
     @Test
     fun windowAreaStopsAboveTheTaskbar() {
         val controller = controller()

@@ -51,6 +51,9 @@ class LauncherController(
     /** Modo de organização da área de trabalho (arrastar, redimensionar, remover). */
     var editMode by mutableStateOf(false)
 
+    /** Incrementado quando um item começa a ser arrastado na área de trabalho (fecha menus abertos). */
+    var desktopDragTick by mutableIntStateOf(0)
+
     /** Incrementado quando o botão Home é pressionado com o launcher já visível. */
     var homePresses by mutableIntStateOf(0)
         private set
