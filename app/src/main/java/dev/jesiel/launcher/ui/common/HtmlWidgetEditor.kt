@@ -163,14 +163,21 @@ fun HtmlWidgetEditor(
                         .background(colors.primary.copy(alpha = 0.12f))
                         .padding(12.dp),
                 ) {
-                    Text("Música e notificações precisam de permissão", fontWeight = FontWeight.SemiBold, color = colors.onBackground)
+                    val supported = remember { dev.jesiel.launcher.data.MediaWatcher.supported(context) }
                     Text(
-                        "O Android só mostra o que está tocando para apps com acesso a notificações. Nada sai do aparelho.",
+                        if (supported) "Música e notificações precisam de permissão" else "Música e notificações indisponíveis na versão leve",
+                        fontWeight = FontWeight.SemiBold, color = colors.onBackground,
+                    )
+                    Text(
+                        if (supported) "O Android só mostra o que está tocando para apps com acesso a notificações. Nada sai do aparelho."
+                        else "Esta versão não tem o acesso a notificações (que o Play Protect bloqueia fora da Play Store). Instale a versão completa para usar essas variáveis.",
                         fontSize = 12.sp,
                         color = Color.Gray,
                     )
-                    androidx.compose.material3.TextButton(onClick = { controller.start(dev.jesiel.launcher.data.MediaWatcher.accessIntent()) }) {
-                        Text("Permitir acesso")
+                    if (supported) {
+                        androidx.compose.material3.TextButton(onClick = { controller.start(dev.jesiel.launcher.data.MediaWatcher.accessIntent()) }) {
+                            Text("Permitir acesso")
+                        }
                     }
                 }
             }

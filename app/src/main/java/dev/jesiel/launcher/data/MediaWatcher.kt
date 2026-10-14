@@ -63,6 +63,11 @@ object MediaWatcher {
         }
     }
 
+    /** Falso na versão leve, que sai sem o serviço (e sem a permissão que o Play Protect barra). */
+    fun supported(context: Context): Boolean = runCatching {
+        context.packageManager.getServiceInfo(ComponentName(context, MediaListenerService::class.java), 0)
+    }.isSuccess
+
     fun hasAccess(context: Context): Boolean =
         Settings.Secure.getString(context.contentResolver, "enabled_notification_listeners")
             ?.contains(context.packageName) == true

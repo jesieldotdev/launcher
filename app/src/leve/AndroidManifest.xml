@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Versão leve: sem o serviço de acesso a notificações. O Play Protect bloqueia a instalação
+  fora da Play Store de apps que pedem essa permissão; sem ela o APK instala normalmente,
+  mas as variáveis de música e de notificações dos widgets ficam vazias.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <application>
+        <service
+            android:name=".data.MediaListenerService"
+            tools:node="remove" />
+    </application>
+</manifest>

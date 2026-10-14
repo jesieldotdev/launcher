@@ -317,6 +317,7 @@ class LauncherController(
                 "musica" -> {
                     val action = uri.lastPathSegment
                     when {
+                        !MediaWatcher.supported(activity) -> toast("Controle de música indisponível na versão leve")
                         !MediaWatcher.hasAccess(activity) -> {
                             toast("Permita o acesso a notificações para controlar a música")
                             start(MediaWatcher.accessIntent(), silent = true)

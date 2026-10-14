@@ -154,3 +154,10 @@ O painel de controle pode ser desativado em **Personalizar › Gestos**; aí o g
 
 Controles: `launcher://musica/alternar`, `/tocar`, `/pausar`, `/proxima`, `/anterior`; `launcher://musica` abre o app que está tocando.
 Música e notificações precisam de **acesso a notificações** (Personalizar › Widgets › Permitir). O Launcher só lê o que está tocando e quantas notificações há; nada sai do aparelho.
+
+### Versão leve (se o Play Protect bloquear)
+
+O Play Protect bloqueia, fora da Play Store, apps que pedem acesso a notificações. Por isso há duas versões, com a mesma assinatura (uma instala por cima da outra):
+
+- [`releases/launcher.apk`](releases/launcher.apk): completa, com as variáveis de música e notificações.
+- [`releases/launcher-leve.apk`](releases/launcher-leve.apk): sem o acesso a notificações; o resto é igual. Gerada com `./gradlew assembleLeve`.

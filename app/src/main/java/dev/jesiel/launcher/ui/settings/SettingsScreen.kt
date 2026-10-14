@@ -775,6 +775,16 @@ private fun MusicAccessRow(controller: LauncherController) {
         access = dev.jesiel.launcher.data.MediaWatcher.hasAccess(context)
         onPauseOrDispose { }
     }
+    val supported = remember { dev.jesiel.launcher.data.MediaWatcher.supported(context) }
+    if (!supported) {
+        Text(
+            "Música e notificações nos widgets: indisponíveis na versão leve.",
+            fontSize = 12.sp,
+            color = Color.Gray,
+            modifier = Modifier.padding(vertical = 4.dp),
+        )
+        return
+    }
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 4.dp)) {
         Column(Modifier.weight(1f)) {
             Text("Música e notificações nos widgets")

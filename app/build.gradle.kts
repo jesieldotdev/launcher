@@ -13,8 +13,8 @@ android {
         applicationId = "dev.jesiel.launcher"
         minSdk = 26
         targetSdk = 35
-        versionCode = 24
-        versionName = "0.15.0"
+        versionCode = 25
+        versionName = "0.15.1"
     }
 
     // Mesma chave para debug e release, para que um APK instale por cima do outro.
@@ -37,6 +37,11 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+        }
+        // Igual ao release, sem o acesso a notificações (ver src/leve/AndroidManifest.xml).
+        create("leve") {
+            initWith(getByName("release"))
+            matchingFallbacks += "release"
         }
     }
 
