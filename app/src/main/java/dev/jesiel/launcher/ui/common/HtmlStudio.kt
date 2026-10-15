@@ -117,6 +117,7 @@ fun HtmlStudio(controller: LauncherController, palette: LauncherPalette) {
     var tab by rememberSaveable { mutableStateOf(0) }
     var confirmDelete by remember { mutableStateOf<HtmlWidget?>(null) }
     var publishing by remember { mutableStateOf<HtmlWidget?>(null) }
+    var changingKind by remember { mutableStateOf<HtmlWidget?>(null) }
     // Loja: catálogo baixado quando a aba abre (e ao tocar em Atualizar).
     var store by remember { mutableStateOf<List<StoreWidget>?>(null) }
     var storeError by remember { mutableStateOf<String?>(null) }
@@ -274,33 +275,28 @@ fun HtmlStudio(controller: LauncherController, palette: LauncherPalette) {
                                 controller = controller,
                                 palette = palette,
                                 onOpen = { controller.editHtmlWidget(w) },
+                                onApply = if (w.kind in roles) null else ({ controller.useHtml(w, w.kind) }),
                             ) { close ->
                                 DropdownMenuItem(text = { Text("Editar") }, onClick = { close(); controller.editHtmlWidget(w) })
                                 DropdownMenuItem(text = { Text("Testar") }, onClick = { close(); controller.testHtml(w, w.kind) })
                                 androidx.compose.material3.HorizontalDivider()
                                 // Só a ação do tipo do widget: cada tipo vai num lugar só.
-                                when (w.kind) {
-                                    HtmlRole.DESKTOP -> DropdownMenuItem(
-                                        text = { Text(if (w.onDesktop) "Tirar da área de trabalho" else "Pôr na área de trabalho") },
-                                        onClick = { close(); vm.setHtmlWidgetOnDesktop(w.id, !w.onDesktop) },
-                                    )
-                                    HtmlRole.LOCK -> if (HtmlRole.LOCK in roles) {
-                                        DropdownMenuItem(text = { Text("Abrir a tela de bloqueio") }, onClick = { close(); LockScreen.show(context) })
-                                        DropdownMenuItem(text = { Text("Voltar à tela de bloqueio do tema") }, onClick = { close(); LockScreen.update(context) { it.copy(style = LockStyle.THEME) } })
-                                    } else {
-                                        DropdownMenuItem(text = { Text("Usar na tela de bloqueio") }, onClick = { close(); controller.useOnLockScreen(w) })
+                                val inUse = w.kind in roles
+                                if (inUse) {
+                                    DropdownMenuItem(text = { Text("✓ Aplicado: ${w.kind.label.lowercase()}", color = colors.primary) }, enabled = false, onClick = {})
+                                    when (w.kind) {
+                                        HtmlRole.DESKTOP -> DropdownMenuItem(text = { Text("Tirar da área de trabalho") }, onClick = { close(); vm.setHtmlWidgetOnDesktop(w.id, false) })
+                                        HtmlRole.LOCK -> {
+                                            DropdownMenuItem(text = { Text("Abrir a tela de bloqueio") }, onClick = { close(); LockScreen.show(context) })
+                                            DropdownMenuItem(text = { Text("Voltar à tela de bloqueio do tema") }, onClick = { close(); LockScreen.update(context) { it.copy(style = LockStyle.THEME) } })
+                                        }
+                                        HtmlRole.APPS -> DropdownMenuItem(text = { Text("Voltar à lista do tema") }, onClick = { close(); vm.setAppsHtml(null) })
+                                        HtmlRole.DOCK -> DropdownMenuItem(text = { Text("Voltar à dock do tema") }, onClick = { close(); vm.setDockHtml(null) })
                                     }
-                                    HtmlRole.APPS -> if (HtmlRole.APPS in roles) {
-                                        DropdownMenuItem(text = { Text("Voltar à lista do tema") }, onClick = { close(); vm.setAppsHtml(null) })
-                                    } else {
-                                        DropdownMenuItem(text = { Text("Usar como lista de apps") }, onClick = { close(); controller.useAsAppList(w) })
-                                    }
-                                    HtmlRole.DOCK -> if (HtmlRole.DOCK in roles) {
-                                        DropdownMenuItem(text = { Text("Voltar à dock do tema") }, onClick = { close(); vm.setDockHtml(null) })
-                                    } else {
-                                        DropdownMenuItem(text = { Text("Usar como dock") }, onClick = { close(); controller.useAsDock(w) })
-                                    }
+                                } else {
+                                    DropdownMenuItem(text = { Text(applyLabel(w.kind), fontWeight = FontWeight.SemiBold) }, onClick = { close(); controller.useHtml(w, w.kind) })
                                 }
+                                DropdownMenuItem(text = { Text("Mudar tipo…") }, onClick = { close(); changingKind = w })
                                 androidx.compose.material3.HorizontalDivider()
                                 DropdownMenuItem(text = { Text("Duplicar") }, onClick = { close(); vm.duplicateHtmlWidget(w.id) })
                                 val saved = remember(w.id) { dev.jesiel.launcher.data.WidgetStorage.size(context, w.id) }
@@ -403,6 +399,22 @@ fun HtmlStudio(controller: LauncherController, palette: LauncherPalette) {
             },
             onTemplate = { tab = 2; kindFilter = role.name; choosing = null },
             onDismiss = { choosing = null },
+        )
+    }
+
+    // Mudar o tipo (para widgets marcados com o tipo errado): sai do lugar onde estava em uso.
+    changingKind?.let { w ->
+        AlertDialog(
+            onDismissRequest = { changingKind = null },
+            title = { Text("Tipo de \"${w.name}\"") },
+            text = {
+                Column {
+                    Text("Cada widget só pode ser usado no lugar do tipo dele. Ao mudar, ele sai de onde está em uso.", fontSize = 12.sp, color = colors.onSurfaceVariant)
+                    Spacer(Modifier.height(8.dp))
+                    HtmlRole.entries.forEach { r -> ChooserRow(r.label, w.kind == r) { vm.setHtmlWidgetKind(w.id, r); changingKind = null } }
+                }
+            },
+            confirmButton = { TextButton(onClick = { changingKind = null }) { Text("Fechar") } },
         )
     }
 
@@ -581,6 +593,8 @@ private fun WidgetCard(
     controller: LauncherController,
     palette: LauncherPalette,
     onOpen: () -> Unit,
+    /** Não aplicado ainda: botão "Aplicar" no próprio cartão. */
+    onApply: (() -> Unit)? = null,
     menu: @Composable (close: () -> Unit) -> Unit,
 ) {
     val colors = MaterialTheme.colorScheme
@@ -620,7 +634,18 @@ private fun WidgetCard(
                 DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) { menu { menuOpen = false } }
             }
         }
+        if (onApply != null) {
+            StudioChip("Aplicar", selected = true, onClick = onApply)
+        }
     }
+}
+
+/** Texto da ação de aplicar, conforme o tipo. */
+private fun applyLabel(kind: HtmlRole) = when (kind) {
+    HtmlRole.DESKTOP -> "Aplicar na área de trabalho"
+    HtmlRole.LOCK -> "Aplicar na tela de bloqueio"
+    HtmlRole.APPS -> "Aplicar como lista de apps"
+    HtmlRole.DOCK -> "Aplicar como dock"
 }
 
 @Composable

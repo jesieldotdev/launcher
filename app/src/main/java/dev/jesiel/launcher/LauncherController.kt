@@ -354,6 +354,9 @@ class LauncherController(
         if (drop != null) drop(drag.app, position) else viewModel.addToHome(drag.app)
     }
 
+    /** Dica mostrada enquanto um app da dock é arrastado (desenhada pela raiz da tela). */
+    var dockDragHint by mutableStateOf<dev.jesiel.launcher.ui.common.DockDragHint?>(null)
+
     /** App cujo menu foi pedido por um widget (launcher://menu/<pacote>). */
     var htmlAppMenu by mutableStateOf<dev.jesiel.launcher.data.AppInfo?>(null)
 
@@ -484,6 +487,26 @@ class LauncherController(
                 // Na lista de apps em HTML: fechar, informações e desinstalar.
                 "fechar", "close" -> htmlDrawerOpen = false
                 "estudio", "studio" -> htmlLibraryOpen = true
+                // Dock em HTML: launcher://dock/ordem/<pacote1>,<pacote2>… e launcher://dock/remover/<pacote>.
+                "dock" -> {
+                    val segments = uri.pathSegments
+                    val apps = viewModel.state.value.apps
+                    when (segments.firstOrNull()) {
+                        "ordem", "order" -> {
+                            val keys = segments.getOrNull(1).orEmpty().split(',').mapNotNull { pkg -> apps.firstOrNull { it.packageName == pkg.trim() }?.key }
+                            val current = viewModel.state.value.dockKeys.toList()
+                            // Só reordena: apps fora da dock são ignorados; os que faltarem vão para o fim.
+                            val order = keys.filter { it in current } + current.filter { it !in keys }
+                            if (order != current) viewModel.reorderDock(order)
+                        }
+                        "remover", "remove" -> segments.getOrNull(1)?.let { pkg -> apps.firstOrNull { it.packageName == pkg } }?.let { app ->
+                            if (app.key in viewModel.state.value.dockKeys) {
+                                viewModel.toggleDock(app)
+                                toast("${app.label} removido da dock")
+                            }
+                        }
+                    }
+                }
                 // Menu do app (o mesmo de segurar um app no launcher): launcher://menu/<pacote>.
                 "menu" -> uri.lastPathSegment?.let { pkg -> viewModel.state.value.apps.firstOrNull { it.packageName == pkg } }?.let { htmlAppMenu = it }
                 "info" -> uri.lastPathSegment?.let { pkg -> viewModel.state.value.apps.firstOrNull { it.packageName == pkg } }?.let(::openAppInfo)

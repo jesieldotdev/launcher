@@ -1,5 +1,6 @@
 package dev.jesiel.launcher.ui.common
 
+import androidx.compose.foundation.layout.offset
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
@@ -97,6 +98,7 @@ fun AppDock(
     var extent by remember { mutableFloatStateOf(0f) }
     // Lido na hora (os gestos guardam as funções da primeira composição).
     fun isRemoving() = dragging != null && extent > 0f && away > extent * 1.2f
+    val tileBounds = remember { HashMap<String, androidx.compose.ui.geometry.Rect>() }
     val removing = isRemoving()
     if (dragging == null && order != keys) order = keys
     val currentKeys by androidx.compose.runtime.rememberUpdatedState(keys)
@@ -129,6 +131,7 @@ fun AppDock(
                     controller = controller,
                     modifier = Modifier
                         .onSizeChanged { extent = (if (vertical) it.height else it.width).toFloat() }
+                        .onGloballyPositioned { tileBounds[app.key] = it.boundsInWindow() }
                         .zIndex(if (lifted) 1f else 0f)
                         .graphicsLayer {
                             if (lifted) {
@@ -154,6 +157,7 @@ fun AppDock(
                             },
                             onDrag = { step(it) },
                             onEnd = {
+                                controller.dockDragHint = null
                                 val remove = isRemoving()
                                 dragging = null
                                 offset = 0f
@@ -164,6 +168,7 @@ fun AppDock(
                                 } else if (order != currentKeys) controller.viewModel.reorderDock(order)
                             },
                             onCancel = {
+                                controller.dockDragHint = null
                                 dragging = null
                                 offset = 0f
                                 away = 0f
@@ -176,32 +181,13 @@ fun AppDock(
                     iconBackground = palette.iconBackground,
                     onLaunched = onLaunched,
                 )
-                // Dica acima da dock enquanto o app é arrastado.
+                // Dica acima da dock enquanto o app é arrastado. Desenhada pela raiz da tela, na
+                // mesma janela: uma janela nova (Popup) no meio do gesto cancelava o arraste em
+                // alguns aparelhos.
                 if (lifted) {
-                    androidx.compose.ui.window.Popup(
-                        alignment = if (vertical) Alignment.CenterEnd else Alignment.TopCenter,
-                        offset = with(androidx.compose.ui.platform.LocalDensity.current) {
-                            if (vertical) androidx.compose.ui.unit.IntOffset(96.dp.roundToPx(), 0) else androidx.compose.ui.unit.IntOffset(0, -64.dp.roundToPx())
-                        },
-                    ) {
-                        // O ícone sai da área da dock (que corta o que passa da borda): aparece aqui.
-                        androidx.compose.foundation.layout.Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                        if (removing) {
-                            androidx.compose.foundation.Image(app.icon, contentDescription = null, modifier = Modifier.size(40.dp).graphicsLayer { alpha = 0.85f })
-                        }
-                        androidx.compose.material3.Text(
-                            if (removing) "Solte para remover da dock" else if (vertical) "Arraste para a direita para remover" else "Arraste para cima para remover",
-                            color = Color.White,
-                            fontSize = androidx.compose.ui.unit.TextUnit(12f, androidx.compose.ui.unit.TextUnitType.Sp),
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(if (removing) Color(0xEEB3261E) else Color(0xCC202124))
-                                .padding(horizontal = 10.dp, vertical = 6.dp),
-                        )
-                        }
+                    val tile = tileBounds[app.key]
+                    androidx.compose.runtime.SideEffect {
+                        controller.dockDragHint = DockDragHint(app, removing, vertical, tile ?: androidx.compose.ui.geometry.Rect.Zero)
                     }
                 }
             }
@@ -369,4 +355,39 @@ private fun typographyWith(font: androidx.compose.ui.text.font.FontFamily): andr
         labelLarge = t.labelLarge.copy(fontFamily = font), labelMedium = t.labelMedium.copy(fontFamily = font),
         labelSmall = t.labelSmall.copy(fontFamily = font),
     )
+}
+
+/** Estado da dica "arraste para remover" enquanto um app da dock é arrastado. */
+data class DockDragHint(val app: dev.jesiel.launcher.data.AppInfo, val removing: Boolean, val vertical: Boolean, val tile: androidx.compose.ui.geometry.Rect)
+
+/** A dica, desenhada pela raiz da tela (acima da dock, ou à direita dela na vertical). */
+@Composable
+fun DockDragHintOverlay(controller: LauncherController) {
+    val hint = controller.dockDragHint ?: return
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    androidx.compose.foundation.layout.Box(Modifier.fillMaxSize()) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier
+                .offset {
+                    val t = hint.tile
+                    if (hint.vertical) androidx.compose.ui.unit.IntOffset((t.right + 24.dp.toPx()).toInt(), t.top.toInt())
+                    else androidx.compose.ui.unit.IntOffset((t.left - 40.dp.toPx()).toInt().coerceAtLeast(8), (t.top - 72.dp.toPx()).toInt())
+                },
+        ) {
+            if (hint.removing) {
+                androidx.compose.foundation.Image(hint.app.icon, contentDescription = null, modifier = Modifier.size(with(density) { 40.dp }).graphicsLayer { alpha = 0.85f })
+            }
+            androidx.compose.material3.Text(
+                if (hint.removing) "Solte para remover da dock" else if (hint.vertical) "Arraste para a direita para remover" else "Arraste para cima para remover",
+                color = Color.White,
+                fontSize = androidx.compose.ui.unit.TextUnit(12f, androidx.compose.ui.unit.TextUnitType.Sp),
+                modifier = Modifier
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(if (hint.removing) Color(0xEEB3261E) else Color(0xCC202124))
+                    .padding(horizontal = 10.dp, vertical = 6.dp),
+            )
+        }
+    }
 }

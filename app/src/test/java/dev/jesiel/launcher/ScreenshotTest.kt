@@ -758,7 +758,13 @@ class ScreenshotTest {
         val controller = controller()
         val keys = listOf(apps[4].key, apps[1].key, apps[0].key, apps[2].key)
         controller.viewModel.reorderDock(keys)
-        compose.setContent { IosLauncher(sampleState().copy(home = emptyList()), controller) }
+        compose.setContent {
+            androidx.compose.foundation.layout.Box {
+                IosLauncher(sampleState().copy(home = emptyList()), controller)
+                // A dica é desenhada pela raiz da tela (na mesma janela, sem Popup).
+                dev.jesiel.launcher.ui.common.DockDragHintOverlay(controller)
+            }
+        }
         compose.onNodeWithContentDescription(apps[4].label).performTouchInput {
             down(center)
             advanceEventTime(viewConfiguration.longPressTimeoutMillis + 100)
@@ -881,5 +887,29 @@ class ScreenshotTest {
         compose.onNodeWithText("Fixar na dock").performClick()
         compose.waitForIdle()
         org.junit.Assert.assertTrue(app.key in controller.viewModel.state.value.dockKeys)
+    }
+
+    /** Estúdio: widget ainda não aplicado tem o botão "Aplicar" no cartão; aplicar usa o lugar do tipo dele. */
+    @Test
+    fun studioApplyButton() {
+        val controller = controller()
+        val vm = controller.viewModel
+        val dock = dev.jesiel.launcher.data.HtmlTemplates.DOCK_GLASS
+        vm.saveHtmlWidget(dev.jesiel.launcher.data.HtmlWidget("d9", "Minha dock", dock.html, interactive = true, onDesktop = false, role = dev.jesiel.launcher.data.HtmlRole.DOCK))
+        compose.setContent {
+            val palette = dev.jesiel.launcher.ui.windows.windowsPalette(true)
+            androidx.compose.material3.MaterialTheme(colorScheme = palette.colorScheme) { dev.jesiel.launcher.ui.common.HtmlStudio(controller, palette) }
+        }
+        compose.mainClock.advanceTimeBy(500)
+        compose.waitForIdle()
+        compose.onNodeWithText("Dock").performScrollTo().performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText("Aplicar").assertExists()
+        compose.onRoot().captureRoboImage(shot("html-studio-apply"))
+        compose.onNodeWithText("Aplicar").performClick()
+        compose.mainClock.advanceTimeBy(500)
+        compose.waitForIdle()
+        org.junit.Assert.assertEquals("d9", controller.viewModel.state.value.dockHtml?.id)
+        compose.onNodeWithText("Aplicar").assertDoesNotExist()
     }
 }

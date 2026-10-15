@@ -117,8 +117,9 @@ class MainActivity : LauncherHostActivity() {
                 val palette = controller.palette ?: dev.jesiel.launcher.ui.windows.windowsPalette(isDark(state.colorMode))
                 MaterialTheme(colorScheme = palette.colorScheme) { dev.jesiel.launcher.ui.common.HtmlAppMenu(app, state, controller) }
             }
-            // O app que vem da lista de apps, seguindo o dedo, por cima de tudo.
+            // O app que vem da lista de apps, seguindo o dedo, e a dica de arrastar na dock.
             HomeDragGhost(controller)
+            dev.jesiel.launcher.ui.common.DockDragHintOverlay(controller)
             }
         }
     }

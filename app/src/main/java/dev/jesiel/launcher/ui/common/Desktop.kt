@@ -242,6 +242,12 @@ fun DesktopCanvas(
             snapshotFlow { pager.currentPage + pager.currentPageOffsetFraction }
                 .collect { controller.setWallpaperScroll(it, totalPages) }
         }
+        // Ao voltar para a tela inicial (de um app, dos Ajustes, da tela de bloqueio) o sistema
+        // pode recentralizar o papel de parede: reaplica a posição da tela atual.
+        androidx.lifecycle.compose.LifecycleResumeEffect(pager, totalPages) {
+            controller.setWallpaperScroll(pager.currentPage + pager.currentPageOffsetFraction, totalPages)
+            onPauseOrDispose { }
+        }
         // Botão Home volta para a primeira tela da área de trabalho.
         LaunchedEffect(controller.homePresses) { if (usePager && pager.currentPage != feedOffset) pager.animateScrollToPage(feedOffset) }
         // "App do Google": ao chegar na tela à esquerda, abre o Discover e volta.

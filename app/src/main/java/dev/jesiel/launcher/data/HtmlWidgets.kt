@@ -1218,35 +1218,85 @@ function onLauncherData(d){
 <style>
 *{box-sizing:border-box;margin:0}
 .d{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:4px}
-.p{display:flex;align-items:center;gap:2px;height:100%;max-width:100%;padding:6px 10px;border-radius:28px;overflow-x:auto;
+.p{display:flex;align-items:center;gap:2px;height:100%;max-width:100%;padding:6px 10px;border-radius:28px;
   background:linear-gradient(180deg,rgba(255,255,255,.30),rgba(255,255,255,.12));border:1px solid rgba(255,255,255,.38);
   box-shadow:0 8px 24px rgba(0,0,0,.25),inset 0 1px 0 rgba(255,255,255,.45)}
 .a,.b{flex:0 1 60px;min-width:0;display:grid;place-items:center;aspect-ratio:1;max-height:100%;border-radius:18px;text-decoration:none;transition:transform .15s}
 .a:active,.b:active{transform:scale(.84)}
-.a img{width:78%;height:78%}
+.a img{width:78%;height:78%;pointer-events:none}
+.a.lift{transform:scale(1.15);transition:none;z-index:2}
+.a.rm{opacity:.45}
 .b{color:#fff;background:rgba(255,255,255,.16)}
 .b svg{width:46%;height:46%}
 .sep{flex:none;width:1px;height:56%;background:rgba(255,255,255,.4);margin:0 6px}
-.v .p{flex-direction:column;height:auto;width:100%;max-height:100%;padding:10px 6px;overflow-x:hidden;overflow-y:auto}
+.v .p{flex-direction:column;height:auto;width:100%;max-height:100%;padding:10px 6px}
 .v .a,.v .b{flex:0 1 auto;width:100%;max-width:64px}
 .v .sep{width:56%;height:1px;margin:6px 0}
 </style>
 <div class="d"><div class="p" id="p"></div></div>
 <script>
-/* Dados: launcher.appsDock (apps da dock, na ordem) e launcher.dockVertical. */
-var last = null;
+/* Dados: launcher.appsDock (apps da dock, na ordem) e launcher.dockVertical.
+   Segure um app: sem mover abre o menu dele; arrastando para os lados muda a ordem
+   (launcher://dock/ordem/...); puxando para fora da dock remove (launcher://dock/remover/...). */
+var last = null, vertical = false;
 var GRID = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 4h4v4H4zm6 0h4v4h-4zm6 0h4v4h-4zM4 10h4v4H4zm6 0h4v4h-4zm6 0h4v4h-4zM4 16h4v4H4zm6 0h4v4h-4zm6 0h4v4h-4z"/></svg>';
 var FIND = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M15.5 14h-.8l-.3-.3A6.5 6.5 0 1 0 9.5 16a6.5 6.5 0 0 0 4.2-1.6l.3.3v.8l5 5 1.5-1.5-5-5zm-6 0a4.5 4.5 0 1 1 0-9 4.5 4.5 0 0 1 0 9z"/></svg>';
 function esc(t){ return String(t).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+var box = document.getElementById('p');
 function onLauncherData(d){
-  document.body.classList.toggle('v', d.dockVertical === 'sim');
+  vertical = d.dockVertical === 'sim';
+  document.body.classList.toggle('v', vertical);
   if (d.appsDock === last) return;
   last = d.appsDock;
   var apps = []; try { apps = JSON.parse(last || '[]'); } catch (x) {}
-  document.getElementById('p').innerHTML = apps.map(function(a){
-    return '<a class="a" href="launcher://app/' + esc(a.pacote) + '"><img src="' + esc(a.icone) + '" alt="' + esc(a.nome) + '"></a>';
+  box.innerHTML = apps.map(function(a){
+    return '<a class="a" data-p="' + esc(a.pacote) + '" href="launcher://app/' + esc(a.pacote) + '"><img src="' + esc(a.icone) + '" alt="' + esc(a.nome) + '"></a>';
   }).join('') + '<i class="sep"></i><a class="b" href="launcher://apps">' + GRID + '</a><a class="b" href="launcher://busca">' + FIND + '</a>';
 }
+// Segurar e arrastar.
+var timer = null, held = null, start = null, moved = false, removing = false, swallow = false;
+function pt(e){ var t = e.touches[0] || e.changedTouches[0]; return {x: t.clientX, y: t.clientY}; }
+box.addEventListener('touchstart', function(e){
+  var a = e.target.closest('a.a'); if (!a) return;
+  start = pt(e); moved = false; removing = false;
+  timer = setTimeout(function(){ held = a; a.classList.add('lift'); swallow = true; }, 380);
+}, {passive: true});
+box.addEventListener('touchmove', function(e){
+  var p = pt(e);
+  if (!held) { if (Math.abs(p.x - start.x) + Math.abs(p.y - start.y) > 10) clearTimeout(timer); return; }
+  e.preventDefault();
+  moved = true;
+  var along = vertical ? p.y - start.y : p.x - start.x;
+  var away = vertical ? p.x - start.x : start.y - p.y;
+  removing = away > held.offsetHeight * 1.1;
+  held.classList.toggle('rm', removing);
+  held.style.transform = (vertical ? 'translateY(' : 'translateX(') + along + 'px) scale(1.15)';
+  // Passou do meio do vizinho: troca de lugar com ele.
+  var sib = along > 0 ? held.nextElementSibling : held.previousElementSibling;
+  if (sib && sib.classList.contains('a')) {
+    var size = vertical ? sib.offsetHeight : sib.offsetWidth;
+    if (Math.abs(along) > size / 2) {
+      if (along > 0) box.insertBefore(sib, held); else box.insertBefore(held, sib);
+      if (vertical) start.y += along > 0 ? size : -size; else start.x += along > 0 ? size : -size;
+      held.style.transform = 'scale(1.15)';
+    }
+  }
+}, {passive: false});
+function end(){
+  clearTimeout(timer);
+  var a = held; held = null;
+  if (!a) return;
+  a.classList.remove('lift', 'rm'); a.style.transform = '';
+  var pkg = a.getAttribute('data-p');
+  if (!moved) { location.href = 'launcher://menu/' + pkg; return; }
+  if (removing) { location.href = 'launcher://dock/remover/' + pkg; return; }
+  var order = [].map.call(box.querySelectorAll('a.a'), function(x){ return x.getAttribute('data-p'); });
+  location.href = 'launcher://dock/ordem/' + order.join(',');
+}
+box.addEventListener('touchend', end);
+box.addEventListener('touchcancel', end);
+// O toque que terminou um "segurar" não abre o app.
+box.addEventListener('click', function(e){ if (swallow) { e.preventDefault(); swallow = false; } }, true);
 </script>""".trimIndent(), HtmlRole.DOCK)
 
     val DOCK_RETRO = HtmlTemplate("Dock · Barra retrô", """

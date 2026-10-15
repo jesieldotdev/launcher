@@ -67,6 +67,7 @@ object HtmlWidgetGuide {
         appendLine("O quarto uso é a **dock** (ou barra de tarefas): a página fica embaixo da tela, na largura toda, com a altura escolhida nos ajustes (padrão 84 px do CSS). No tema Ubuntu a dock é vertical: `dockVertical` vale \"sim\" e a página fica estreita e alta.")
         appendLine("- `launcher.appsDock` (ou `dockApps`): os apps da dock, na ordem, no mesmo formato de `appsLista`. O usuário põe e tira apps pelo menu de cada app (\"Fixar na dock\").")
         appendLine("- Botões úteis: `launcher://apps` (lista de apps), `launcher://busca`, `launcher://painel`, `launcher://estudio` (abre o Estúdio HTML).")
+        appendLine("- Mudar a ordem: `launcher://dock/ordem/<pacote1>,<pacote2>,…` (a nova ordem, depois de o usuário arrastar). Tirar da dock: `launcher://dock/remover/<pacote>`. Menu do app: `launcher://menu/<pacote>`. Para arrastar: toque longo (~400 ms) liga o arraste; `touchmove` com `preventDefault` (listener `{passive:false}`) move o ícone; ao soltar, mande a ordem nova.")
         appendLine("- Fundo transparente: desenhe o próprio painel (vidro, barra etc.). Use o modo **Interativo**.")
         appendLine()
         appendLine("## Bateria e desempenho")

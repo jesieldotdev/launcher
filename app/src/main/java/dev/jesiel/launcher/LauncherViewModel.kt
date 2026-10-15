@@ -19,6 +19,7 @@ import dev.jesiel.launcher.data.FolderData
 import dev.jesiel.launcher.data.HomeItem
 import dev.jesiel.launcher.data.LauncherData
 import dev.jesiel.launcher.data.HomeImporter
+import dev.jesiel.launcher.data.HtmlRole
 import dev.jesiel.launcher.data.HtmlWidget
 import dev.jesiel.launcher.data.ImportedItem
 import dev.jesiel.launcher.data.LauncherPrefs
@@ -146,6 +147,21 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
             next
         }
         warnings
+    }
+
+    /** Muda o tipo de um widget (corrigir um tipo errado); ele sai do lugar onde estava em uso. */
+    fun setHtmlWidgetKind(id: String, kind: HtmlRole) {
+        val w = prefs.data.value.htmlWidgets.firstOrNull { it.id == id } ?: return
+        if (w.kind == kind) return
+        prefs.update { d ->
+            d.copy(
+                htmlWidgets = d.htmlWidgets.map { if (it.id == id) it.copy(role = kind, onDesktop = false) else it },
+                appsHtmlId = d.appsHtmlId.takeIf { it != id },
+                dockHtmlId = d.dockHtmlId.takeIf { it != id },
+            )
+        }
+        val lock = dev.jesiel.launcher.data.LockScreen.settings(getApplication()).value
+        if (lock?.htmlWidgetId == id) dev.jesiel.launcher.data.LockScreen.update(getApplication()) { it.copy(style = dev.jesiel.launcher.data.LockStyle.THEME, htmlWidgetId = null) }
     }
 
     fun setNewAppsToHome(on: Boolean) = prefs.update { it.copy(newAppsToHome = on) }
