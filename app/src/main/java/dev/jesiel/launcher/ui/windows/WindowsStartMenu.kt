@@ -1,5 +1,6 @@
 package dev.jesiel.launcher.ui.windows
 
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -107,20 +108,29 @@ fun StartMenu(
             .fillMaxWidth()
             .fillMaxHeight()
             .acrylicPanel()
-            .padding(top = 18.dp),
+            .padding(top = 18.dp)
+            // Ao digitar, o menu sobe junto com o teclado (a busca embaixo fica visível).
+            .imePadding(),
     ) {
-        StartSearchField(
-            query = query,
-            onQueryChange = { query = it },
-            focus = focusSearch,
-            onSubmit = {
-                val best = state.apps.search(query).firstOrNull()
-                if (best != null) controller.launch(best) else controller.webSearch(query)
-                closeAll()
-            },
-            modifier = Modifier.padding(horizontal = 18.dp),
-        )
-        Spacer(Modifier.height(14.dp))
+        val search: @Composable (Modifier) -> Unit = { m ->
+            StartSearchField(
+                query = query,
+                onQueryChange = { query = it },
+                focus = focusSearch,
+                onSubmit = {
+                    val best = state.apps.search(query).firstOrNull()
+                    if (best != null) controller.launch(best) else controller.webSearch(query)
+                    closeAll()
+                },
+                modifier = m.padding(horizontal = 18.dp),
+            )
+        }
+        // Busca no topo (como no Windows) ou embaixo (Ajustes › Apps › "Busca embaixo").
+        val bottomSearch = state.layout.searchAtBottom
+        if (!bottomSearch) {
+            search(Modifier)
+            Spacer(Modifier.height(14.dp))
+        }
 
         Box(Modifier.weight(1f)) {
             val mode = when {
@@ -146,6 +156,7 @@ fun StartMenu(
             }
         }
 
+        if (bottomSearch) search(Modifier.padding(top = 8.dp, bottom = 10.dp))
         HorizontalDivider(color = LocalPalette.current.panelStroke)
         Row(
             verticalAlignment = Alignment.CenterVertically,
