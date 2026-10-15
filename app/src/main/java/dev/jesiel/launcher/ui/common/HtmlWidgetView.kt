@@ -173,6 +173,11 @@ fun HtmlWidgetView(
     onConsole: ((level: String, message: String, line: Int) -> Unit)? = null,
     /** Onde o `localStorage` do widget é salvo: o id dele; nulo guarda só na memória (prévias). */
     storageId: String? = widget.id,
+    /**
+     * Falso: a página continua carregada (na memória) mas some, não recebe toques e fica
+     * pausada. A lista de apps em HTML usa isso para abrir na hora, sem recarregar.
+     */
+    visible: Boolean = true,
 ) {
     val used = remember(widget.html) { HtmlVariables.used(widget.html) }
     val values = rememberHtmlValues(palette, used, controller, extra)
@@ -262,6 +267,11 @@ fun HtmlWidgetView(
             }
         },
         update = { view ->
+            val shown = if (visible) View.VISIBLE else View.INVISIBLE
+            if (view.visibility != shown) {
+                view.visibility = shown
+                if (visible) view.onResume() else view.onPause()
+            }
             val layer = if (widget.software) View.LAYER_TYPE_SOFTWARE else View.LAYER_TYPE_HARDWARE
             if (view.layerType != layer) view.setLayerType(layer, null)
             view.settings.javaScriptEnabled = widget.interactive

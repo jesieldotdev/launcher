@@ -89,14 +89,16 @@ private val PreviewBackground = Brush.linearGradient(listOf(Color(0xFF1B2A4A), C
  * Voltar, Home ou `launcher://fechar` fecham; abrir um app também.
  */
 @Composable
-fun HtmlAppList(widget: HtmlWidget, controller: LauncherController, palette: LauncherPalette, search: Boolean) {
+fun HtmlAppList(widget: HtmlWidget, controller: LauncherController, palette: LauncherPalette, search: Boolean, visible: Boolean = true, opens: Int = 0) {
     Box(Modifier.fillMaxSize().imePadding()) {
         HtmlWidgetView(
             widget,
             controller,
             palette,
             Modifier.fillMaxSize(),
-            extra = remember(search) { mapOf("modoBusca" to if (search) "sim" else "") },
+            // "aberturas" muda a cada vez que a lista abre: a página limpa a busca e volta ao topo.
+            extra = remember(search, opens) { mapOf("modoBusca" to if (search) "sim" else "", "aberturas" to opens.toString()) },
+            visible = visible,
         )
     }
 }

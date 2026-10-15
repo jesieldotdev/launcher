@@ -2,6 +2,7 @@ package dev.jesiel.launcher.ui.common
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
@@ -81,4 +82,36 @@ fun HomeDragGhost(controller: LauncherController) {
     ) {
         Image(drag.app.icon, contentDescription = null, modifier = Modifier.size(64.dp))
     }
+}
+
+/** Menu de um app aberto por um widget HTML: as mesmas ações de segurar um app no launcher. */
+@Composable
+fun HtmlAppMenu(app: AppInfo, state: dev.jesiel.launcher.LauncherUiState, controller: LauncherController) {
+    val vm = controller.viewModel
+    fun close() { controller.htmlAppMenu = null }
+    val onHome = app.key in state.favoriteKeys
+    val inDock = app.key in state.dockKeys
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = ::close,
+        icon = { Image(app.icon, contentDescription = null, modifier = Modifier.size(48.dp)) },
+        title = { androidx.compose.material3.Text(app.label) },
+        text = {
+            androidx.compose.foundation.layout.Column {
+                @Composable
+                fun item(label: String, action: () -> Unit) = androidx.compose.material3.TextButton(
+                    onClick = { close(); action() },
+                    modifier = Modifier.fillMaxWidth(),
+                ) { androidx.compose.material3.Text(label, modifier = Modifier.fillMaxWidth()) }
+                item("Abrir") { controller.launchPackage(app.packageName) }
+                item(if (onHome) "Tirar da tela inicial" else "Pôr na tela inicial") {
+                    if (onHome) vm.toggleFavorite(app) else vm.addToHome(app)
+                    controller.toast(if (onHome) "${app.label} saiu da tela inicial" else "${app.label} na tela inicial")
+                }
+                item(if (inDock) "Remover da dock" else "Fixar na dock") { vm.toggleDock(app) }
+                item("Informações do app") { controller.openAppInfo(app) }
+                item("Desinstalar") { controller.uninstall(app) }
+            }
+        },
+        confirmButton = { androidx.compose.material3.TextButton(onClick = ::close) { androidx.compose.material3.Text("Fechar") } },
+    )
 }

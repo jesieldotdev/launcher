@@ -334,6 +334,9 @@ class LauncherController(
         if (drop != null) drop(drag.app, position) else viewModel.addToHome(drag.app)
     }
 
+    /** App cujo menu foi pedido por um widget (launcher://menu/<pacote>). */
+    var htmlAppMenu by mutableStateOf<dev.jesiel.launcher.data.AppInfo?>(null)
+
     /** Lista de apps em HTML aberta (no lugar da gaveta do tema). */
     var htmlDrawerOpen by mutableStateOf(false)
     var htmlDrawerSearch by mutableStateOf(false)
@@ -461,6 +464,8 @@ class LauncherController(
                 // Na lista de apps em HTML: fechar, informações e desinstalar.
                 "fechar", "close" -> htmlDrawerOpen = false
                 "estudio", "studio" -> htmlLibraryOpen = true
+                // Menu do app (o mesmo de segurar um app no launcher): launcher://menu/<pacote>.
+                "menu" -> uri.lastPathSegment?.let { pkg -> viewModel.state.value.apps.firstOrNull { it.packageName == pkg } }?.let { htmlAppMenu = it }
                 "info" -> uri.lastPathSegment?.let { pkg -> viewModel.state.value.apps.firstOrNull { it.packageName == pkg } }?.let(::openAppInfo)
                 "desinstalar", "uninstall" -> uri.lastPathSegment?.let { pkg -> viewModel.state.value.apps.firstOrNull { it.packageName == pkg } }?.let(::uninstall)
                 "painel", "panel" -> controlCenterOpen = true

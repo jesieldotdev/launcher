@@ -1,5 +1,9 @@
 package dev.jesiel.launcher
 
+import androidx.compose.foundation.layout.offset
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.Modifier
 import dev.jesiel.launcher.ui.common.HomeDragGhost
@@ -107,16 +111,27 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-            // Lista de apps em HTML, no lugar da gaveta do tema.
+            // Lista de apps em HTML, no lugar da gaveta do tema. Fica carregada na memória
+            // (escondida e pausada quando fechada) para abrir na hora, sem recarregar a página.
             BackHandler(enabled = controller.htmlDrawerOpen) { controller.htmlDrawerOpen = false }
-            AnimatedVisibility(
-                visible = controller.htmlDrawerOpen && state.appsHtml != null,
-                enter = slideInVertically(tween(260)) { it / 6 } + fadeIn(tween(200)),
-                exit = slideOutVertically(tween(200)) { it / 6 } + fadeOut(tween(160)),
-            ) {
-                val widget = remember { state.appsHtml }
+            state.appsHtml?.let { widget ->
+                val open = controller.htmlDrawerOpen
+                val shown by androidx.compose.animation.core.animateFloatAsState(if (open) 1f else 0f, tween(if (open) 220 else 160), label = "lista html")
+                var opens by remember { androidx.compose.runtime.mutableIntStateOf(0) }
+                LaunchedEffect(open) { if (open) opens++ }
                 val palette = controller.palette ?: dev.jesiel.launcher.ui.windows.windowsPalette(isDark(state.colorMode))
-                widget?.let { dev.jesiel.launcher.ui.common.HtmlAppList(state.appsHtml ?: it, controller, palette, controller.htmlDrawerSearch) }
+                androidx.compose.foundation.layout.Box(
+                    Modifier
+                        .fillMaxSize()
+                        // Fechada: fora da tela (o mesmo tamanho, para não recarregar), sem pegar os toques do tema.
+                        .then(if (shown <= 0.01f) Modifier.offset { androidx.compose.ui.unit.IntOffset(0, 100_000) } else Modifier)
+                        .graphicsLayer {
+                            alpha = shown
+                            translationY = (1f - shown) * 60.dp.toPx()
+                        },
+                ) {
+                    dev.jesiel.launcher.ui.common.HtmlAppList(widget, controller, palette, controller.htmlDrawerSearch, visible = shown > 0.01f, opens = opens)
+                }
             }
 
             // Estúdio HTML: widgets, tela de bloqueio e lista de apps.
@@ -172,7 +187,12 @@ class MainActivity : ComponentActivity() {
             ) {
                 SettingsScreen(state, controller, onClose = { controller.settingsOpen = false })
             }
-            if (controller.widgetPickerOpen) {
+            // Menu de um app pedido por widget HTML (launcher://menu/<pacote>), ex.: toque longo na lista em HTML.
+            controller.htmlAppMenu?.let { app ->
+                val palette = controller.palette ?: dev.jesiel.launcher.ui.windows.windowsPalette(isDark(state.colorMode))
+                MaterialTheme(colorScheme = palette.colorScheme) { dev.jesiel.launcher.ui.common.HtmlAppMenu(app, state, controller) }
+            }
+                        if (controller.widgetPickerOpen) {
                 WidgetPickerDialog(
                     widgets = widgets,
                     onPick = controller::addWidget,

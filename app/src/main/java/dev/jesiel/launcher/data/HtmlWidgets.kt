@@ -122,6 +122,7 @@ object HtmlVariables {
         "appsDock" to "Apps da dock, na ordem dela, no formato de appsLista (use em JS)",
         "dockVertical" to "\"sim\" quando a dock é vertical (tema Ubuntu)",
         "modoBusca" to "\"sim\" quando a lista de apps foi aberta pela busca",
+        "aberturas" to "Lista de apps: muda a cada vez que ela abre (limpe a busca e volte ao topo)",
         "barraTopo" to "Altura da barra de status (px do CSS), para telas cheias",
         "barraBase" to "Altura da barra de navegação (px do CSS), para telas cheias",
     )
@@ -140,7 +141,7 @@ object HtmlVariables {
         "corPrimaria" to "colorPrimary", "corPrimariaFundo" to "colorPrimaryContainer", "corSecundaria" to "colorSecondary",
         "corTerciaria" to "colorTertiary", "corFundo" to "colorBackground", "corSuperficie" to "colorSurface",
         "corTexto" to "colorOnSurface", "corTextoSuave" to "colorOnSurfaceVariant", "corContorno" to "colorOutline",
-        "appsLista" to "appsList", "appsRecentes" to "recentApps", "appsTotal" to "appsCount", "appsDock" to "dockApps", "dockVertical" to "dockVertical", "modoBusca" to "searchMode",
+        "appsLista" to "appsList", "appsRecentes" to "recentApps", "appsTotal" to "appsCount", "appsDock" to "dockApps", "dockVertical" to "dockVertical", "modoBusca" to "searchMode", "aberturas" to "opens",
         "barraTopo" to "insetTop", "barraBase" to "insetBottom",
     )
     private val fromEnglish: Map<String, String> = english.entries.associate { (pt, en) -> en to pt }
@@ -1077,8 +1078,9 @@ h3{font-size:13px;font-weight:600;color:var(--corPrimaria);margin:16px 10px 4px;
   <div class="idx" id="idx"></div>
 </div>
 <script>
-/* Dados: launcher.appsLista, launcher.appsRecentes e launcher.modoBusca. Segure um app para ver as informações. */
-var apps = [], recent = [], lastA = null, lastR = null;
+/* Dados: launcher.appsLista, launcher.appsRecentes, launcher.modoBusca e launcher.aberturas.
+   Segure um app para abrir o menu dele (launcher://menu/pacote). */
+var apps = [], recent = [], lastA = null, lastR = null, lastOpen = null;
 var q = document.getElementById('q'), list = document.getElementById('list'), idx = document.getElementById('idx');
 function esc(t){ return String(t).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
 function norm(t){ return String(t).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase(); }
@@ -1116,7 +1118,7 @@ var timer = null, held = false;
 list.addEventListener('touchstart', function(e){
   var a = e.target.closest('a.a'); if (!a) return;
   held = false;
-  timer = setTimeout(function(){ held = true; location.href = 'launcher://info/' + a.getAttribute('data-p'); }, 600);
+  timer = setTimeout(function(){ held = true; location.href = 'launcher://menu/' + a.getAttribute('data-p'); }, 500);
 }, {passive: true});
 ['touchend', 'touchmove', 'touchcancel'].forEach(function(t){ list.addEventListener(t, function(){ clearTimeout(timer); }, {passive: true}); });
 list.addEventListener('click', function(e){ if (held) { e.preventDefault(); held = false; } }, true);
@@ -1124,8 +1126,9 @@ function onLauncherData(d){
   var changed = false;
   if (d.appsLista !== lastA) { lastA = d.appsLista; try { apps = JSON.parse(lastA || '[]'); } catch (x) { apps = []; } changed = true; }
   if (d.appsRecentes !== lastR) { lastR = d.appsRecentes; try { recent = JSON.parse(lastR || '[]'); } catch (x) { recent = []; } changed = true; }
+  // A lista fica na memória: a cada abertura, busca limpa e volta ao topo.
+  if (d.aberturas !== lastOpen) { lastOpen = d.aberturas; q.value = ''; changed = true; list.scrollTop = 0; if (d.modoBusca === 'sim') q.focus(); else q.blur(); }
   if (changed) draw();
-  if (d.modoBusca === 'sim' && !q.dataset.f) { q.dataset.f = '1'; q.focus(); }
 }
 </script>""".trimIndent(), HtmlRole.APPS)
 
@@ -1156,8 +1159,8 @@ function onLauncherData(d){
   <label class="p"><span>root@apps:~${"$"}</span><input id="q" autocomplete="off" enterkeyhint="go" placeholder="run ..."><span class="c">█</span></label>
 </div>
 <script>
-/* Dados: launcher.appsLista, launcher.appsTotal e launcher.modoBusca. Enter abre o primeiro resultado. */
-var apps = [], lastA = null;
+/* Dados: launcher.appsLista, launcher.appsTotal, launcher.modoBusca e launcher.aberturas. Enter abre o primeiro resultado. */
+var apps = [], lastA = null, lastOpen = null;
 var q = document.getElementById('q'), list = document.getElementById('list');
 function esc(t){ return String(t).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
 function norm(t){ return String(t).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase(); }
@@ -1180,7 +1183,7 @@ q.addEventListener('keydown', function(e){
 function onLauncherData(d){
   document.getElementById('n').textContent = d.appsTotal;
   if (d.appsLista !== lastA) { lastA = d.appsLista; try { apps = JSON.parse(lastA || '[]'); } catch (x) { apps = []; } draw(); }
-  if (d.modoBusca === 'sim' && !q.dataset.f) { q.dataset.f = '1'; q.focus(); }
+  if (d.aberturas !== lastOpen) { lastOpen = d.aberturas; q.value = ''; draw(); list.scrollTop = 0; if (d.modoBusca === 'sim') q.focus(); else q.blur(); }
 }
 </script>""".trimIndent(), HtmlRole.APPS)
 

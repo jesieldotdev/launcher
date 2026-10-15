@@ -725,7 +725,8 @@ class ScreenshotTest {
             androidx.compose.material3.MaterialTheme(colorScheme = palette.colorScheme) { dev.jesiel.launcher.ui.common.HtmlStudio(controller, palette) }
         }
         compose.onNodeWithText("Loja").performClick()
-        compose.waitUntil(10_000) { compose.onAllNodesWithText("Moto Display").fetchSemanticsNodes().isNotEmpty() }
+        // O catálogo (da cópia guardada) aparece: os itens mais novos ficam em cima.
+        compose.waitUntil(10_000) { compose.onAllNodesWithText("Baixar").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithText("Sem conexão", substring = true).assertExists()
         compose.onRoot().captureRoboImage(shot("html-store"))
         compose.onAllNodesWithText("Baixar")[0].performClick()
@@ -862,5 +863,23 @@ class ScreenshotTest {
         compose.setContent { IosLauncher(base.copy(layout = base.layout.copy(showSearchPill = false)), controller) }
         compose.onNodeWithText("Buscar").assertDoesNotExist()
         compose.onRoot().captureRoboImage(shot("ios-no-search"))
+    }
+
+    /** launcher://menu/<pacote>: o menu do app aberto por um widget HTML (ex.: toque longo na lista em HTML). */
+    @Test
+    fun htmlAppMenu() {
+        val controller = controller()
+        val app = apps.first { it.label == "Spotify" }
+        compose.setContent {
+            val palette = dev.jesiel.launcher.ui.windows.windowsPalette(true)
+            androidx.compose.material3.MaterialTheme(colorScheme = palette.colorScheme) {
+                dev.jesiel.launcher.ui.common.HtmlAppMenu(app, sampleState().copy(dockKeys = emptySet(), favoriteKeys = emptySet()), controller)
+            }
+        }
+        listOf("Abrir", "Pôr na tela inicial", "Fixar na dock", "Informações do app", "Desinstalar").forEach { compose.onNodeWithText(it).assertExists() }
+        compose.onRoot().captureRoboImage(shot("html-app-menu"))
+        compose.onNodeWithText("Fixar na dock").performClick()
+        compose.waitForIdle()
+        org.junit.Assert.assertTrue(app.key in controller.viewModel.state.value.dockKeys)
     }
 }
