@@ -3,6 +3,7 @@ package dev.jesiel.launcher
 import android.app.Application
 import android.os.Looper
 import androidx.test.core.app.ApplicationProvider
+import androidx.compose.ui.graphics.asImageBitmap
 import dev.jesiel.launcher.data.Placement
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -41,5 +42,39 @@ class GridRescaleTest {
         listOf(130, 117, 90, 61, 75, 0).forEach { h -> vm.updateLayout { it.copy(cellHeightDp = h) } }
         shadowOf(Looper.getMainLooper()).idle()
         assertEquals(original, vm.state.value.placements.filterKeys { it in original })
+    }
+}
+
+@RunWith(RobolectricTestRunner::class)
+class NewAppsTest {
+    private fun app(label: String, pkg: String): dev.jesiel.launcher.data.AppInfo {
+        val bitmap = android.graphics.Bitmap.createBitmap(4, 4, android.graphics.Bitmap.Config.ARGB_8888)
+        return dev.jesiel.launcher.data.AppInfo(
+            key = "$pkg/.Main#0", label = label, component = android.content.ComponentName(pkg, "$pkg.Main"),
+            user = android.os.Process.myUserHandle(), icon = bitmap.asImageBitmap(),
+        )
+    }
+
+    /** Um app que o launcher nunca viu vai para a tela 2; os que já existiam não mudam. */
+    @Test
+    fun newlyInstalledAppGoesToTheNextScreen() {
+        val vm = LauncherViewModel(ApplicationProvider.getApplicationContext<Application>())
+        shadowOf(Looper.getMainLooper()).idle()
+        val old = app("Antigo", "com.antigo")
+        vm.onAppsLoaded(listOf(old)) // primeira vez: só aprende
+        val novo = app("Novo", "com.novo")
+        vm.onAppsLoaded(listOf(old, novo))
+        shadowOf(Looper.getMainLooper()).idle()
+        val st = vm.state.value
+        org.junit.Assert.assertTrue("o novo foi para a tela inicial", novo.key in st.favoriteKeys)
+        org.junit.Assert.assertFalse("o antigo não", old.key in st.favoriteKeys)
+        assertEquals(1, st.placements.getValue(novo.key).page)
+        org.junit.Assert.assertTrue("várias telas ligadas", st.layout.multiPage && st.layout.pageCount >= 2)
+        // Sumiu e voltou (perfil de trabalho pausado): não conta como novo de novo.
+        vm.toggleFavorite(novo)
+        vm.onAppsLoaded(listOf(old))
+        vm.onAppsLoaded(listOf(old, novo))
+        shadowOf(Looper.getMainLooper()).idle()
+        org.junit.Assert.assertFalse(novo.key in vm.state.value.favoriteKeys)
     }
 }

@@ -70,6 +70,7 @@ data class LauncherUiState(
     /** Widget HTML que substitui a dock do tema, se houver. */
     val dockHtml: HtmlWidget? = null,
     val dockHtmlHeight: Int = 84,
+    val newAppsToHome: Boolean = true,
 )
 
 class LauncherViewModel(application: Application) : AndroidViewModel(application) {
@@ -87,6 +88,39 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     init {
         viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) { backups.dailySnapshot() }
         addStarterHtmlWidgets()
+        viewModelScope.launch { repository.apps.collect { if (it.isNotEmpty()) onAppsLoaded(it) } }
+    }
+
+    fun setNewAppsToHome(on: Boolean) = prefs.update { it.copy(newAppsToHome = on) }
+
+    /**
+     * Apps que o launcher nunca viu (instalados agora, ou enquanto ele estava fechado) vão para
+     * a tela ao lado, no primeiro lugar livre. Na primeira vez só aprende a lista; apps que
+     * somem e voltam (perfil de trabalho pausado) não contam como novos.
+     */
+    internal fun onAppsLoaded(apps: List<AppInfo>) {
+        val flags = getApplication<Application>().getSharedPreferences("launcher_flags", android.content.Context.MODE_PRIVATE)
+        val known = flags.getStringSet("knownApps", null)
+        val keys = apps.map { it.key }.toSet()
+        flags.edit().putStringSet("knownApps", (known.orEmpty() + keys).toSet()).apply()
+        if (known == null) return
+        val d = prefs.data.value
+        if (!d.newAppsToHome) return
+        val own = getApplication<Application>().packageName
+        val inFolders = d.folders.values.flatMap { it.appKeys }.toSet()
+        val fresh = apps.filter { it.key !in known && it.packageName != own && it.key !in d.homeOrder && it.key !in inFolders && it.key !in d.dock }
+        if (fresh.isEmpty()) return
+        prefs.update { cur ->
+            // A segunda tela precisa existir (liga as várias telas, se estiverem desligadas).
+            val l = cur.layoutFor(cur.themeId)
+            val withPages = if (l.multiPage && l.pageCount >= 2) l else l.copy(multiPage = true, pageCount = maxOf(2, l.pageCount))
+            cur.copy(
+                homeOrder = cur.homeOrder + fresh.map { it.key },
+                layouts = cur.layouts + (cur.themeId to withPages),
+            )
+        }
+        // Todos pedem o canto da tela 2; a grade espalha cada um no lugar livre mais próximo.
+        savePlacements(d.themeId, fresh.associate { it.key to Placement(1, 0f, 0f, 1f, 1f) })
     }
 
     /** Uma única vez: cria os widgets Retrô futurista e Cyberpunk na área de trabalho. */
@@ -155,6 +189,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
             iconPackStyleUnthemed = data.iconPackStyleUnthemed,
             dockHtml = data.dockHtmlId?.let { id -> data.htmlWidgets.firstOrNull { it.id == id } },
             dockHtmlHeight = data.dockHtmlHeight,
+            newAppsToHome = data.newAppsToHome,
         )
     }
 

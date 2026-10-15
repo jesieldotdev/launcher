@@ -146,6 +146,8 @@ data class LauncherData(
     /** Widget HTML no lugar da dock do tema (nulo = a do tema) e a altura dela, em dp. */
     val dockHtmlId: String? = null,
     val dockHtmlHeight: Int = 84,
+    /** Apps recém-instalados vão para a tela ao lado (a segunda tela), como no HyperOS. */
+    val newAppsToHome: Boolean = true,
 ) {
     fun layoutFor(themeId: String) = layouts[themeId] ?: defaultLayout(themeId)
 
@@ -326,6 +328,7 @@ class LauncherPrefs(context: Context) {
             iconPackStyleUnthemed = prefs.getBoolean(KEY_ICON_PACK_STYLE, true),
             dockHtmlId = prefs.getString(KEY_DOCK_HTML, null),
             dockHtmlHeight = int(KEY_DOCK_HTML_HEIGHT, 84),
+            newAppsToHome = prefs.getBoolean(KEY_NEW_APPS, true),
         )
     }
 
@@ -417,6 +420,7 @@ class LauncherPrefs(context: Context) {
             .putBoolean(KEY_ICON_PACK_STYLE, d.iconPackStyleUnthemed)
             .putString(KEY_DOCK_HTML, d.dockHtmlId)
             .putInt(KEY_DOCK_HTML_HEIGHT, d.dockHtmlHeight)
+            .putBoolean(KEY_NEW_APPS, d.newAppsToHome)
             .apply()
     }
 
@@ -452,5 +456,6 @@ class LauncherPrefs(context: Context) {
         const val KEY_ICON_PACK_STYLE = "iconPackStyle"
         const val KEY_DOCK_HTML = "dockHtml"
         const val KEY_DOCK_HTML_HEIGHT = "dockHtmlHeight"
+        const val KEY_NEW_APPS = "newAppsToHome"
     }
 }

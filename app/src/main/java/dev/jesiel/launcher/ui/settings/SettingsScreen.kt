@@ -385,6 +385,13 @@ fun SettingsScreen(state: LauncherUiState, controller: LauncherController, onClo
 
                         SectionTitle("Telas")
                         Card {
+                            SwitchRow("Apps instalados vão para a tela ao lado", state.newAppsToHome) { vm.setNewAppsToHome(it) }
+                            Text(
+                                "Como no HyperOS: cada app novo aparece na segunda tela, no primeiro lugar livre (as várias telas são ligadas se preciso).",
+                                fontSize = 12.sp,
+                                color = Color.Gray,
+                            )
+                            Spacer(Modifier.height(10.dp))
                             if (state.themeId == "ubuntu" || state.themeId == "macos") {
                                 SwitchRow("Mostrar barra superior", layout.showTopBar) { on -> vm.updateLayout { it.copy(showTopBar = on) } }
                                 Spacer(Modifier.height(8.dp))
