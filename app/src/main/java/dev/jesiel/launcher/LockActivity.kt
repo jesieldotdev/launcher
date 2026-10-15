@@ -34,7 +34,7 @@ import dev.jesiel.launcher.widgets.WidgetHost
  */
 class LockActivity : ComponentActivity() {
 
-    private val viewModel: LauncherViewModel by viewModels()
+    private val viewModel: LauncherViewModel get() = launcherViewModel
     private lateinit var controller: LauncherController
 
     private val unlocked = object : BroadcastReceiver() {

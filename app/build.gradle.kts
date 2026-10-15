@@ -13,8 +13,8 @@ android {
         applicationId = "dev.jesiel.launcher"
         minSdk = 26
         targetSdk = 35
-        versionCode = 48
-        versionName = "0.36.0"
+        versionCode = 49
+        versionName = "0.37.0"
     }
 
     // Mesma chave para debug e release, para que um APK instale por cima do outro.

@@ -41,46 +41,10 @@ import dev.jesiel.launcher.ui.common.WidgetPickerDialog
 import dev.jesiel.launcher.ui.settings.SettingsScreen
 import dev.jesiel.launcher.widgets.WidgetHost
 
-class MainActivity : ComponentActivity() {
-
-    private val viewModel: LauncherViewModel by viewModels()
-    private lateinit var widgets: WidgetHost
-    private lateinit var controller: LauncherController
-    private val exportBackup = registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
-        if (uri != null) runCatching { viewModel.backups.exportTo(uri) }
-            .onSuccess { controller.toast("Backup exportado") }
-            .onFailure { controller.toast("Não foi possível exportar") }
-    }
-    private val importBackup = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri != null) runCatching { viewModel.backups.importFrom(uri) }
-            .onSuccess { controller.afterRestore() }
-            .onFailure { controller.toast(it.message ?: "Arquivo inválido") }
-    }
-    private var importedHtml by mutableStateOf<String?>(null)
-    private val importHtml = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri != null) runCatching {
-            contentResolver.openInputStream(uri)!!.use { it.readBytes().decodeToString() }
-        }.onSuccess { importedHtml = it }.onFailure { controller.toast("Não foi possível ler o arquivo") }
-    }
-    private val pickImage = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri != null) viewModel.setCustomMenuIcon(uri)
-    }
+class MainActivity : LauncherHostActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        enableEdgeToEdge(
-            statusBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
-            navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
-        )
         super.onCreate(savedInstanceState)
-        widgets = WidgetHost(this)
-        controller = LauncherController(this, viewModel, widgets)
-        controller.pickImage = { pickImage.launch(arrayOf("image/*")) }
-        controller.exportBackupFile = {
-            val date = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())
-            exportBackup.launch("launcher-backup-$date.json")
-        }
-        controller.importHtmlFile = { importHtml.launch(arrayOf("text/html", "text/plain", "*/*")) }
-        controller.importBackupFile = { importBackup.launch(arrayOf("application/json", "text/plain", "*/*")) }
 
         setContent {
             // A raiz acompanha o dedo quando um app é arrastado da lista para a tela inicial.
@@ -134,70 +98,24 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-            // Estúdio HTML: widgets, tela de bloqueio e lista de apps.
-            BackHandler(enabled = controller.htmlLibraryOpen && controller.htmlEditing == null) { controller.htmlLibraryOpen = false }
-            AnimatedVisibility(
-                visible = controller.htmlLibraryOpen,
-                enter = slideInHorizontally(tween(280)) { it } + fadeIn(tween(200)),
-                exit = slideOutHorizontally(tween(240)) { it } + fadeOut(tween(200)),
-            ) {
-                val palette = controller.palette ?: dev.jesiel.launcher.ui.windows.windowsPalette(isDark(state.colorMode))
-                MaterialTheme(colorScheme = palette.colorScheme) { dev.jesiel.launcher.ui.common.HtmlStudio(controller, palette) }
-            }
-
-            // Editor de widgets HTML.
-            BackHandler(enabled = controller.htmlEditing != null) { controller.htmlEditing = null }
-            AnimatedVisibility(
-                visible = controller.htmlEditing != null,
-                enter = slideInVertically(tween(260)) { it / 3 } + fadeIn(tween(200)),
-                exit = slideOutVertically(tween(200)) { it / 3 } + fadeOut(tween(160)),
-            ) {
-                val editing = remember { controller.htmlEditing }
-                val palette = controller.palette ?: dev.jesiel.launcher.ui.windows.windowsPalette(isDark(state.colorMode))
-                MaterialTheme(colorScheme = palette.colorScheme) {
-                    editing?.let {
-                        dev.jesiel.launcher.ui.common.HtmlWidgetEditor(
-                            initial = it,
-                            controller = controller,
-                            palette = palette,
-                            importedHtml = importedHtml,
-                            onImportedConsumed = { importedHtml = null },
-                        )
-                    }
+            // Ajustes e Estúdio HTML abrem como um app à parte (tarefa própria, nos recentes).
+            LaunchedEffect(controller.settingsOpen, controller.htmlLibraryOpen) {
+                val screen = when {
+                    controller.htmlLibraryOpen -> ScreenActivity.SCREEN_STUDIO
+                    controller.settingsOpen -> ScreenActivity.SCREEN_SETTINGS
+                    else -> return@LaunchedEffect
                 }
+                controller.settingsOpen = false
+                controller.htmlLibraryOpen = false
+                startActivity(ScreenActivity.intent(this@MainActivity, screen))
             }
 
-            // Testador de widgets HTML, por cima do editor e do Estúdio.
-            BackHandler(enabled = controller.htmlTesting != null) { controller.htmlTesting = null }
-            AnimatedVisibility(
-                visible = controller.htmlTesting != null,
-                enter = fadeIn(tween(180)),
-                exit = fadeOut(tween(160)),
-            ) {
-                val testing = remember { controller.htmlTesting }
-                val palette = controller.palette ?: dev.jesiel.launcher.ui.windows.windowsPalette(isDark(state.colorMode))
-                testing?.let { dev.jesiel.launcher.ui.common.HtmlTester(it, controller.htmlTestingRole, controller, palette) }
-            }
+            EditorOverlays(state)
 
-            BackHandler(enabled = controller.settingsOpen) { controller.settingsOpen = false }
-            AnimatedVisibility(
-                visible = controller.settingsOpen,
-                enter = slideInHorizontally(tween(280)) { it } + fadeIn(tween(200)),
-                exit = slideOutHorizontally(tween(240)) { it } + fadeOut(tween(200)),
-            ) {
-                SettingsScreen(state, controller, onClose = { controller.settingsOpen = false })
-            }
             // Menu de um app pedido por widget HTML (launcher://menu/<pacote>), ex.: toque longo na lista em HTML.
             controller.htmlAppMenu?.let { app ->
                 val palette = controller.palette ?: dev.jesiel.launcher.ui.windows.windowsPalette(isDark(state.colorMode))
                 MaterialTheme(colorScheme = palette.colorScheme) { dev.jesiel.launcher.ui.common.HtmlAppMenu(app, state, controller) }
-            }
-                        if (controller.widgetPickerOpen) {
-                WidgetPickerDialog(
-                    widgets = widgets,
-                    onPick = controller::addWidget,
-                    onDismiss = { controller.widgetPickerOpen = false },
-                )
             }
             // O app que vem da lista de apps, seguindo o dedo, por cima de tudo.
             HomeDragGhost(controller)
@@ -205,27 +123,19 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    override fun onStart() {
-        super.onStart()
-        widgets.startListening()
-    }
-
-    override fun onStop() {
-        super.onStop()
-        widgets.stopListening()
-    }
-
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        // Vindo dos Ajustes ("Organizar área de trabalho"): abre já no modo de edição.
+        if (intent.getBooleanExtra(EXTRA_EDIT, false)) {
+            controller.editMode = true
+            return
+        }
         if (intent.action == Intent.ACTION_MAIN && intent.hasCategory(Intent.CATEGORY_HOME)) {
             controller.onHomePressed()
         }
     }
 
-    // Os fluxos de widget do AppWidgetHost ainda usam startActivityForResult.
-    @Suppress("OVERRIDE_DEPRECATION")
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-        controller.onActivityResult(requestCode, resultCode)
+    companion object {
+        const val EXTRA_EDIT = "editar"
     }
 }

@@ -123,6 +123,13 @@ object HtmlVariables {
         "dockVertical" to "\"sim\" quando a dock é vertical (tema Ubuntu)",
         "modoBusca" to "\"sim\" quando a lista de apps foi aberta pela busca",
         "aberturas" to "Lista de apps: muda a cada vez que ela abre (limpe a busca e volte ao topo)",
+        "menuColunas" to "Colunas da lista de apps escolhidas nos ajustes",
+        "menuIcone" to "Tamanho dos ícones da lista de apps nos ajustes (px do CSS)",
+        "menuLetras" to "\"sim\" se as letras do alfabeto estão ligadas na lista de apps",
+        "menuBuscaEmbaixo" to "\"sim\" se a busca da lista de apps fica embaixo",
+        "menuCabecalho" to "\"sim\" se o título e os filtros da lista de apps estão ligados",
+        "menuExibicao" to "Exibição da lista de apps: grade, lista ou categoria",
+        "temaId" to "Tema do launcher em uso: windows, ubuntu, kde, macos, ios ou retro",
         "barraTopo" to "Altura da barra de status (px do CSS), para telas cheias",
         "barraBase" to "Altura da barra de navegação (px do CSS), para telas cheias",
     )
@@ -142,6 +149,8 @@ object HtmlVariables {
         "corTerciaria" to "colorTertiary", "corFundo" to "colorBackground", "corSuperficie" to "colorSurface",
         "corTexto" to "colorOnSurface", "corTextoSuave" to "colorOnSurfaceVariant", "corContorno" to "colorOutline",
         "appsLista" to "appsList", "appsRecentes" to "recentApps", "appsTotal" to "appsCount", "appsDock" to "dockApps", "dockVertical" to "dockVertical", "modoBusca" to "searchMode", "aberturas" to "opens",
+        "menuColunas" to "menuColumns", "menuIcone" to "menuIconSize", "menuLetras" to "menuLetters",
+        "menuBuscaEmbaixo" to "menuSearchBottom", "menuCabecalho" to "menuHeader", "menuExibicao" to "menuView", "temaId" to "themeId",
         "barraTopo" to "insetTop", "barraBase" to "insetBottom",
     )
     private val fromEnglish: Map<String, String> = english.entries.associate { (pt, en) -> en to pt }
@@ -149,6 +158,19 @@ object HtmlVariables {
     /** Copia cada valor também com o nome em inglês. */
     fun withEnglish(values: Map<String, String>): Map<String, String> =
         values + values.mapNotNull { (k, v) -> english[k]?.takeIf { it != k }?.let { it to v } }
+
+    /**
+     * Variáveis que cada tipo de widget sempre recebe, mesmo sem citá-las no código (a lista de
+     * apps sempre tem os apps; a dock, os dela).
+     */
+    fun defaultsFor(kind: HtmlRole): Set<String> = when (kind) {
+        HtmlRole.APPS -> setOf(
+            "appsLista", "appsRecentes", "appsTotal", "modoBusca", "aberturas", "menuColunas", "menuIcone",
+            "menuLetras", "menuBuscaEmbaixo", "menuCabecalho", "menuExibicao", "temaId",
+        )
+        HtmlRole.DOCK -> setOf("appsDock", "dockVertical", "appsTotal", "temaId")
+        else -> emptySet()
+    }
 
     /** Variáveis que dependem do acesso a notificações. */
     fun needsNotificationAccess(used: Set<String>) = used.any { it.startsWith("musica") || it.startsWith("notificac") }
@@ -1056,11 +1078,12 @@ function onLauncherData(d){
 .x{width:52px;height:52px;border-radius:26px;display:grid;place-items:center;background:var(--corSuperficie);color:var(--corTexto);text-decoration:none;font-size:20px}
 .list{flex:1;overflow-y:auto;padding:0 22px 28px 12px}
 h3{font-size:13px;font-weight:600;color:var(--corPrimaria);margin:16px 10px 4px;letter-spacing:.06em}
-.g{display:grid;grid-template-columns:repeat(4,1fr);gap:2px}
+.g{display:grid;grid-template-columns:repeat(var(--menuColunas, 4),1fr);gap:2px}
 .rec{background:var(--corSuperficie);border-radius:26px;padding:4px}
 .a{display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px 2px;border-radius:20px;text-decoration:none;color:inherit;min-width:0}
 .a:active{background:color-mix(in srgb,var(--corPrimaria) 18%,transparent)}
-.a img{width:52px;height:52px}
+.a img{width:calc(var(--menuIcone, 52) * 1px);height:calc(var(--menuIcone, 52) * 1px)}
+.w.embaixo .top{order:2;padding:8px 16px 0}
 .a span{font-size:12px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .idx{position:fixed;right:4px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;align-items:center}
 .idx b{font-size:10px;font-weight:600;padding:1px 5px;color:var(--corTextoSuave)}
@@ -1078,7 +1101,8 @@ h3{font-size:13px;font-weight:600;color:var(--corPrimaria);margin:16px 10px 4px;
   <div class="idx" id="idx"></div>
 </div>
 <script>
-/* Dados: launcher.appsLista, launcher.appsRecentes, launcher.modoBusca e launcher.aberturas.
+/* Dados: launcher.appsLista, launcher.appsRecentes, launcher.modoBusca, launcher.aberturas e o que está
+   nos ajustes da lista (launcher.menuColunas, menuIcone, menuLetras, menuBuscaEmbaixo).
    Segure um app para abrir o menu dele (launcher://menu/pacote). */
 var apps = [], recent = [], lastA = null, lastR = null, lastOpen = null;
 var q = document.getElementById('q'), list = document.getElementById('list'), idx = document.getElementById('idx');
@@ -1126,6 +1150,9 @@ function onLauncherData(d){
   var changed = false;
   if (d.appsLista !== lastA) { lastA = d.appsLista; try { apps = JSON.parse(lastA || '[]'); } catch (x) { apps = []; } changed = true; }
   if (d.appsRecentes !== lastR) { lastR = d.appsRecentes; try { recent = JSON.parse(lastR || '[]'); } catch (x) { recent = []; } changed = true; }
+  // Segue os ajustes da lista de apps: letras e posição da busca.
+  idx.style.display = d.menuLetras === 'sim' ? '' : 'none';
+  document.querySelector('.w').classList.toggle('embaixo', d.menuBuscaEmbaixo === 'sim');
   // A lista fica na memória: a cada abertura, busca limpa e volta ao topo.
   if (d.aberturas !== lastOpen) { lastOpen = d.aberturas; q.value = ''; changed = true; list.scrollTop = 0; if (d.modoBusca === 'sim') q.focus(); else q.blur(); }
   if (changed) draw();

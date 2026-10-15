@@ -220,7 +220,7 @@ fun SettingsScreen(state: LauncherUiState, controller: LauncherController, onClo
                                 vm.updateLayout { it.copy(multiPage = on, pageCount = maxOf(it.pageCount, if (on) 2 else 1)) }
                             }
                             Spacer(Modifier.height(8.dp))
-                            Button(onClick = { onClose(); controller.editMode = true }) { Text("Organizar área de trabalho") }
+                            Button(onClick = { controller.goHome(edit = true) }) { Text("Organizar área de trabalho") }
                             Text(
                                 "Arraste para mover, use o ponto no canto para redimensionar e toque em um item para movê-lo de tela ou removê-lo.",
                                 fontSize = 12.sp,

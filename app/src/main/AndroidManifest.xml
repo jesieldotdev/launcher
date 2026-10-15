@@ -108,6 +108,16 @@
         </activity>
 
         <!-- Tela de bloqueio do Launcher: por cima do bloqueio do sistema, numa tarefa própria. -->
+        <!-- Ajustes e Estúdio HTML: abrem como um app à parte (tarefa própria, nos recentes). -->
+        <activity
+            android:name=".ScreenActivity"
+            android:exported="false"
+            android:label="@string/screen_label"
+            android:taskAffinity="dev.jesiel.launcher.ajustes"
+            android:launchMode="singleTask"
+            android:windowSoftInputMode="adjustResize"
+            android:theme="@style/Theme.Launcher.Screen" />
+
         <activity
             android:name=".LockActivity"
             android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|keyboard|uiMode|density|smallestScreenSize"

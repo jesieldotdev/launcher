@@ -51,7 +51,8 @@ fun Modifier.pressScale(interaction: InteractionSource, pressed: Float = 0.88f):
  */
 @Composable
 fun Modifier.backdrop(controller: LauncherController, active: Boolean, enabled: Boolean): Modifier {
-    val on = active && enabled
+    // A lista de apps em HTML abre no lugar da gaveta do tema: desfoca o fundo do mesmo jeito.
+    val on = (active || controller.htmlDrawerOpen) && enabled
     val radius by animateDpAsState(if (on) 24.dp else 0.dp, tween(200), label = "desfoque")
     LaunchedEffect(Unit) { controller.setWindowBlur(0) }
     return if (radius > 0.dp) blur(radius) else this

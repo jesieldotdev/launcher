@@ -59,6 +59,7 @@ object HtmlWidgetGuide {
         appendLine("- `modoBusca` (`searchMode`) é \"sim\" quando a lista foi aberta pelo botão de busca: foque o campo de busca nesse caso.")
         appendLine("- `barraTopo` / `barraBase` (`insetTop` / `insetBottom`): altura das barras do sistema, em px do CSS. Ex.: `padding-top: calc(var(--barraTopo) * 1px + 12px)`.")
         appendLine("- Em tela cheia use `position:fixed; inset:0` no elemento raiz e uma área rolável interna (`overflow-y:auto`). O botão Voltar do Android fecha a lista.")
+        appendLine("- Na lista de apps, `appsLista` e as demais chegam sempre (mesmo sem citar no código). Siga os ajustes do usuário: `menuColunas` (colunas), `menuIcone` (tamanho do ícone, px), `menuLetras` e `menuBuscaEmbaixo` (\"sim\"/vazio), `menuCabecalho`, `menuExibicao` (grade/lista/categoria), `temaId`. Ex.: `grid-template-columns: repeat(var(--menuColunas), 1fr)`.")
         appendLine("- A lista de apps precisa do modo **Interativo**. Ela fica carregada na memória entre uma abertura e outra (não recarrega): use `aberturas` (`opens`), que muda a cada abertura, para limpar a busca e voltar ao topo.")
         appendLine("- Toque longo num app (o navegador não tem menu de toque longo aqui): `touchstart` liga um timer de ~500 ms que faz `location.href = 'launcher://menu/' + pacote`; `touchmove`/`touchend` cancelam o timer; e um `click` logo depois do toque longo deve ser ignorado (`preventDefault`).")
         appendLine()

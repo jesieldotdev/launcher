@@ -61,7 +61,7 @@ fun rememberHtmlValues(
     } else emptyList()
     val network = if ("rede" in used) rememberNetworkType() else ""
     val volume = if ("volume" in used) rememberMediaVolume() else 0
-    val needsState = controller != null && used.any { it == "ultimoApp" || it.startsWith("apps") }
+    val needsState = controller != null && used.any { it == "ultimoApp" || it.startsWith("apps") || it.startsWith("menu") || it == "temaId" }
     val launcherState = if (needsState) controller!!.viewModel.state.collectAsState().value else null
     val lastApp = if ("ultimoApp" in used) launcherState?.recents?.firstOrNull()?.app?.label.orEmpty() else ""
     // A lista de apps só é montada de novo quando apps, favoritos ou dock mudam.
@@ -142,6 +142,16 @@ fun rememberHtmlValues(
             if ("appsRecentes" in used) put("appsRecentes", recentApps)
             put("appsTotal", appsCount.toString())
             if ("appsDock" in used) put("appsDock", dockApps)
+            launcherState?.let { st ->
+                // Como a lista de apps está configurada nos ajustes (a lista em HTML pode seguir).
+                put("menuColunas", st.layout.drawerColumns.toString())
+                put("menuIcone", st.layout.drawerIconSizeDp.toString())
+                put("menuLetras", if (st.layout.showLetters) "sim" else "")
+                put("menuBuscaEmbaixo", if (st.layout.searchAtBottom) "sim" else "")
+                put("menuCabecalho", if (st.layout.showAppsHeader) "sim" else "")
+                put("menuExibicao", when (st.appsView) { dev.jesiel.launcher.data.AppsView.GRID -> "grade"; dev.jesiel.launcher.data.AppsView.LIST -> "lista"; dev.jesiel.launcher.data.AppsView.CATEGORY -> "categoria" })
+                put("temaId", st.themeId)
+            }
             put("dockVertical", "")
             put("modoBusca", "")
             put("barraTopo", insetTop.toString())
@@ -179,7 +189,8 @@ fun HtmlWidgetView(
      */
     visible: Boolean = true,
 ) {
-    val used = remember(widget.html) { HtmlVariables.used(widget.html) }
+    // O que o código cita, mais o que o tipo do widget sempre recebe (ex.: apps na lista de apps).
+    val used = remember(widget.html, widget.kind) { HtmlVariables.used(widget.html) + HtmlVariables.defaultsFor(widget.kind) }
     val values = rememberHtmlValues(palette, used, controller, extra)
     // No modo interativo a página é montada uma vez; depois só os dados são enviados.
     val document = if (widget.interactive) {

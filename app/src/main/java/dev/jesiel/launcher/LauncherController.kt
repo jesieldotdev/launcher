@@ -62,6 +62,24 @@ class LauncherController(
     private val launcherApps = activity.getSystemService(LauncherApps::class.java)
     private var pendingWidgetId = -1
 
+    /**
+     * Volta para a tela inicial (das telas abertas à parte, como os Ajustes); com [edit], já no
+     * modo de edição da área de trabalho.
+     */
+    fun goHome(edit: Boolean = false) {
+        if (activity is MainActivity) {
+            settingsOpen = false
+            if (edit) editMode = true
+            return
+        }
+        activity.startActivity(
+            Intent(activity, MainActivity::class.java)
+                .putExtra(MainActivity.EXTRA_EDIT, edit)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP),
+        )
+        activity.finish()
+    }
+
     fun onHomePressed() {
         homePresses++
         settingsOpen = false
@@ -285,7 +303,9 @@ class LauncherController(
     // --- Widgets HTML -----------------------------------------------------------------------
 
     /** Paleta do tema em uso (para telas fora do tema, como o editor de widgets). */
-    var palette: dev.jesiel.launcher.ui.common.LauncherPalette? = null
+    var palette: dev.jesiel.launcher.ui.common.LauncherPalette?
+        get() = sharedPalette
+        set(value) { sharedPalette = value }
 
     /** Widget HTML aberto no editor (novo ou existente); nulo quando o editor está fechado. */
     var htmlEditing by mutableStateOf<dev.jesiel.launcher.data.HtmlWidget?>(null)
@@ -581,6 +601,9 @@ class LauncherController(
     }
 
     private companion object {
+        /** Paleta do tema da tela inicial, também usada pelas telas abertas à parte (Ajustes, Estúdio). */
+        var sharedPalette: dev.jesiel.launcher.ui.common.LauncherPalette? = null
+
         const val GOOGLE_APP = "com.google.android.googlequicksearchbox"
         const val FORCE_FSG = "force_fsg_nav_bar"
         const val FREEFORM_SUPPORT = "enable_freeform_support"
