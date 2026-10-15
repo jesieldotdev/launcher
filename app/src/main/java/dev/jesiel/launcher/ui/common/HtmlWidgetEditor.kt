@@ -108,12 +108,15 @@ fun HtmlWidgetEditor(
             Spacer(Modifier.width(6.dp))
             Button(onClick = {
                 // Novo widget vai só para onde foi escolhido; um existente continua onde já estava.
-                val saved = (if (isNew) draft.copy(onDesktop = role == dev.jesiel.launcher.data.HtmlRole.DESKTOP)
-                else if (role == dev.jesiel.launcher.data.HtmlRole.DESKTOP) draft.copy(onDesktop = true) else draft).copy(role = role)
+                // Novo: vai para o lugar do tipo dele. Existente: só salva (continua onde estava).
+                val saved = (if (isNew) draft.copy(onDesktop = role == dev.jesiel.launcher.data.HtmlRole.DESKTOP) else draft).copy(role = role)
                 vm.saveHtmlWidget(saved)
                 controller.htmlEditing = null
-                if (role == dev.jesiel.launcher.data.HtmlRole.DESKTOP) controller.toast(if (isNew) "Widget adicionado à área de trabalho" else "Widget salvo")
-                else controller.useHtml(saved, role)
+                when {
+                    !isNew -> controller.toast("Widget salvo")
+                    role == dev.jesiel.launcher.data.HtmlRole.DESKTOP -> controller.toast("Widget adicionado à área de trabalho")
+                    else -> controller.useHtml(saved, role)
+                }
             }) { Text("Salvar") }
         }
 
@@ -162,8 +165,9 @@ fun HtmlWidgetEditor(
         } else Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(14.dp)) {
             OutlinedTextField(name, { name = it }, label = { Text("Nome") }, singleLine = true, modifier = Modifier.fillMaxWidth())
             Spacer(Modifier.height(10.dp))
-            Text(if (isNew) "Usar em" else "Ao salvar, usar também em", fontWeight = FontWeight.SemiBold, color = colors.onBackground)
-            Row(Modifier.horizontalScroll(rememberScrollState()).padding(vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            // O tipo é escolhido ao criar e depois fica fixo: cada widget vai só no lugar dele.
+            Text(if (isNew) "Tipo do widget" else "Tipo: ${role.label} (fixo)", fontWeight = FontWeight.SemiBold, color = colors.onBackground)
+            if (isNew) Row(Modifier.horizontalScroll(rememberScrollState()).padding(vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 dev.jesiel.launcher.data.HtmlRole.entries.forEach { r ->
                     val on = r == role
                     Text(
@@ -193,8 +197,8 @@ fun HtmlWidgetEditor(
             Spacer(Modifier.height(6.dp))
             Text("Modelos", fontWeight = FontWeight.SemiBold, color = colors.onBackground)
             Row(Modifier.horizontalScroll(rememberScrollState()).padding(vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                // Modelos do mesmo uso primeiro.
-                HtmlTemplates.all.sortedBy { if (it.role == role) 0 else 1 }.forEach { t ->
+                // Novo: todos os modelos (o modelo escolhe o tipo). Existente: só os do mesmo tipo.
+                HtmlTemplates.all.filter { isNew || it.role == role }.sortedBy { if (it.role == role) 0 else 1 }.forEach { t ->
                     Chip(t.name) {
                         code.set(t.html)
                         interactive = t.html.contains("<script")

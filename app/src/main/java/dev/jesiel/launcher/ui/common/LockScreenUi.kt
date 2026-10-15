@@ -59,7 +59,9 @@ fun LockScreenContent(
     storageId: String? = null,
     onUnlock: () -> Unit,
 ) {
-    val widget = widgetOverride ?: if (settings.style == LockStyle.HTML) state.htmlWidgets.firstOrNull { it.id == settings.htmlWidgetId } else null
+    val widget = widgetOverride ?: if (settings.style == LockStyle.HTML) {
+        state.htmlWidgets.firstOrNull { it.id == settings.htmlWidgetId && it.kind == dev.jesiel.launcher.data.HtmlRole.LOCK }
+    } else null
     val density = LocalDensity.current
     val scope = rememberCoroutineScope()
     val lift = remember { Animatable(0f) }

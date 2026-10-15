@@ -184,7 +184,8 @@ fun HtmlTester(widget: HtmlWidget, initialRole: HtmlRole, controller: LauncherCo
                 TesterChip("Dados", panel == "data") { panel = if (panel == "data") null else "data" }
                 TesterChip(if (realData) "Dados reais" else "Dados de teste", realData) { realData = !realData }
                 TesterChip("↻ Recarregar", false) { reload++ }
-                HtmlRole.entries.forEach { r -> TesterChip(r.label, role == r) { role = r } }
+                // O formato é o do tipo do widget (não dá para testar num lugar de outro tipo).
+                TesterChip(role.label, true) {}
                 if (role == HtmlRole.DESKTOP) TEST_SIZES.forEach { s -> TesterChip("${s.first}×${s.second}", size == s) { size = s } }
                 if (role == HtmlRole.APPS) TesterChip("Aberta pela busca", search) { search = !search; reload++ }
                 if (role == HtmlRole.DOCK) {

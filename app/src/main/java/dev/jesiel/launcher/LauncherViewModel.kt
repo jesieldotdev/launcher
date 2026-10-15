@@ -88,7 +88,33 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     init {
         viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) { backups.dailySnapshot() }
         addStarterHtmlWidgets()
+        assignWidgetKinds()
         viewModelScope.launch { repository.apps.collect { if (it.isNotEmpty()) onAppsLoaded(it) } }
+    }
+
+    /**
+     * Uma vez, para widgets de antes dos tipos: cada um fica com o tipo do lugar onde está em
+     * uso (bloqueio, lista de apps, dock) ou, se em nenhum, o deduzido do código. Daí em diante
+     * o tipo é fixo e o widget só pode ser usado no lugar dele.
+     */
+    private fun assignWidgetKinds() {
+        if (prefs.data.value.htmlWidgets.none { it.role == null }) return
+        val lock = dev.jesiel.launcher.data.LockScreen.settings(getApplication()).value
+        val lockId = lock?.takeIf { it.style == dev.jesiel.launcher.data.LockStyle.HTML }?.htmlWidgetId
+        prefs.update { cur ->
+            cur.copy(htmlWidgets = cur.htmlWidgets.map { w ->
+                if (w.role != null) w
+                else {
+                    val role = when (w.id) {
+                        lockId -> dev.jesiel.launcher.data.HtmlRole.LOCK
+                        cur.appsHtmlId -> dev.jesiel.launcher.data.HtmlRole.APPS
+                        cur.dockHtmlId -> dev.jesiel.launcher.data.HtmlRole.DOCK
+                        else -> w.kind
+                    }
+                    w.copy(role = role, onDesktop = w.onDesktop && role == dev.jesiel.launcher.data.HtmlRole.DESKTOP)
+                }
+            })
+        }
     }
 
     fun setNewAppsToHome(on: Boolean) = prefs.update { it.copy(newAppsToHome = on) }
@@ -184,10 +210,11 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
             controlCenter = data.controlCenter,
             sharedLayout = data.sharedLayout,
             htmlWidgets = data.htmlWidgets,
-            appsHtml = data.appsHtmlId?.let { id -> data.htmlWidgets.firstOrNull { it.id == id } },
+            // Cada widget só vale no lugar do próprio tipo.
+            appsHtml = data.appsHtmlId?.let { id -> data.htmlWidgets.firstOrNull { it.id == id && it.kind == dev.jesiel.launcher.data.HtmlRole.APPS } },
             iconPack = data.iconPack,
             iconPackStyleUnthemed = data.iconPackStyleUnthemed,
-            dockHtml = data.dockHtmlId?.let { id -> data.htmlWidgets.firstOrNull { it.id == id } },
+            dockHtml = data.dockHtmlId?.let { id -> data.htmlWidgets.firstOrNull { it.id == id && it.kind == dev.jesiel.launcher.data.HtmlRole.DOCK } },
             dockHtmlHeight = data.dockHtmlHeight,
             newAppsToHome = data.newAppsToHome,
         )
@@ -435,7 +462,8 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
 
     /** Tira o widget da área de trabalho, mas o mantém guardado na biblioteca. */
     fun setHtmlWidgetOnDesktop(id: String, onDesktop: Boolean) = prefs.update { d ->
-        d.copy(htmlWidgets = d.htmlWidgets.map { if (it.id == id) it.copy(onDesktop = onDesktop) else it })
+        // Só widgets do tipo "área de trabalho" vão para a área de trabalho.
+        d.copy(htmlWidgets = d.htmlWidgets.map { if (it.id == id) it.copy(onDesktop = onDesktop && it.kind == dev.jesiel.launcher.data.HtmlRole.DESKTOP) else it })
     }
 
     /** Apaga o widget de vez (da área de trabalho e da biblioteca). */
@@ -450,7 +478,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         val source = d.htmlWidgets.firstOrNull { it.id == id } ?: return@update d
         val copyId = UUID.randomUUID().toString().take(8)
         dev.jesiel.launcher.data.WidgetStorage.copy(getApplication(), id, copyId)
-        d.copy(htmlWidgets = d.htmlWidgets + source.copy(id = copyId, name = source.name + " (cópia)", onDesktop = true))
+        d.copy(htmlWidgets = d.htmlWidgets + source.copy(id = copyId, name = source.name + " (cópia)", onDesktop = source.kind == dev.jesiel.launcher.data.HtmlRole.DESKTOP))
     }
 
     /** Usa o widget [id] como lista de apps (nulo volta à do tema). */

@@ -140,7 +140,7 @@ fun DesktopCanvas(
         builtins.filter { it.id !in state.hiddenBuiltins }.map(DesktopEntry::Builtin) +
             state.home.map(DesktopEntry::Item) +
             state.widgetIds.map(DesktopEntry::Widget) +
-            state.htmlWidgets.filter { it.onDesktop }.map(DesktopEntry::Html)
+            state.htmlWidgets.filter { it.onDesktop && it.kind == dev.jesiel.launcher.data.HtmlRole.DESKTOP }.map(DesktopEntry::Html)
     }
     // Links launcher://apps e launcher://busca dos widgets HTML usam o menu deste tema.
     androidx.compose.runtime.SideEffect {
@@ -963,7 +963,7 @@ private fun EditBar(
                     DropdownMenuItem(text = { Text("Widget Android…") }, onClick = { addOpen = false; controller.widgetPickerOpen = true })
                     DropdownMenuItem(text = { Text("Novo widget HTML…") }, onClick = { addOpen = false; controller.newHtmlWidget() })
                     // Widgets HTML salvos que não estão na área de trabalho.
-                    state.htmlWidgets.filter { !it.onDesktop }.forEach { w ->
+                    state.htmlWidgets.filter { !it.onDesktop && it.kind == dev.jesiel.launcher.data.HtmlRole.DESKTOP }.forEach { w ->
                         DropdownMenuItem(text = { Text("Widget salvo: ${w.name}") }, onClick = { addOpen = false; vm.setHtmlWidgetOnDesktop(w.id, true) })
                     }
                     builtins.filter { it.id in state.hiddenBuiltins }.forEach { spec ->

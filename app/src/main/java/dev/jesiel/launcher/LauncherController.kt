@@ -300,7 +300,7 @@ class LauncherController(
     var htmlTesting by mutableStateOf<dev.jesiel.launcher.data.HtmlWidget?>(null)
     var htmlTestingRole by mutableStateOf(dev.jesiel.launcher.data.HtmlRole.DESKTOP)
 
-    fun testHtml(widget: dev.jesiel.launcher.data.HtmlWidget, role: dev.jesiel.launcher.data.HtmlRole = roleOf(widget)) {
+    fun testHtml(widget: dev.jesiel.launcher.data.HtmlWidget, role: dev.jesiel.launcher.data.HtmlRole = widget.kind) {
         htmlTestingRole = role
         htmlTesting = widget
     }
@@ -393,7 +393,7 @@ class LauncherController(
 
     /** Abre um widget salvo no editor. */
     fun editHtmlWidget(widget: dev.jesiel.launcher.data.HtmlWidget) {
-        htmlEditingRole = roleOf(widget)
+        htmlEditingRole = widget.kind
         htmlEditing = widget
     }
 
@@ -408,24 +408,34 @@ class LauncherController(
 
     /** Usa o widget na tela de bloqueio (e liga a tela de bloqueio do Launcher). */
     fun useOnLockScreen(widget: dev.jesiel.launcher.data.HtmlWidget) {
+        if (widget.kind != dev.jesiel.launcher.data.HtmlRole.LOCK) return
         dev.jesiel.launcher.data.LockScreen.update(activity) { it.copy(enabled = true, style = dev.jesiel.launcher.data.LockStyle.HTML, htmlWidgetId = widget.id) }
         toast("\"${widget.name}\" na tela de bloqueio")
     }
 
     fun useAsDock(widget: dev.jesiel.launcher.data.HtmlWidget) {
+        if (widget.kind != dev.jesiel.launcher.data.HtmlRole.DOCK) return
         viewModel.setDockHtml(widget.id)
         toast("\"${widget.name}\" como dock")
     }
 
     /** Aplica o widget no uso escolhido (ao salvar no editor ou pelo Estúdio). */
-    fun useHtml(widget: dev.jesiel.launcher.data.HtmlWidget, role: dev.jesiel.launcher.data.HtmlRole) = when (role) {
+    fun useHtml(widget: dev.jesiel.launcher.data.HtmlWidget, role: dev.jesiel.launcher.data.HtmlRole) {
+        // Cada widget só no lugar do próprio tipo.
+        if (widget.kind != role) {
+            toast("\"${widget.name}\" é um widget de ${widget.kind.label.lowercase()}")
+            return
+        }
+        when (role) {
         dev.jesiel.launcher.data.HtmlRole.LOCK -> useOnLockScreen(widget)
         dev.jesiel.launcher.data.HtmlRole.APPS -> useAsAppList(widget)
         dev.jesiel.launcher.data.HtmlRole.DOCK -> useAsDock(widget)
         dev.jesiel.launcher.data.HtmlRole.DESKTOP -> viewModel.setHtmlWidgetOnDesktop(widget.id, true)
+        }
     }
 
     fun useAsAppList(widget: dev.jesiel.launcher.data.HtmlWidget) {
+        if (widget.kind != dev.jesiel.launcher.data.HtmlRole.APPS) return
         viewModel.setAppsHtml(widget.id)
         toast("\"${widget.name}\" como lista de apps")
     }

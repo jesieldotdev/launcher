@@ -131,10 +131,10 @@ fun HtmlStudio(controller: LauncherController, palette: LauncherPalette) {
     }
     var choosing by remember { mutableStateOf<HtmlRole?>(null) }
     val colors = MaterialTheme.colorScheme
-    val lockWidget = lock?.takeIf { it.style == LockStyle.HTML }?.htmlWidgetId?.let { id -> state.htmlWidgets.firstOrNull { it.id == id } }
+    val lockWidget = lock?.takeIf { it.style == LockStyle.HTML }?.htmlWidgetId?.let { id -> state.htmlWidgets.firstOrNull { it.id == id && it.kind == HtmlRole.LOCK } }
 
     fun rolesOf(w: HtmlWidget): List<HtmlRole> = buildList {
-        if (w.onDesktop) add(HtmlRole.DESKTOP)
+        if (w.onDesktop && w.kind == HtmlRole.DESKTOP) add(HtmlRole.DESKTOP)
         if (lockWidget?.id == w.id && lock?.enabled == true) add(HtmlRole.LOCK)
         if (state.appsHtml?.id == w.id) add(HtmlRole.APPS)
         if (state.dockHtml?.id == w.id) add(HtmlRole.DOCK)
@@ -276,24 +276,28 @@ fun HtmlStudio(controller: LauncherController, palette: LauncherPalette) {
                                 DropdownMenuItem(text = { Text("Editar") }, onClick = { close(); controller.editHtmlWidget(w) })
                                 DropdownMenuItem(text = { Text("Testar") }, onClick = { close(); controller.testHtml(w, w.kind) })
                                 androidx.compose.material3.HorizontalDivider()
-                                DropdownMenuItem(
-                                    text = { Text(if (w.onDesktop) "Tirar da área de trabalho" else "Pôr na área de trabalho") },
-                                    onClick = { close(); vm.setHtmlWidgetOnDesktop(w.id, !w.onDesktop) },
-                                )
-                                if (HtmlRole.LOCK in roles) {
-                                    DropdownMenuItem(text = { Text("Abrir a tela de bloqueio") }, onClick = { close(); LockScreen.show(context) })
-                                } else {
-                                    DropdownMenuItem(text = { Text("Usar na tela de bloqueio") }, onClick = { close(); controller.useOnLockScreen(w) })
-                                }
-                                if (HtmlRole.APPS in roles) {
-                                    DropdownMenuItem(text = { Text("Voltar à lista do tema") }, onClick = { close(); vm.setAppsHtml(null) })
-                                } else {
-                                    DropdownMenuItem(text = { Text("Usar como lista de apps") }, onClick = { close(); controller.useAsAppList(w) })
-                                }
-                                if (HtmlRole.DOCK in roles) {
-                                    DropdownMenuItem(text = { Text("Voltar à dock do tema") }, onClick = { close(); vm.setDockHtml(null) })
-                                } else {
-                                    DropdownMenuItem(text = { Text("Usar como dock") }, onClick = { close(); controller.useAsDock(w) })
+                                // Só a ação do tipo do widget: cada tipo vai num lugar só.
+                                when (w.kind) {
+                                    HtmlRole.DESKTOP -> DropdownMenuItem(
+                                        text = { Text(if (w.onDesktop) "Tirar da área de trabalho" else "Pôr na área de trabalho") },
+                                        onClick = { close(); vm.setHtmlWidgetOnDesktop(w.id, !w.onDesktop) },
+                                    )
+                                    HtmlRole.LOCK -> if (HtmlRole.LOCK in roles) {
+                                        DropdownMenuItem(text = { Text("Abrir a tela de bloqueio") }, onClick = { close(); LockScreen.show(context) })
+                                        DropdownMenuItem(text = { Text("Voltar à tela de bloqueio do tema") }, onClick = { close(); LockScreen.update(context) { it.copy(style = LockStyle.THEME) } })
+                                    } else {
+                                        DropdownMenuItem(text = { Text("Usar na tela de bloqueio") }, onClick = { close(); controller.useOnLockScreen(w) })
+                                    }
+                                    HtmlRole.APPS -> if (HtmlRole.APPS in roles) {
+                                        DropdownMenuItem(text = { Text("Voltar à lista do tema") }, onClick = { close(); vm.setAppsHtml(null) })
+                                    } else {
+                                        DropdownMenuItem(text = { Text("Usar como lista de apps") }, onClick = { close(); controller.useAsAppList(w) })
+                                    }
+                                    HtmlRole.DOCK -> if (HtmlRole.DOCK in roles) {
+                                        DropdownMenuItem(text = { Text("Voltar à dock do tema") }, onClick = { close(); vm.setDockHtml(null) })
+                                    } else {
+                                        DropdownMenuItem(text = { Text("Usar como dock") }, onClick = { close(); controller.useAsDock(w) })
+                                    }
                                 }
                                 androidx.compose.material3.HorizontalDivider()
                                 DropdownMenuItem(text = { Text("Duplicar") }, onClick = { close(); vm.duplicateHtmlWidget(w.id) })
@@ -377,7 +381,7 @@ fun HtmlStudio(controller: LauncherController, palette: LauncherPalette) {
     choosing?.let { role ->
         RoleChooser(
             role = role,
-            widgets = state.htmlWidgets,
+            widgets = state.htmlWidgets.filter { it.kind == role },
             current = when (role) {
                 HtmlRole.LOCK -> lockWidget?.takeIf { lock?.enabled == true }?.id
                 HtmlRole.DOCK -> state.dockHtml?.id
@@ -688,6 +692,14 @@ private fun RoleChooser(
             Column(Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState())) {
                 ChooserRow("Do tema", current == null, onTheme)
                 widgets.forEach { w -> ChooserRow(w.name, current == w.id) { onPick(w) } }
+                if (widgets.isEmpty()) {
+                    Text(
+                        "Nenhum widget de ${role.label.lowercase()} ainda. Crie um a partir dos modelos desse tipo.",
+                        fontSize = 12.sp,
+                        color = colors.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 6.dp),
+                    )
+                }
                 Spacer(Modifier.height(8.dp))
                 Text(
                     if (role == HtmlRole.DOCK) "A dock em HTML aparece no lugar da dock (ou barra de tarefas) em todos os temas. A altura fica em Ajustes › Tela inicial › Dock."

@@ -300,7 +300,7 @@ fun SettingsScreen(state: LauncherUiState, controller: LauncherController, onClo
                             val isWindows = state.themeId == "windows"
                             Text("Estilo", fontWeight = FontWeight.SemiBold)
                             Spacer(Modifier.height(6.dp))
-                            val htmlDocks = state.htmlWidgets.filter { it.id == state.dockHtml?.id || it.html.contains("appsDock") || it.html.contains("dockApps") }
+                            val htmlDocks = state.htmlWidgets.filter { it.kind == dev.jesiel.launcher.data.HtmlRole.DOCK }
                             Choices(listOf<dev.jesiel.launcher.data.HtmlWidget?>(null) + htmlDocks, state.dockHtml, { it?.name ?: "Do tema" }) { vm.setDockHtml(it?.id) }
                             if (state.dockHtml != null) {
                                 SliderRow("Altura da dock em HTML", "${state.dockHtmlHeight} dp", state.dockHtmlHeight.toFloat(), 48f..200f, 18) { v ->
@@ -414,7 +414,7 @@ fun SettingsScreen(state: LauncherUiState, controller: LauncherController, onClo
                         Card {
                             Text("Estilo da lista", fontWeight = FontWeight.SemiBold)
                             Spacer(Modifier.height(6.dp))
-                            val htmlLists = state.htmlWidgets.filter { it.id == state.appsHtml?.id || it.html.contains("appsLista") || it.html.contains("appsList") }
+                            val htmlLists = state.htmlWidgets.filter { it.kind == dev.jesiel.launcher.data.HtmlRole.APPS }
                             Choices(listOf<dev.jesiel.launcher.data.HtmlWidget?>(null) + htmlLists, state.appsHtml, { it?.name ?: "Do tema" }) { vm.setAppsHtml(it?.id) }
                             Text(
                                 "Uma lista em HTML abre no lugar da gaveta em todos os temas. Crie a sua a partir dos modelos do Estúdio HTML.",
@@ -966,10 +966,12 @@ private fun LockScreenCard(state: LauncherUiState, controller: LauncherControlle
     }
     fun update(t: (dev.jesiel.launcher.data.LockSettings) -> dev.jesiel.launcher.data.LockSettings) =
         dev.jesiel.launcher.data.LockScreen.update(context, t)
-    // Estilo HTML sem widget escolhido (ou com um que foi apagado): usa o primeiro salvo.
-    androidx.compose.runtime.LaunchedEffect(settings.style, settings.htmlWidgetId, state.htmlWidgets) {
-        if (settings.style == dev.jesiel.launcher.data.LockStyle.HTML && state.htmlWidgets.none { it.id == settings.htmlWidgetId }) {
-            state.htmlWidgets.firstOrNull()?.let { w -> update { it.copy(htmlWidgetId = w.id) } }
+    // Só widgets do tipo "tela de bloqueio" podem ser usados aqui.
+    val lockWidgets = state.htmlWidgets.filter { it.kind == dev.jesiel.launcher.data.HtmlRole.LOCK }
+    // Estilo HTML sem widget escolhido (ou com um que foi apagado): usa o primeiro de bloqueio.
+    androidx.compose.runtime.LaunchedEffect(settings.style, settings.htmlWidgetId, lockWidgets) {
+        if (settings.style == dev.jesiel.launcher.data.LockStyle.HTML && lockWidgets.none { it.id == settings.htmlWidgetId }) {
+            lockWidgets.firstOrNull()?.let { w -> update { it.copy(htmlWidgetId = w.id) } }
         }
     }
     Card {
@@ -992,11 +994,11 @@ private fun LockScreenCard(state: LauncherUiState, controller: LauncherControlle
             Choices(dev.jesiel.launcher.data.LockStyle.entries, settings.style, { it.label }) { style -> update { it.copy(style = style) } }
             if (settings.style == dev.jesiel.launcher.data.LockStyle.HTML) {
                 Spacer(Modifier.height(8.dp))
-                if (state.htmlWidgets.isEmpty()) {
-                    Text("Crie um widget HTML (há o modelo \"Tela de bloqueio\").", fontSize = 12.sp, color = Color.Gray)
+                if (lockWidgets.isEmpty()) {
+                    Text("Nenhum widget de tela de bloqueio. Crie um no Estúdio HTML (modelos \"Tela de bloqueio\" e \"Moto Display\").", fontSize = 12.sp, color = Color.Gray)
                 } else {
                     Text("Widget", fontSize = 13.sp, color = Color.Gray)
-                    Choices(state.htmlWidgets, state.htmlWidgets.firstOrNull { it.id == settings.htmlWidgetId } ?: state.htmlWidgets.first(), { it.name }) { w ->
+                    Choices(lockWidgets, lockWidgets.firstOrNull { it.id == settings.htmlWidgetId } ?: lockWidgets.first(), { it.name }) { w ->
                         update { it.copy(htmlWidgetId = w.id) }
                     }
                 }
