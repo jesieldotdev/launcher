@@ -298,6 +298,35 @@ class LauncherController(
         htmlTesting = widget
     }
 
+    // --- Arrastar da lista de apps para a tela inicial ---------------------------------------
+
+    var homeDrag by mutableStateOf<dev.jesiel.launcher.ui.common.HomeDrag?>(null)
+        private set
+
+    /** Definido pela área de trabalho: coloca o app na célula sob o ponto (na janela). */
+    var desktopDrop: ((dev.jesiel.launcher.data.AppInfo, androidx.compose.ui.geometry.Offset) -> Unit)? = null
+
+    fun startHomeDrag(app: dev.jesiel.launcher.data.AppInfo, position: androidx.compose.ui.geometry.Offset) {
+        desktopDragTick++ // fecha o menu que o toque longo abriu
+        homeDrag = dev.jesiel.launcher.ui.common.HomeDrag(app, position)
+        // Fecha listas e painéis (os temas fecham a gaveta com o mesmo sinal do botão Home).
+        homePresses++
+        htmlDrawerOpen = false
+        controlCenterOpen = false
+        editMode = true
+    }
+
+    fun moveHomeDrag(position: androidx.compose.ui.geometry.Offset) {
+        homeDrag = homeDrag?.copy(position = position)
+    }
+
+    fun dropHomeDrag(position: androidx.compose.ui.geometry.Offset) {
+        val drag = homeDrag ?: return
+        homeDrag = null
+        val drop = desktopDrop
+        if (drop != null) drop(drag.app, position) else viewModel.addToHome(drag.app)
+    }
+
     /** Lista de apps em HTML aberta (no lugar da gaveta do tema). */
     var htmlDrawerOpen by mutableStateOf(false)
     var htmlDrawerSearch by mutableStateOf(false)

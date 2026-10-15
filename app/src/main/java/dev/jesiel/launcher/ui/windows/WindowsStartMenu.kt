@@ -356,6 +356,8 @@ private fun CategoryChip(text: String, selected: Boolean, palette: LauncherPalet
 @Composable
 private fun SearchResults(query: String, state: LauncherUiState, controller: LauncherController, onLaunched: () -> Unit) {
     val results = remember(query, state.apps) { state.apps.search(query) }
+    // Resultados também podem ser arrastados para a área de trabalho.
+    androidx.compose.runtime.CompositionLocalProvider(dev.jesiel.launcher.ui.common.LocalDragToHome provides true) {
     LazyColumn(Modifier.padding(horizontal = 12.dp)) {
         if (results.isNotEmpty()) {
             item { ResultHeader("Melhor correspondência") }
@@ -398,6 +400,7 @@ private fun SearchResults(query: String, state: LauncherUiState, controller: Lau
                 Text("\"$query\" — ver resultados da Web", color = LocalPalette.current.panelText, fontSize = 14.sp)
             }
         }
+    }
     }
 }
 

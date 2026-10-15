@@ -1,5 +1,9 @@
 package dev.jesiel.launcher
 
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.Modifier
+import dev.jesiel.launcher.ui.common.HomeDragGhost
+import dev.jesiel.launcher.ui.common.trackHomeDrag
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -75,6 +79,8 @@ class MainActivity : ComponentActivity() {
         controller.importBackupFile = { importBackup.launch(arrayOf("application/json", "text/plain", "*/*")) }
 
         setContent {
+            // A raiz acompanha o dedo quando um app é arrastado da lista para a tela inicial.
+            androidx.compose.foundation.layout.Box(Modifier.fillMaxSize().trackHomeDrag(controller)) {
             val state by viewModel.state.collectAsStateWithLifecycle()
             val theme = ThemeRegistry.byId(state.themeId)
 
@@ -172,6 +178,9 @@ class MainActivity : ComponentActivity() {
                     onPick = controller::addWidget,
                     onDismiss = { controller.widgetPickerOpen = false },
                 )
+            }
+            // O app que vem da lista de apps, seguindo o dedo, por cima de tudo.
+            HomeDragGhost(controller)
             }
         }
     }

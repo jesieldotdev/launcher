@@ -208,6 +208,14 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    /** Põe o app na tela inicial (tirando de uma pasta, se estiver numa); já estando lá, nada muda. */
+    fun addToHome(app: AppInfo) = prefs.update { d ->
+        if (app.key in d.homeOrder) return@update d
+        val inFolder = d.folders.values.firstOrNull { app.key in it.appKeys }
+        val base = if (inFolder != null) d.removeFromFolder(app.key, inFolder.id, returnToHome = false) else d
+        base.copy(homeOrder = base.homeOrder + app.key)
+    }
+
     fun toggleDock(app: AppInfo) = prefs.update { d ->
         if (app.key in d.dock) d.copy(dock = d.dock - app.key)
         else d.copy(dock = (d.dock + app.key).takeLast(d.layoutFor(d.themeId).dockMaxApps.coerceIn(1, MAX_DOCK)))

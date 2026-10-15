@@ -137,6 +137,7 @@ fun AllAppsContent(
     columns: Int = state.layout.drawerColumns,
     gridState: LazyGridState? = null,
 ) {
+    androidx.compose.runtime.CompositionLocalProvider(LocalDragToHome provides true) {
     AnimatedContent(
         targetState = view,
         transitionSpec = { (fadeIn(tween(220)) + scaleIn(tween(220), initialScale = 0.96f)) togetherWith fadeOut(tween(120)) },
@@ -150,6 +151,7 @@ fun AllAppsContent(
             AppsView.LIST, AppsView.GRID -> AlphabeticalApps(apps, mode == AppsView.GRID, state, controller, palette, labels, onLaunched, columns, listState)
             AppsView.CATEGORY -> CategoryApps(apps, state, controller, palette, labels, onLaunched)
         }
+    }
     }
 }
 
@@ -279,6 +281,8 @@ private fun CategoryApps(
 
     expanded?.let { (category, list) ->
         Dialog(onDismissRequest = { expanded = null }) {
+            // A janela da categoria é outra janela: a raiz da tela não acompanha o dedo nela.
+            androidx.compose.runtime.CompositionLocalProvider(LocalDragToHome provides false) {
             Surface(shape = RoundedCornerShape(20.dp), color = palette.panel.copy(alpha = 1f)) {
                 @OptIn(ExperimentalLayoutApi::class)
                 Column(Modifier.padding(18.dp).verticalScroll(rememberScrollState())) {
@@ -294,6 +298,7 @@ private fun CategoryApps(
                         }
                     }
                 }
+            }
             }
         }
     }

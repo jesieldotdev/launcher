@@ -336,6 +336,7 @@ private fun TerminalContent(
                     val pair = r as Pair<*, *>
                     val i = pair.first as Int
                     val app = pair.second as dev.jesiel.launcher.data.AppInfo
+                    androidx.compose.runtime.CompositionLocalProvider(dev.jesiel.launcher.ui.common.LocalDragToHome provides true) {
                     AppListRow(
                         app = app, state = state, controller = controller, labels = RetroLabels,
                         iconSize = (state.layout.drawerIconSizeDp * 0.6f).coerceAtLeast(22f).dp,
@@ -347,6 +348,7 @@ private fun TerminalContent(
                             maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f),
                         )
                         Text("▸", style = Hud.copy(color = AmberDim, fontSize = 13.sp))
+                    }
                     }
                 }
             }

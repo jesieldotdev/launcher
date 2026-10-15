@@ -240,6 +240,59 @@ fun SettingsScreen(state: LauncherUiState, controller: LauncherController, onClo
                             SwitchRow("Mostrar nomes dos apps", layout.showLabels) { on ->
                                 vm.updateLayout { it.copy(showLabels = on) }
                             }
+                            if (layout.showLabels) {
+                                SliderRow("Tamanho do nome", "${layout.labelSizeSp} sp", layout.labelSizeSp.toFloat(), 9f..18f, 8) { v ->
+                                    vm.updateLayout { it.copy(labelSizeSp = v.roundToInt()) }
+                                }
+                                Text("Linhas do nome", fontWeight = FontWeight.SemiBold)
+                                Spacer(Modifier.height(6.dp))
+                                Choices(listOf(1, 2), layout.labelLines, { if (it == 1) "Uma linha" else "Até duas linhas" }) { n ->
+                                    vm.updateLayout { it.copy(labelLines = n) }
+                                }
+                                Spacer(Modifier.height(8.dp))
+                            }
+                        }
+
+                        SectionTitle("Grade e espaçamento")
+                        Card {
+                            SwitchRow("Altura das linhas automática", layout.cellHeightDp == 0) { on ->
+                                // Ao desligar, começa da altura que já estava sendo usada.
+                                val auto = layout.iconSizeDp + if (layout.showLabels) (24 + layout.labelSizeSp * 1.35f * layout.labelLines).roundToInt() else 16
+                                vm.updateLayout { it.copy(cellHeightDp = if (on) 0 else auto) }
+                            }
+                            Text(
+                                "Automática: pelo tamanho do ícone e do nome. Desligada, você escolhe a altura de cada linha da grade.",
+                                fontSize = 12.sp,
+                                color = Color.Gray,
+                            )
+                            if (layout.cellHeightDp > 0) {
+                                SliderRow("Altura das linhas", "${layout.cellHeightDp} dp", layout.cellHeightDp.toFloat(), 48f..180f, 32) { v ->
+                                    vm.updateLayout { it.copy(cellHeightDp = v.roundToInt()) }
+                                }
+                            }
+                            Spacer(Modifier.height(8.dp))
+                            SliderRow("Espaço entre os itens", "${layout.itemSpacingDp} dp", layout.itemSpacingDp.toFloat(), 0f..16f, 15) { v ->
+                                vm.updateLayout { it.copy(itemSpacingDp = v.roundToInt()) }
+                            }
+                            SliderRow("Margem dos lados", "${layout.desktopMarginSideDp} dp", layout.desktopMarginSideDp.toFloat(), 0f..48f, 23) { v ->
+                                vm.updateLayout { it.copy(desktopMarginSideDp = v.roundToInt()) }
+                            }
+                            SliderRow("Margem em cima", "${layout.desktopMarginTopDp} dp", layout.desktopMarginTopDp.toFloat(), 0f..120f, 29) { v ->
+                                vm.updateLayout { it.copy(desktopMarginTopDp = v.roundToInt()) }
+                            }
+                            SliderRow("Margem embaixo", "${layout.desktopMarginBottomDp} dp", layout.desktopMarginBottomDp.toFloat(), 0f..120f, 29) { v ->
+                                vm.updateLayout { it.copy(desktopMarginBottomDp = v.roundToInt()) }
+                            }
+                            Text(
+                                "As margens se somam às do tema. Estes ajustes valem para o tema atual; cada tema guarda os seus.",
+                                fontSize = 12.sp,
+                                color = Color.Gray,
+                            )
+                            androidx.compose.material3.TextButton(onClick = {
+                                vm.updateLayout {
+                                    it.copy(cellHeightDp = 0, itemSpacingDp = 0, desktopMarginSideDp = 0, desktopMarginTopDp = 0, desktopMarginBottomDp = 0, labelSizeSp = 12, labelLines = 1)
+                                }
+                            }) { Text("Voltar ao padrão") }
                         }
 
                         SectionTitle(if (state.themeId == "windows") "Barra de tarefas" else "Dock")

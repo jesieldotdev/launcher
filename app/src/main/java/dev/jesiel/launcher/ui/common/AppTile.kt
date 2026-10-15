@@ -68,6 +68,8 @@ fun AppTile(
     iconSize: Dp = state.layout.iconSizeDp.dp,
     showLabel: Boolean = state.layout.showLabels,
     labelStyle: TextStyle = TextStyle(color = Color.White, fontSize = 12.sp),
+    /** Linhas do nome (na tela inicial, escolhido nos ajustes). */
+    labelLines: Int = 1,
     labels: AppMenuLabels = AppMenuLabels(),
     folderId: String? = null,
     iconBackground: Color? = null,
@@ -87,8 +89,9 @@ fun AppTile(
     val iconStyle = LocalIconStyle.current
     // Segurar e arrastar o ícone fecha o menu que o toque longo abriu.
     androidx.compose.runtime.LaunchedEffect(controller.desktopDragTick) { menuOpen = false }
+    val dragHome = LocalDragToHome.current
 
-    Box(modifier) {
+    Box(modifier.then(if (dragHome) Modifier.dragToHome(app, controller) else Modifier)) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Top,
@@ -125,7 +128,7 @@ fun AppTile(
                 Text(
                     text = if (iconStyle.uppercaseLabels) app.label.uppercase() else app.label,
                     style = labelStyle,
-                    maxLines = 1,
+                    maxLines = labelLines.coerceIn(1, 3),
                     overflow = TextOverflow.Ellipsis,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.width(iconSize + 28.dp),
@@ -222,8 +225,10 @@ fun AppListRow(
     var menuOpen by remember { mutableStateOf(false) }
     var folderPickerOpen by remember { mutableStateOf(false) }
     val haptics = LocalHapticFeedback.current
+    androidx.compose.runtime.LaunchedEffect(controller.desktopDragTick) { menuOpen = false }
+    val dragHome = LocalDragToHome.current
 
-    Box(modifier) {
+    Box(modifier.then(if (dragHome) Modifier.dragToHome(app, controller) else Modifier)) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(14.dp),

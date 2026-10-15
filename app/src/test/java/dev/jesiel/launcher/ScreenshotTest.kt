@@ -45,6 +45,7 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
+import dev.jesiel.launcher.ui.common.trackHomeDrag
 import org.junit.Rule
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.background
@@ -786,5 +787,55 @@ class ScreenshotTest {
         compose.onNodeWithContentDescription("Remover ${apps[4].label} da dock").performScrollTo().performClick()
         compose.waitForIdle()
         org.junit.Assert.assertFalse(apps[4].key in controller.viewModel.state.value.dockKeys)
+    }
+
+    /** Segurar um app na lista de apps e arrastar: a lista fecha, a tela inicial entra em edição e o app vai para onde for solto. */
+    @Test
+    fun dragAppFromDrawerToHome() {
+        val controller = controller()
+        val app = apps.first { it.label == "Calendário" }
+        compose.setContent {
+            androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.fillMaxSize().trackHomeDrag(controller)) {
+                KdeLauncher(sampleState().copy(home = emptyList()), controller)
+                dev.jesiel.launcher.ui.common.HomeDragGhost(controller)
+            }
+        }
+        compose.runOnIdle { controller.openAppsMenu!!.invoke() }
+        compose.mainClock.advanceTimeBy(600)
+        compose.waitForIdle()
+        compose.onNodeWithContentDescription(app.label).performTouchInput {
+            down(center)
+            advanceEventTime(viewConfiguration.longPressTimeoutMillis + 100)
+            moveBy(androidx.compose.ui.geometry.Offset(0f, -60f))
+        }
+        compose.mainClock.advanceTimeBy(600)
+        compose.waitForIdle()
+        org.junit.Assert.assertNotNull("o app está sendo levado", controller.homeDrag)
+        org.junit.Assert.assertTrue("a tela inicial entrou no modo de edição", controller.editMode)
+        compose.onRoot().performTouchInput { moveTo(androidx.compose.ui.geometry.Offset(width * 0.62f, height * 0.42f)) }
+        compose.waitForIdle()
+        compose.onRoot().captureRoboImage(shot("kde-drag-from-drawer"))
+        compose.onRoot().performTouchInput { up() }
+        compose.mainClock.advanceTimeBy(500)
+        compose.waitForIdle()
+        org.junit.Assert.assertNull(controller.homeDrag)
+        val st = controller.viewModel.state.value
+        org.junit.Assert.assertTrue("o app foi para a tela inicial", app.key in st.favoriteKeys)
+        val p = st.placements[app.key]
+        org.junit.Assert.assertNotNull("e ganhou uma posição", p)
+        org.junit.Assert.assertTrue("na metade de baixo/direita, onde foi solto: $p", p!!.x >= 1f && p.y >= 1f)
+    }
+
+    /** Ajustes › Tela inicial › Grade e espaçamento. */
+    @Test
+    fun desktopSpacingSettings() {
+        val controller = controller()
+        val base = sampleState()
+        compose.setContent { SettingsScreen(base.copy(layout = base.layout.copy(cellHeightDp = 120, itemSpacingDp = 6)), controller, onClose = {}) }
+        compose.onNodeWithText("Tela inicial").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText("Margem em cima").performScrollTo()
+        compose.onRoot().captureRoboImage(shot("settings-desktop-spacing"))
+        compose.onNodeWithText("Altura das linhas", substring = false).assertExists()
     }
 }

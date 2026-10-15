@@ -148,6 +148,8 @@ fun DesktopCanvas(
         controller.openSearch = onSearch
     }
 
+    val canvasOrigin = remember { arrayOf(Offset.Zero) }
+
     // Tela à esquerda (feed) vem antes das telas da área de trabalho.
     val feedOffset = if (state.leftScreen != LeftScreen.NONE) 1 else 0
     var onFeed by remember { mutableStateOf(false) }
@@ -182,11 +184,24 @@ fun DesktopCanvas(
         }
     }
 
-    BoxWithConstraints(modifier.nestedScroll(swipe)) {
+    BoxWithConstraints(
+        modifier
+            // Margens escolhidas em Ajustes › Tela inicial, além das do tema.
+            .padding(
+                start = layout.desktopMarginSideDp.dp,
+                end = layout.desktopMarginSideDp.dp,
+                top = layout.desktopMarginTopDp.dp,
+                bottom = layout.desktopMarginBottomDp.dp,
+            )
+            .onGloballyPositioned { canvasOrigin[0] = it.positionInWindow() }
+            .nestedScroll(swipe),
+    ) {
         val columns = layout.gridColumns
         val indicatorSpace = 20.dp
         val cellW = maxWidth / columns
-        val cellH = (layout.iconSizeDp + if (layout.showLabels) 40 else 16).dp
+        // Altura da linha: a escolhida, ou ícone + nome (que cresce com o tamanho e as linhas do texto).
+        val autoCell = layout.iconSizeDp + if (layout.showLabels) (24 + layout.labelSizeSp * 1.35f * layout.labelLines).roundToInt() else 16
+        val cellH = (if (layout.cellHeightDp > 0) layout.cellHeightDp else autoCell).dp
         val cellWpx = with(density) { cellW.toPx() }
         val cellHpx = with(density) { cellH.toPx() }
         val rows = DesktopGrid.rowsFor(with(density) { (maxHeight - indicatorSpace).toPx() }, cellHpx)
@@ -368,7 +383,9 @@ fun DesktopCanvas(
                                 onDragTarget = { previewMove(entry.id, it) },
                                 onDragStarted = { controller.desktopDragTick++ },
                             ) {
-                                EntryContent(entry, state, controller, palette, labels, onRemove = { remove(entry.id) })
+                                Box(Modifier.padding(layout.itemSpacingDp.dp)) {
+                                    EntryContent(entry, state, controller, palette, labels, onRemove = { remove(entry.id) })
+                                }
                             }
                         }
                     }
@@ -396,6 +413,34 @@ fun DesktopCanvas(
             } else {
                 Box(Modifier.weight(1f)) { Page(0) }
             }
+        }
+
+        // App vindo da lista de apps: sombra onde vai cair e, ao soltar, a posição.
+        fun dropTarget(pos: Offset): Placement {
+            val x = ((pos.x - canvasOrigin[0].x) / cellWpx - 0.5f).coerceIn(0f, (columns - 1).toFloat())
+            val y = ((pos.y - canvasOrigin[0].y) / cellHpx - 0.5f).coerceAtLeast(0f)
+            return grid.clamp(Placement(currentDesktopPage, x, y, 1f, 1f).let { if (layout.freePlacement) it else it.snapped() })
+        }
+        androidx.compose.runtime.SideEffect {
+            controller.desktopDrop = { app, pos ->
+                vm.addToHome(app)
+                val target = dropTarget(pos)
+                val result = grid.pushApart(app.key, target, resolved)
+                vm.savePlacements(state.themeId, result.filter { (key, p) -> resolved[key] != p })
+            }
+        }
+        androidx.compose.runtime.DisposableEffect(controller) { onDispose { controller.desktopDrop = null } }
+        controller.homeDrag?.let { drag ->
+            val t = dropTarget(drag.position)
+            Box(
+                Modifier
+                    .offset(cellW * t.x, cellH * t.y)
+                    .size(cellW, cellH)
+                    .padding(3.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(palette.accent.copy(alpha = 0.25f))
+                    .border(2.dp, palette.accent.copy(alpha = 0.7f), RoundedCornerShape(14.dp)),
+            )
         }
 
         if (edit) {
@@ -702,7 +747,8 @@ private fun EntryContent(
                     app = item.app,
                     state = state,
                     controller = controller,
-                    labelStyle = palette.wallpaperLabel,
+                    labelStyle = palette.wallpaperLabel.copy(fontSize = state.layout.labelSizeSp.sp),
+                    labelLines = state.layout.labelLines,
                     labels = labels,
                     iconBackground = palette.iconBackground,
                 )

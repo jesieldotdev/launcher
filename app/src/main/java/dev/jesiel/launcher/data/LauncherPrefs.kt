@@ -31,6 +31,17 @@ data class ThemeLayout(
     /** Tamanho dos ícones da dock; 0 usa o padrão do tema. */
     val dockIconSizeDp: Int = 0,
     val dockMaxApps: Int = 5,
+    /** Altura de cada linha da grade da tela inicial; 0 calcula pelo tamanho do ícone e do nome. */
+    val cellHeightDp: Int = 0,
+    /** Margens da área de trabalho: dos lados, em cima e embaixo (somadas às do tema). */
+    val desktopMarginSideDp: Int = 0,
+    val desktopMarginTopDp: Int = 0,
+    val desktopMarginBottomDp: Int = 0,
+    /** Espaço em volta de cada item da grade (afasta ícones e widgets uns dos outros). */
+    val itemSpacingDp: Int = 0,
+    /** Nome dos apps na tela inicial: tamanho do texto e quantas linhas. */
+    val labelSizeSp: Int = 12,
+    val labelLines: Int = 1,
     /** Espaço interno da dock (borda até os ícones); -1 usa o padrão do tema. */
     val dockPaddingDp: Int = -1,
     /** Espaço entre os ícones da dock. */
@@ -248,6 +259,13 @@ class LauncherPrefs(context: Context) {
                     trayShowStatus = l.optBoolean("trayStatus", true),
                     dockIconSizeDp = l.optInt("dockIcon", 0),
                     dockMaxApps = l.optInt("dockMax", 5),
+                    cellHeightDp = l.optInt("cellHeight", 0),
+                    desktopMarginSideDp = l.optInt("marginSide", 0),
+                    desktopMarginTopDp = l.optInt("marginTop", 0),
+                    desktopMarginBottomDp = l.optInt("marginBottom", 0),
+                    itemSpacingDp = l.optInt("itemSpacing", 0),
+                    labelSizeSp = l.optInt("labelSize", 12),
+                    labelLines = l.optInt("labelLines", 1),
                     dockPaddingDp = l.optInt("dockPadding", -1),
                     dockSpacingDp = l.optInt("dockSpacing", 2),
                     dockMarginDp = l.optInt("dockMargin", 0),
@@ -334,6 +352,13 @@ class LauncherPrefs(context: Context) {
                         .put("trayStatus", l.trayShowStatus)
                         .put("dockIcon", l.dockIconSizeDp)
                         .put("dockMax", l.dockMaxApps)
+                        .put("cellHeight", l.cellHeightDp)
+                        .put("marginSide", l.desktopMarginSideDp)
+                        .put("marginTop", l.desktopMarginTopDp)
+                        .put("marginBottom", l.desktopMarginBottomDp)
+                        .put("itemSpacing", l.itemSpacingDp)
+                        .put("labelSize", l.labelSizeSp)
+                        .put("labelLines", l.labelLines)
                         .put("dockPadding", l.dockPaddingDp)
                         .put("dockSpacing", l.dockSpacingDp)
                         .put("dockMargin", l.dockMarginDp)
