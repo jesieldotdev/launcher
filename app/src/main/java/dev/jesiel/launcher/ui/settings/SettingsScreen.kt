@@ -255,6 +255,13 @@ fun SettingsScreen(state: LauncherUiState, controller: LauncherController, onClo
 
                         SectionTitle("Grade e espaçamento")
                         Card {
+                            SwitchRow("Empurrar para baixo ao soltar", layout.pushDown) { on -> vm.updateLayout { it.copy(pushDown = on) } }
+                            Text(
+                                "Ao soltar um item (ou um widget) sobre outros, os de baixo descem juntos, na mesma ordem. Desligado, cada um vai para o espaço livre mais próximo.",
+                                fontSize = 12.sp,
+                                color = Color.Gray,
+                            )
+                            Spacer(Modifier.height(10.dp))
                             SwitchRow("Altura das linhas automática", layout.cellHeightDp == 0) { on ->
                                 // Ao desligar, começa da altura que já estava sendo usada.
                                 val auto = layout.copy(cellHeightDp = 0).cellHeight()

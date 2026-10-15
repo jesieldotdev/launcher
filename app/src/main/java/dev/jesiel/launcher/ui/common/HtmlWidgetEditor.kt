@@ -111,6 +111,7 @@ fun HtmlWidgetEditor(
                 // Novo: vai para o lugar do tipo dele. Existente: só salva (continua onde estava).
                 val saved = (if (isNew) draft.copy(onDesktop = role == dev.jesiel.launcher.data.HtmlRole.DESKTOP) else draft).copy(role = role)
                 vm.saveHtmlWidget(saved)
+                controller.lastSavedHtmlId = saved.id
                 controller.htmlEditing = null
                 when {
                     !isNew -> controller.toast("Widget salvo")

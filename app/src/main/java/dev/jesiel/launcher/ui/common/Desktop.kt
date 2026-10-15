@@ -33,6 +33,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -149,6 +150,7 @@ fun DesktopCanvas(
     }
 
     val canvasOrigin = remember { arrayOf(Offset.Zero) }
+    var addHtmlAt by remember { mutableStateOf<Placement?>(null) }
 
     // Tela à esquerda (feed) vem antes das telas da área de trabalho.
     val feedOffset = if (state.leftScreen != LeftScreen.NONE) 1 else 0
@@ -204,7 +206,7 @@ fun DesktopCanvas(
         val cellWpx = with(density) { cellW.toPx() }
         val cellHpx = with(density) { cellH.toPx() }
         val rows = DesktopGrid.rowsFor(with(density) { (maxHeight - indicatorSpace).toPx() }, cellHpx)
-        val grid = DesktopGrid(columns, rows, layout.multiPage, layout.pageCount, free = layout.freePlacement)
+        val grid = DesktopGrid(columns, rows, layout.multiPage, layout.pageCount, free = layout.freePlacement, pushDown = layout.pushDown)
 
         val sizes = entries.map { entry ->
             entry.id to when (entry) {
@@ -355,7 +357,10 @@ fun DesktopCanvas(
                         .fillMaxWidth()
                         .height(maxOf(cellH * pageRows, this@BoxWithConstraints.maxHeight - indicatorSpace)),
                 ) {
-                    DesktopBackground(controller, edit, onTap = { selected = null }, onAddScreen = ::addScreen, modifier = Modifier.matchParentSize())
+                    DesktopBackground(
+                        controller, edit, onTap = { selected = null }, onAddScreen = ::addScreen, modifier = Modifier.matchParentSize(),
+                        onAddHtmlHere = { pos -> addHtmlAt = Placement(page, (pos.x / cellWpx).toInt().toFloat(), (pos.y / cellHpx).toInt().toFloat(), columns.toFloat(), 2f) },
+                    )
                     // Guias só aparecem no modo grade, deixando claro qual modo está ativo.
                     if (edit && !layout.freePlacement) GridGuides(columns, pageRows.toInt(), cellW, cellH, palette.onWallpaper)
                     // Sombra de onde o item arrastado vai cair.
@@ -418,6 +423,43 @@ fun DesktopCanvas(
             } else {
                 Box(Modifier.weight(1f)) { Page(0) }
             }
+        }
+
+        // "Widget HTML aqui…": o widget escolhido vai para onde o dedo segurou; o que estiver
+        // embaixo desce (ou vai para o vão mais próximo, conforme o ajuste).
+        fun placeHtml(widgetId: String, target: Placement) {
+            val id = "html:$widgetId"
+            val size = resolved[id]
+            val t = grid.clamp(target.copy(w = size?.w ?: target.w, h = size?.h ?: target.h))
+            val result = grid.pushApart(id, t, resolved)
+            vm.savePlacements(state.themeId, result.filter { (key, p) -> resolved[key] != p })
+            vm.setHtmlWidgetOnDesktop(widgetId, true)
+        }
+        addHtmlAt?.let { target ->
+            HtmlHerePicker(
+                widgets = state.htmlWidgets.filter { it.kind == dev.jesiel.launcher.data.HtmlRole.DESKTOP },
+                onPick = { w -> placeHtml(w.id, target); addHtmlAt = null },
+                onNew = {
+                    controller.pendingHtmlDrop = target
+                    controller.newHtmlWidget(role = dev.jesiel.launcher.data.HtmlRole.DESKTOP)
+                    addHtmlAt = null
+                },
+                onStudio = { controller.htmlLibraryOpen = true; addHtmlAt = null },
+                onDismiss = { addHtmlAt = null },
+            )
+        }
+        // Editor fechado sem salvar: esquece o ponto escolhido.
+        LaunchedEffect(controller.htmlEditing) {
+            if (controller.htmlEditing == null && controller.lastSavedHtmlId == null) controller.pendingHtmlDrop = null
+        }
+        // Widget novo criado por "Widget HTML aqui…": ao aparecer, vai para o ponto escolhido.
+        LaunchedEffect(controller.pendingHtmlDrop, controller.lastSavedHtmlId, entries) {
+            val target = controller.pendingHtmlDrop ?: return@LaunchedEffect
+            val id = controller.lastSavedHtmlId ?: return@LaunchedEffect
+            if (entries.none { it.id == "html:$id" }) return@LaunchedEffect
+            controller.pendingHtmlDrop = null
+            controller.lastSavedHtmlId = null
+            placeHtml(id, target)
         }
 
         // App vindo da lista de apps: sombra onde vai cair e, ao soltar, a posição.
@@ -495,8 +537,17 @@ private const val SWIPE_VELOCITY = 1200f
 
 /** Fundo da tela: toque longo abre o menu da área de trabalho; um toque desfaz a seleção. */
 @Composable
-private fun DesktopBackground(controller: LauncherController, edit: Boolean, onTap: () -> Unit, onAddScreen: () -> Unit, modifier: Modifier) {
+private fun DesktopBackground(
+    controller: LauncherController,
+    edit: Boolean,
+    onTap: () -> Unit,
+    onAddScreen: () -> Unit,
+    modifier: Modifier,
+    /** "Widget HTML aqui…": onde o dedo segurou (px, na página). */
+    onAddHtmlHere: (Offset) -> Unit = {},
+) {
     var menuAt by remember { mutableStateOf<DpOffset?>(null) }
+    val pressedAt = remember { arrayOf(Offset.Zero) }
     val origin = remember { arrayOf(Offset.Zero) }
     val density = LocalDensity.current
     Box(
@@ -507,19 +558,25 @@ private fun DesktopBackground(controller: LauncherController, edit: Boolean, onT
                     // Toques em área vazia vão para o papel de parede animado.
                     if (!edit) controller.sendWallpaperTap(origin[0].x + pos.x, origin[0].y + pos.y)
                 },
-                onLongPress = { pos -> if (!edit) menuAt = with(density) { DpOffset(pos.x.toDp(), pos.y.toDp()) } },
+                onLongPress = { pos ->
+                    if (!edit) {
+                        pressedAt[0] = pos
+                        menuAt = with(density) { DpOffset(pos.x.toDp(), pos.y.toDp()) }
+                    }
+                },
             )
         },
     ) {
-        DesktopMenu(menuAt, onDismiss = { menuAt = null }, controller = controller, onAddScreen = onAddScreen)
+        DesktopMenu(menuAt, onDismiss = { menuAt = null }, controller = controller, onAddScreen = onAddScreen, onAddHtmlHere = { onAddHtmlHere(pressedAt[0]) })
     }
 }
 
 @Composable
-private fun DesktopMenu(at: DpOffset?, onDismiss: () -> Unit, controller: LauncherController, onAddScreen: () -> Unit) {
+private fun DesktopMenu(at: DpOffset?, onDismiss: () -> Unit, controller: LauncherController, onAddScreen: () -> Unit, onAddHtmlHere: () -> Unit) {
     Box(Modifier.offset(at?.x ?: 0.dp, at?.y ?: 0.dp)) {
         DropdownMenu(expanded = at != null, onDismissRequest = onDismiss, shape = RoundedCornerShape(12.dp)) {
             DropdownMenuItem(text = { Text("Organizar área de trabalho") }, onClick = { onDismiss(); controller.editMode = true })
+            DropdownMenuItem(text = { Text("Widget HTML aqui…") }, onClick = { onDismiss(); onAddHtmlHere() })
             DropdownMenuItem(text = { Text("Adicionar widget") }, onClick = { onDismiss(); controller.widgetPickerOpen = true })
             DropdownMenuItem(text = { Text("Estúdio HTML…") }, onClick = { onDismiss(); controller.htmlLibraryOpen = true })
             DropdownMenuItem(text = { Text("Adicionar tela") }, onClick = { onDismiss(); onAddScreen() })
@@ -995,5 +1052,38 @@ private fun Pill(text: String, palette: LauncherPalette, filled: Boolean = false
             .background(if (filled) palette.accent else palette.panelText.copy(alpha = 0.08f))
             .clickable(onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 8.dp),
+    )
+}
+
+/** "Widget HTML aqui…": escolher qual widget vai para o ponto segurado. */
+@Composable
+private fun HtmlHerePicker(
+    widgets: List<dev.jesiel.launcher.data.HtmlWidget>,
+    onPick: (dev.jesiel.launcher.data.HtmlWidget) -> Unit,
+    onNew: () -> Unit,
+    onStudio: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Widget HTML aqui") },
+        text = {
+            Column(Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState())) {
+                if (widgets.isEmpty()) Text("Nenhum widget de área de trabalho ainda.", fontSize = 13.sp)
+                widgets.forEach { w ->
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { onPick(w) }.padding(vertical = 10.dp, horizontal = 6.dp),
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text(w.name, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                            Text(if (w.onDesktop) "Já na tela: muda para cá" else "Guardado", fontSize = 12.sp, color = Color.Gray)
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = { androidx.compose.material3.TextButton(onClick = onNew) { Text("Novo widget HTML") } },
+        dismissButton = { androidx.compose.material3.TextButton(onClick = onStudio) { Text("Estúdio") } },
     )
 }

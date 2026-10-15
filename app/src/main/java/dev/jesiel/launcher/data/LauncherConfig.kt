@@ -24,6 +24,7 @@ object LauncherConfig {
         Triple("marginTop", "Margem extra em cima (dp)", 0..240),
         Triple("marginBottom", "Margem extra embaixo (dp)", 0..240),
         Triple("free", "Posição livre (true) ou grade (false)", null),
+        Triple("pushDown", "Ao soltar um item sobre outros, os de baixo descem (true) ou vão para o vão livre mais próximo (false)", null),
         Triple("multiPage", "Várias telas, deslizando para o lado", null),
         Triple("pages", "Quantidade de telas", 1..12),
         Triple("themeWallpaper", "Usar o papel de parede do tema (false = o do sistema)", null),

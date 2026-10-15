@@ -39,6 +39,8 @@ class DesktopGrid(
     val pageCount: Int,
     /** Posição livre; na grade, posições e tamanhos são sempre células inteiras. */
     val free: Boolean = false,
+    /** Itens no caminho descem (em cascata, mantendo a coluna) em vez de irem para qualquer vão. */
+    val pushDown: Boolean = false,
 ) {
     /** Página única: ela cresce para baixo com rolagem; várias páginas: tamanho fixo. */
     private val rowLimit: Int get() = if (multiPage) rows else Int.MAX_VALUE / 4
@@ -133,6 +135,7 @@ class DesktopGrid(
      */
     fun pushApart(selfId: String, target: Placement, all: Map<String, Placement>): Map<String, Placement> {
         val placed = clamp(if (free) target else target.snapped())
+        if (pushDown) return pushDownFrom(selfId, placed, all)
         val result = LinkedHashMap(all)
         result[selfId] = placed
         val hit = all.filter { (id, p) -> id != selfId && p.overlaps(placed) }
@@ -140,6 +143,37 @@ class DesktopGrid(
         for ((id, p) in hit) {
             val obstacles = result.filterKeys { it != id }.values
             result[id] = closestFreeSpot(p, obstacles)
+        }
+        return result
+    }
+
+    /**
+     * Empurrar para baixo: o item solto fica onde foi solto; o que estiver embaixo dele desce para
+     * logo abaixo, e assim por diante (cascata). A ordem e as colunas se mantêm. Numa tela de
+     * tamanho fixo, o que passar do fim vai para o espaço livre mais próximo.
+     */
+    private fun pushDownFrom(selfId: String, placed: Placement, all: Map<String, Placement>): Map<String, Placement> {
+        val result = LinkedHashMap(all)
+        result[selfId] = placed
+        // Quem já foi posicionado nesta rodada não se mexe mais (evita ciclos).
+        val settled = mutableSetOf(selfId)
+        var guard = 0
+        while (guard++ < 1000) {
+            val fixed = result.filterKeys { it in settled }
+            // O próximo a descer: o mais alto entre os que batem num item já posicionado.
+            val hit = result.entries
+                .filter { (id, p) -> id !in settled && fixed.values.any { it.overlaps(p) } }
+                .minByOrNull { it.value.y + it.value.x / 100f } ?: break
+            val p = hit.value
+            val blockers = fixed.values.filter { it.overlaps(p) }
+            var moved = p.copy(y = blockers.maxOf { it.y + it.h })
+            // Desceu e bateu em outro já posicionado: continua descendo.
+            while (fixed.values.any { it.overlaps(moved) }) moved = moved.copy(y = fixed.values.filter { it.overlaps(moved) }.maxOf { it.y + it.h })
+            if (multiPage && moved.y + moved.h > rows + EPSILON) {
+                moved = closestFreeSpot(p, result.filterKeys { it != hit.key }.values)
+            }
+            result[hit.key] = moved
+            settled += hit.key
         }
         return result
     }

@@ -357,6 +357,10 @@ class LauncherController(
     /** Dica mostrada enquanto um app da dock é arrastado (desenhada pela raiz da tela). */
     var dockDragHint by mutableStateOf<dev.jesiel.launcher.ui.common.DockDragHint?>(null)
 
+    /** "Widget HTML aqui…" com um widget novo: onde ele deve ficar, e o último salvo no editor. */
+    var pendingHtmlDrop by mutableStateOf<dev.jesiel.launcher.data.Placement?>(null)
+    var lastSavedHtmlId by mutableStateOf<String?>(null)
+
     /** App cujo menu foi pedido por um widget (launcher://menu/<pacote>). */
     var htmlAppMenu by mutableStateOf<dev.jesiel.launcher.data.AppInfo?>(null)
 

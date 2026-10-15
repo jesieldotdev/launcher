@@ -32,6 +32,8 @@ data class ThemeLayout(
     /** Tamanho dos ícones da dock; 0 usa o padrão do tema. */
     val dockIconSizeDp: Int = 0,
     val dockMaxApps: Int = 5,
+    /** Ao soltar um item sobre outros, os de baixo descem (em vez de irem para qualquer vão). */
+    val pushDown: Boolean = true,
     /** Pílula de busca acima da dock (iOS, macOS…). */
     val showSearchPill: Boolean = true,
     /** Altura de cada linha da grade da tela inicial; 0 calcula pelo tamanho do ícone e do nome. */
@@ -403,6 +405,7 @@ class LauncherPrefs(context: Context) {
             drawerColumns = l.optInt("drawerColumns", 4),
             showTopBar = l.optBoolean("topBar", true),
             showSearchPill = l.optBoolean("searchPill", true),
+            pushDown = l.optBoolean("pushDown", true),
         )
 
         fun layoutToJson(l: ThemeLayout): JSONObject = JSONObject()
@@ -443,6 +446,7 @@ class LauncherPrefs(context: Context) {
             .put("drawerColumns", l.drawerColumns)
             .put("topBar", l.showTopBar)
             .put("searchPill", l.showSearchPill)
+            .put("pushDown", l.pushDown)
 
         const val KEY_LAYOUTS = "layouts"
         const val KEY_COLOR_MODE = "colorMode"

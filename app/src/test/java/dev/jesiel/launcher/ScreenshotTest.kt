@@ -912,4 +912,31 @@ class ScreenshotTest {
         org.junit.Assert.assertEquals("d9", controller.viewModel.state.value.dockHtml?.id)
         compose.onNodeWithText("Aplicar").assertDoesNotExist()
     }
+
+    /** Toque longo na tela inicial › "Widget HTML aqui…": o widget vai para onde o dedo segurou. */
+    @Test
+    fun addHtmlWidgetWhereLongPressed() {
+        val controller = controller()
+        val vm = controller.viewModel
+        val widget = dev.jesiel.launcher.data.HtmlWidget("rel", "Relógio grande", "<b>{{hora}}</b>", onDesktop = false, role = dev.jesiel.launcher.data.HtmlRole.DESKTOP)
+        vm.saveHtmlWidget(widget)
+        val saved = listOf(widget)
+        compose.setContent { WindowsLauncher(sampleState().copy(home = emptyList(), htmlWidgets = saved), controller) }
+        compose.mainClock.advanceTimeBy(500)
+        compose.waitForIdle()
+        compose.onRoot().performTouchInput { longClick(androidx.compose.ui.geometry.Offset(width * 0.5f, height * 0.72f)) }
+        compose.waitForIdle()
+        compose.onNodeWithText("Widget HTML aqui…").performClick()
+        compose.waitForIdle()
+        compose.onRoot().captureRoboImage(shot("windows-html-here"))
+        compose.onNodeWithText("Relógio grande").performClick()
+        compose.mainClock.advanceTimeBy(500)
+        compose.waitForIdle()
+        org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idle()
+        val st = vm.state.value
+        org.junit.Assert.assertTrue(st.htmlWidgets.first { it.id == "rel" }.onDesktop)
+        val p = st.placements["html:rel"]
+        org.junit.Assert.assertNotNull(p)
+        org.junit.Assert.assertTrue("perto de onde segurou (embaixo, não no topo): $p", p!!.y >= 3f)
+    }
 }
