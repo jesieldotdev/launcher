@@ -117,6 +117,37 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    // --- Configuração em JSON (para uma IA preparar tudo) -----------------------------------
+
+    private val themeIds get() = dev.jesiel.launcher.theme.ThemeRegistry.all.filter { it.available }.map { it.id }
+
+    fun exportConfig(): String = dev.jesiel.launcher.data.LauncherConfig.export(prefs.data.value, repository.apps.value).toString(2)
+
+    fun configGuide(): String = dev.jesiel.launcher.data.LauncherConfig.guide(
+        dev.jesiel.launcher.data.LauncherConfig.export(prefs.data.value, repository.apps.value),
+        dev.jesiel.launcher.theme.ThemeRegistry.all.filter { it.available }.map { it.id to it.name },
+        repository.apps.value,
+    )
+
+    /**
+     * Aplica um JSON de configuração (inteiro ou só as chaves que mudam; aceita o bloco ```json
+     * de uma resposta de IA). Faz um backup antes. Devolve os avisos ou o erro de leitura.
+     */
+    fun applyConfig(text: String): Result<List<String>> = runCatching {
+        val start = text.indexOf('{')
+        val end = text.lastIndexOf('}')
+        require(start >= 0 && end > start) { "Não achei um objeto JSON { … } no texto" }
+        val json = org.json.JSONObject(text.substring(start, end + 1))
+        backups.snapshot("Antes de aplicar configuração em JSON")
+        var warnings = emptyList<String>()
+        prefs.update { d ->
+            val (next, w) = dev.jesiel.launcher.data.LauncherConfig.apply(d, json, repository.apps.value, themeIds)
+            warnings = w
+            next
+        }
+        warnings
+    }
+
     fun setNewAppsToHome(on: Boolean) = prefs.update { it.copy(newAppsToHome = on) }
 
     /**

@@ -385,6 +385,10 @@ fun SettingsScreen(state: LauncherUiState, controller: LauncherController, onClo
 
                         SectionTitle("Telas")
                         Card {
+                            if (state.themeId == "ios") {
+                                SwitchRow("Busca acima da dock", layout.showSearchPill) { on -> vm.updateLayout { it.copy(showSearchPill = on) } }
+                                Spacer(Modifier.height(8.dp))
+                            }
                             SwitchRow("Apps instalados vão para a tela ao lado", state.newAppsToHome) { vm.setNewAppsToHome(it) }
                             Text(
                                 "Como no HyperOS: cada app novo aparece na segunda tela, no primeiro lugar livre (as várias telas são ligadas se preciso).",
@@ -536,6 +540,9 @@ fun SettingsScreen(state: LauncherUiState, controller: LauncherController, onClo
 
                         }
                         5 -> { // Sistema
+                        SectionTitle("Configuração em JSON")
+                        JsonConfigCard(controller)
+
                         SectionTitle("Sistema")
                         Card {
                             OutlinedButton(onClick = controller::requestDefaultLauncher) {
@@ -1196,6 +1203,80 @@ private fun DockAppsEditor(state: LauncherUiState, controller: LauncherControlle
                 }
             },
             confirmButton = { androidx.compose.material3.TextButton(onClick = { picking = false }) { Text("Fechar") } },
+        )
+    }
+}
+
+/**
+ * Todas as opções do launcher em JSON: copiar, mandar o guia para uma IA, colar a resposta e
+ * aplicar (com backup antes). A IA pode mandar só as chaves que mudam.
+ */
+@Composable
+private fun JsonConfigCard(controller: LauncherController) {
+    val vm = controller.viewModel
+    val context = androidx.compose.ui.platform.LocalContext.current
+    var editing by remember { mutableStateOf<String?>(null) }
+    var result by remember { mutableStateOf<String?>(null) }
+    fun copy(label: String, text: String) {
+        context.getSystemService(android.content.ClipboardManager::class.java)
+            ?.setPrimaryClip(android.content.ClipData.newPlainText(label, text))
+        controller.toast("$label copiado")
+    }
+    fun apply(text: String) {
+        vm.applyConfig(text)
+            .onSuccess { w -> result = if (w.isEmpty()) "Configuração aplicada." else "Aplicada, com avisos:\n• " + w.joinToString("\n• ") }
+            .onFailure { result = "Não deu para aplicar: ${it.message}" }
+    }
+    Card {
+        Text(
+            "Todas as opções (tema, cores, grade, dock, apps da tela inicial, lista de apps…) num JSON. " +
+                "Copie o guia, cole numa IA (ChatGPT, Claude, Gemini), descreva o launcher que quer e cole a resposta aqui. " +
+                "A resposta pode ter só o que muda. Um backup é feito antes de aplicar.",
+            fontSize = 12.sp,
+            color = Color.Gray,
+        )
+        Spacer(Modifier.height(8.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(onClick = { copy("Guia de configuração", vm.configGuide()) }) { Text("Copiar guia para IA") }
+            OutlinedButton(onClick = {
+                val send = android.content.Intent(android.content.Intent.ACTION_SEND).setType("text/plain")
+                    .putExtra(android.content.Intent.EXTRA_TEXT, vm.configGuide())
+                controller.start(android.content.Intent.createChooser(send, "Enviar guia para"))
+            }) { Text("Enviar…") }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(onClick = {
+                val clip = context.getSystemService(android.content.ClipboardManager::class.java)?.primaryClip
+                val text = clip?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.coerceToText(context)?.toString()
+                if (text.isNullOrBlank()) controller.toast("A área de transferência está vazia") else apply(text)
+            }) { Text("Colar e aplicar") }
+            OutlinedButton(onClick = { editing = vm.exportConfig() }) { Text("Ver / editar") }
+        }
+        androidx.compose.material3.TextButton(onClick = { copy("JSON da configuração", vm.exportConfig()) }) { Text("Copiar JSON atual") }
+    }
+    editing?.let { text ->
+        var value by remember(text) { mutableStateOf(text) }
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { editing = null },
+            title = { Text("Configuração em JSON") },
+            text = {
+                androidx.compose.material3.OutlinedTextField(
+                    value,
+                    { value = it },
+                    textStyle = androidx.compose.ui.text.TextStyle(fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace, fontSize = 12.sp),
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 240.dp, max = 460.dp),
+                )
+            },
+            confirmButton = { androidx.compose.material3.TextButton(onClick = { editing = null; apply(value) }) { Text("Aplicar") } },
+            dismissButton = { androidx.compose.material3.TextButton(onClick = { editing = null }) { Text("Cancelar") } },
+        )
+    }
+    result?.let { r ->
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { result = null },
+            title = { Text("Configuração em JSON") },
+            text = { Text(r, modifier = Modifier.heightIn(max = 400.dp).verticalScroll(rememberScrollState())) },
+            confirmButton = { androidx.compose.material3.TextButton(onClick = { result = null }) { Text("OK") } },
         )
     }
 }

@@ -102,7 +102,8 @@ fun IosLauncher(state: LauncherUiState, controller: LauncherController) {
                     onSearch = { openLibrary(search = true) },
                     modifier = Modifier.weight(1f).fillMaxWidth().padding(horizontal = 10.dp, vertical = 10.dp),
                 )
-                Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                // Pílula de busca (pode ser escondida em Ajustes › Tela inicial; deslizar para baixo também busca).
+                if (state.layout.showSearchPill) Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                     SearchBar(
                         palette = palette,
                         placeholder = "Buscar",

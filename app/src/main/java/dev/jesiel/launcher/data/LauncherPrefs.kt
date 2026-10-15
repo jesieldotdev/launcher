@@ -32,6 +32,8 @@ data class ThemeLayout(
     /** Tamanho dos ícones da dock; 0 usa o padrão do tema. */
     val dockIconSizeDp: Int = 0,
     val dockMaxApps: Int = 5,
+    /** Pílula de busca acima da dock (iOS, macOS…). */
+    val showSearchPill: Boolean = true,
     /** Altura de cada linha da grade da tela inicial; 0 calcula pelo tamanho do ícone e do nome. */
     val cellHeightDp: Int = 0,
     /** Margens da área de trabalho: dos lados, em cima e embaixo (somadas às do tema). */
@@ -249,46 +251,7 @@ class LauncherPrefs(context: Context) {
         val widgets = arr(KEY_WIDGETS).let { a -> (0 until a.length()).map { a.getInt(it) } }
         val layouts = obj(KEY_LAYOUTS).let { json ->
             json.keys().asSequence().associateWith { id ->
-                val l = json.getJSONObject(id)
-                ThemeLayout(
-                    iconSizeDp = l.optInt("iconSize", 52),
-                    gridColumns = l.optInt("columns", 4),
-                    showLabels = l.optBoolean("labels", true),
-                    useThemeWallpaper = l.optBoolean("themeWallpaper", true),
-                    freePlacement = l.optBoolean("free", false),
-                    multiPage = l.optBoolean("multiPage", false),
-                    pageCount = l.optInt("pages", 1),
-                    menuIcon = enumOr(l.optString("menuIcon"), MenuIcon.DEFAULT),
-                    showDock = l.optBoolean("dock", true),
-                    dockBackground = l.optBoolean("dockBackground", true),
-                    // Só Windows e KDE tinham bandeja; nos outros temas ela começa desligada.
-                    showTray = l.optBoolean("dockTray", if (id == "windows" || id == "kde") l.optBoolean("tray", true) else false),
-                    trayShowDate = l.optBoolean("trayDate", true),
-                    trayShowStatus = l.optBoolean("trayStatus", true),
-                    dockIconSizeDp = l.optInt("dockIcon", 0),
-                    dockMaxApps = l.optInt("dockMax", 5),
-                    cellHeightDp = l.optInt("cellHeight", 0),
-                    desktopMarginSideDp = l.optInt("marginSide", 0),
-                    desktopMarginTopDp = l.optInt("marginTop", 0),
-                    desktopMarginBottomDp = l.optInt("marginBottom", 0),
-                    itemSpacingDp = l.optInt("itemSpacing", 0),
-                    labelSizeSp = l.optInt("labelSize", 12),
-                    labelLines = l.optInt("labelLines", 1),
-                    dockPaddingDp = l.optInt("dockPadding", -1),
-                    dockSpacingDp = l.optInt("dockSpacing", 2),
-                    dockMarginDp = l.optInt("dockMargin", 0),
-                    dockLiftDp = l.optInt("dockLift", 0),
-                    dockCornerDp = l.optInt("dockCorner", -1),
-                    dockCentered = l.optBoolean("dockCentered", true),
-                    dockShowSearch = l.optBoolean("dockSearch", true),
-                    menuOpensAllApps = l.optBoolean("menuAllApps", false),
-                    showAppsHeader = l.optBoolean("appsHeader", true),
-                    showLetters = l.optBoolean("letters", true),
-                    searchAtBottom = l.optBoolean("searchBottom", false),
-                    drawerIconSizeDp = l.optInt("drawerIcon", 48),
-                    drawerColumns = l.optInt("drawerColumns", 4),
-                    showTopBar = l.optBoolean("topBar", true),
-                )
+                layoutFromJson(id, json.getJSONObject(id))
             }
         }
         val placements = obj(KEY_PLACEMENTS).let { json ->
@@ -343,46 +306,7 @@ class LauncherPrefs(context: Context) {
         }
         val layouts = JSONObject().apply {
             d.layouts.forEach { (id, l) ->
-                put(
-                    id,
-                    JSONObject()
-                        .put("iconSize", l.iconSizeDp)
-                        .put("columns", l.gridColumns)
-                        .put("labels", l.showLabels)
-                        .put("themeWallpaper", l.useThemeWallpaper)
-                        .put("free", l.freePlacement)
-                        .put("multiPage", l.multiPage)
-                        .put("pages", l.pageCount)
-                        .put("menuIcon", l.menuIcon.name)
-                        .put("dock", l.showDock)
-                        .put("dockBackground", l.dockBackground)
-                        .put("dockTray", l.showTray)
-                        .put("trayDate", l.trayShowDate)
-                        .put("trayStatus", l.trayShowStatus)
-                        .put("dockIcon", l.dockIconSizeDp)
-                        .put("dockMax", l.dockMaxApps)
-                        .put("cellHeight", l.cellHeightDp)
-                        .put("marginSide", l.desktopMarginSideDp)
-                        .put("marginTop", l.desktopMarginTopDp)
-                        .put("marginBottom", l.desktopMarginBottomDp)
-                        .put("itemSpacing", l.itemSpacingDp)
-                        .put("labelSize", l.labelSizeSp)
-                        .put("labelLines", l.labelLines)
-                        .put("dockPadding", l.dockPaddingDp)
-                        .put("dockSpacing", l.dockSpacingDp)
-                        .put("dockMargin", l.dockMarginDp)
-                        .put("dockLift", l.dockLiftDp)
-                        .put("dockCorner", l.dockCornerDp)
-                        .put("dockCentered", l.dockCentered)
-                        .put("dockSearch", l.dockShowSearch)
-                        .put("menuAllApps", l.menuOpensAllApps)
-                        .put("appsHeader", l.showAppsHeader)
-                        .put("letters", l.showLetters)
-                        .put("searchBottom", l.searchAtBottom)
-                        .put("drawerIcon", l.drawerIconSizeDp)
-                        .put("drawerColumns", l.drawerColumns)
-                        .put("topBar", l.showTopBar),
-                )
+                put(id, layoutToJson(l))
             }
         }
         val placements = JSONObject().apply {
@@ -431,7 +355,7 @@ class LauncherPrefs(context: Context) {
     private inline fun <reified E : Enum<E>> enumOr(name: String?, default: E): E =
         enumValues<E>().firstOrNull { it.name == name } ?: default
 
-    private companion object {
+    companion object {
         const val KEY_THEME = "theme"
         const val KEY_INITIALIZED = "initialized"
         const val KEY_HOME = "home"
@@ -439,6 +363,87 @@ class LauncherPrefs(context: Context) {
         const val KEY_DOCK = "dock"
         const val KEY_RECENTS = "recents"
         const val KEY_WIDGETS = "widgets"
+        /** Layout de um tema a partir do JSON salvo (as mesmas chaves do JSON de configuração). */
+        fun layoutFromJson(id: String, l: JSONObject): ThemeLayout = ThemeLayout(
+            iconSizeDp = l.optInt("iconSize", 52),
+            gridColumns = l.optInt("columns", 4),
+            showLabels = l.optBoolean("labels", true),
+            useThemeWallpaper = l.optBoolean("themeWallpaper", true),
+            freePlacement = l.optBoolean("free", false),
+            multiPage = l.optBoolean("multiPage", false),
+            pageCount = l.optInt("pages", 1),
+            menuIcon = MenuIcon.entries.firstOrNull { it.name == l.optString("menuIcon") } ?: MenuIcon.DEFAULT,
+            showDock = l.optBoolean("dock", true),
+            dockBackground = l.optBoolean("dockBackground", true),
+            // Só Windows e KDE tinham bandeja; nos outros temas ela começa desligada.
+            showTray = l.optBoolean("dockTray", if (id == "windows" || id == "kde") l.optBoolean("tray", true) else false),
+            trayShowDate = l.optBoolean("trayDate", true),
+            trayShowStatus = l.optBoolean("trayStatus", true),
+            dockIconSizeDp = l.optInt("dockIcon", 0),
+            dockMaxApps = l.optInt("dockMax", 5),
+            cellHeightDp = l.optInt("cellHeight", 0),
+            desktopMarginSideDp = l.optInt("marginSide", 0),
+            desktopMarginTopDp = l.optInt("marginTop", 0),
+            desktopMarginBottomDp = l.optInt("marginBottom", 0),
+            itemSpacingDp = l.optInt("itemSpacing", 0),
+            labelSizeSp = l.optInt("labelSize", 12),
+            labelLines = l.optInt("labelLines", 1),
+            dockPaddingDp = l.optInt("dockPadding", -1),
+            dockSpacingDp = l.optInt("dockSpacing", 2),
+            dockMarginDp = l.optInt("dockMargin", 0),
+            dockLiftDp = l.optInt("dockLift", 0),
+            dockCornerDp = l.optInt("dockCorner", -1),
+            dockCentered = l.optBoolean("dockCentered", true),
+            dockShowSearch = l.optBoolean("dockSearch", true),
+            menuOpensAllApps = l.optBoolean("menuAllApps", false),
+            showAppsHeader = l.optBoolean("appsHeader", true),
+            showLetters = l.optBoolean("letters", true),
+            searchAtBottom = l.optBoolean("searchBottom", false),
+            drawerIconSizeDp = l.optInt("drawerIcon", 48),
+            drawerColumns = l.optInt("drawerColumns", 4),
+            showTopBar = l.optBoolean("topBar", true),
+            showSearchPill = l.optBoolean("searchPill", true),
+        )
+
+        fun layoutToJson(l: ThemeLayout): JSONObject = JSONObject()
+            .put("iconSize", l.iconSizeDp)
+            .put("columns", l.gridColumns)
+            .put("labels", l.showLabels)
+            .put("themeWallpaper", l.useThemeWallpaper)
+            .put("free", l.freePlacement)
+            .put("multiPage", l.multiPage)
+            .put("pages", l.pageCount)
+            .put("menuIcon", l.menuIcon.name)
+            .put("dock", l.showDock)
+            .put("dockBackground", l.dockBackground)
+            .put("dockTray", l.showTray)
+            .put("trayDate", l.trayShowDate)
+            .put("trayStatus", l.trayShowStatus)
+            .put("dockIcon", l.dockIconSizeDp)
+            .put("dockMax", l.dockMaxApps)
+            .put("cellHeight", l.cellHeightDp)
+            .put("marginSide", l.desktopMarginSideDp)
+            .put("marginTop", l.desktopMarginTopDp)
+            .put("marginBottom", l.desktopMarginBottomDp)
+            .put("itemSpacing", l.itemSpacingDp)
+            .put("labelSize", l.labelSizeSp)
+            .put("labelLines", l.labelLines)
+            .put("dockPadding", l.dockPaddingDp)
+            .put("dockSpacing", l.dockSpacingDp)
+            .put("dockMargin", l.dockMarginDp)
+            .put("dockLift", l.dockLiftDp)
+            .put("dockCorner", l.dockCornerDp)
+            .put("dockCentered", l.dockCentered)
+            .put("dockSearch", l.dockShowSearch)
+            .put("menuAllApps", l.menuOpensAllApps)
+            .put("appsHeader", l.showAppsHeader)
+            .put("letters", l.showLetters)
+            .put("searchBottom", l.searchAtBottom)
+            .put("drawerIcon", l.drawerIconSizeDp)
+            .put("drawerColumns", l.drawerColumns)
+            .put("topBar", l.showTopBar)
+            .put("searchPill", l.showSearchPill)
+
         const val KEY_LAYOUTS = "layouts"
         const val KEY_COLOR_MODE = "colorMode"
         const val KEY_SWIPE_DOWN = "swipeDown"

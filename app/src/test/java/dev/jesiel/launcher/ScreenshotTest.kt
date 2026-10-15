@@ -853,4 +853,14 @@ class ScreenshotTest {
         compose.onNodeWithText("Procurar \"ifood\" na Play Store").assertExists()
         compose.onRoot().captureRoboImage(shot("kde-search-play-store"))
     }
+
+    /** iPhone sem a pílula de busca acima da dock. */
+    @Test
+    fun iosWithoutSearchPill() {
+        val controller = controller()
+        val base = sampleState()
+        compose.setContent { IosLauncher(base.copy(layout = base.layout.copy(showSearchPill = false)), controller) }
+        compose.onNodeWithText("Buscar").assertDoesNotExist()
+        compose.onRoot().captureRoboImage(shot("ios-no-search"))
+    }
 }
