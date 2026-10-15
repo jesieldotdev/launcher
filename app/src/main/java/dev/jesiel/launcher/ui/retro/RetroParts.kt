@@ -326,6 +326,17 @@ private fun TerminalContent(
         if (!bottomSearch) promptBar()
         Spacer(Modifier.height(6.dp))
         LazyColumn(state = listState, modifier = Modifier.weight(1f).fillMaxWidth()) {
+            // Sem o app no aparelho: procurar na Play Store.
+            if (query.isNotBlank()) item(key = "loja") {
+                Column(Modifier.padding(vertical = 6.dp)) {
+                    if (apps.isEmpty()) Text("comando não encontrado: ${query.trim()}", style = Hud.copy(color = AmberDim, fontSize = 13.sp))
+                    Text(
+                        "> pkg install \"${query.trim()}\"  [PLAY STORE]",
+                        style = Hud.copy(color = AmberBright, fontSize = 13.sp, fontWeight = FontWeight.Bold),
+                        modifier = Modifier.fillMaxWidth().clickable { controller.searchPlayStore(query); close() }.padding(vertical = 8.dp),
+                    )
+                }
+            }
             items(rows, key = { r -> if (r is Char) "h-$r" else (r as Pair<*, *>).let { "a-${it.first}-" + (it.second as dev.jesiel.launcher.data.AppInfo).key } }, contentType = { if (it is Char) "letra" else "app" }) { r ->
                 if (r is Char) {
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 10.dp, bottom = 2.dp)) {

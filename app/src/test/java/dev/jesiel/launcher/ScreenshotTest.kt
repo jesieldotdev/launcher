@@ -838,4 +838,19 @@ class ScreenshotTest {
         compose.onRoot().captureRoboImage(shot("settings-desktop-spacing"))
         compose.onNodeWithText("Altura das linhas", substring = false).assertExists()
     }
+
+    /** Buscar um app que não está no aparelho oferece procurar na Play Store. */
+    @Test
+    fun searchWithoutResultsOffersPlayStore() {
+        val controller = controller()
+        compose.setContent { KdeLauncher(sampleState(), controller) }
+        compose.runOnIdle { controller.openSearch!!.invoke() }
+        compose.mainClock.advanceTimeBy(600)
+        compose.waitForIdle()
+        compose.onNode(androidx.compose.ui.test.hasSetTextAction()).performTextInput("ifood")
+        compose.waitForIdle()
+        compose.onNodeWithText("Nenhum app com \"ifood\" no aparelho.").assertExists()
+        compose.onNodeWithText("Procurar \"ifood\" na Play Store").assertExists()
+        compose.onRoot().captureRoboImage(shot("kde-search-play-store"))
+    }
 }

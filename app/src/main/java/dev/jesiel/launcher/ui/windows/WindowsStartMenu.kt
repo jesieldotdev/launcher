@@ -36,6 +36,7 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -380,6 +381,34 @@ private fun SearchResults(query: String, state: LauncherUiState, controller: Lau
             if (results.size > 1) {
                 item { ResultHeader("Aplicativos") }
                 items(results.drop(1), key = { it.key }) { app -> AppRow(app, state, controller, onLaunched) }
+            }
+        }
+        if (results.isEmpty()) {
+            item {
+                Text(
+                    "Nenhum aplicativo encontrado no dispositivo.",
+                    color = LocalPalette.current.panelTextSecondary,
+                    fontSize = 13.sp,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 10.dp),
+                )
+            }
+        }
+        item { ResultHeader("Play Store") }
+        item {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable {
+                        controller.searchPlayStore(query)
+                        onLaunched()
+                    }
+                    .padding(horizontal = 8.dp, vertical = 10.dp),
+            ) {
+                Icon(Icons.Default.ShoppingCart, null, tint = LocalPalette.current.accent, modifier = Modifier.size(28.dp))
+                Spacer(Modifier.width(14.dp))
+                Text("Procurar \"$query\" na Play Store", color = LocalPalette.current.panelText, fontSize = 14.sp)
             }
         }
         item { ResultHeader("Pesquisar na Web") }

@@ -1,5 +1,6 @@
 package dev.jesiel.launcher.data
 
+import kotlin.math.roundToInt
 import android.content.Context
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -67,7 +68,12 @@ data class ThemeLayout(
     val drawerColumns: Int = 4,
     /** Barra superior (Ubuntu e macOS) visível. */
     val showTopBar: Boolean = true,
-)
+) {
+    /** Altura de cada linha da grade, em dp: a escolhida, ou ícone + nome. */
+    fun cellHeight(): Int =
+        if (cellHeightDp > 0) cellHeightDp
+        else iconSizeDp + if (showLabels) (24 + labelSizeSp * 1.35f * labelLines).roundToInt() else 16
+}
 
 enum class MenuIcon(val label: String) {
     DEFAULT("Padrão do tema"),

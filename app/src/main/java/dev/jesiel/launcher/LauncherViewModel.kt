@@ -295,9 +295,35 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         d.copy(themeId = themeId, layouts = d.layouts + (themeId to to))
     }
 
-    fun updateLayout(transform: (ThemeLayout) -> ThemeLayout) = prefs.update { d ->
-        d.copy(layouts = d.layouts + (d.themeId to transform(d.layoutFor(d.themeId))))
+    /**
+     * Muda o layout do tema atual. Se a grade muda (altura das linhas, colunas), as posições
+     * são convertidas para cada item ficar no mesmo lugar da tela, em vez de todos "subirem".
+     */
+    fun updateLayout(transform: (ThemeLayout) -> ThemeLayout) {
+        val d = prefs.data.value
+        val old = d.layoutFor(d.themeId)
+        val new = transform(old)
+        if (old.cellHeight() == new.cellHeight() && old.gridColumns == new.gridColumns) {
+            prefs.update { it.copy(layouts = it.layouts + (it.themeId to new)) }
+            return
+        }
+        // Converte sempre a partir das posições de antes do ajuste começar (um controle
+        // deslizante chama isto a cada passo; assim não acumula arredondamento).
+        val base = gridBase?.takeIf { it.themeId == d.themeId }
+            ?: GridBase(d.themeId, old.cellHeight(), old.gridColumns, d.placementsFor(d.themeId))
+        gridBase = base
+        prefs.update { it.copy(layouts = it.layouts + (it.themeId to new)) }
+        savePlacements(d.themeId, rescalePlacements(base.placements, base.cellHeight, new.cellHeight(), base.columns, new.gridColumns, new.freePlacement))
+        gridBaseJob?.cancel()
+        gridBaseJob = viewModelScope.launch {
+            kotlinx.coroutines.delay(2_000)
+            gridBase = null
+        }
     }
+
+    private data class GridBase(val themeId: String, val cellHeight: Int, val columns: Int, val placements: Map<String, Placement>)
+    private var gridBase: GridBase? = null
+    private var gridBaseJob: kotlinx.coroutines.Job? = null
 
     private val newsRepository = NewsRepository()
     private val _news = MutableStateFlow<Map<NewsTopic, NewsState>>(emptyMap())
@@ -527,3 +553,35 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         const val MAX_DOCK = 8
     }
 }
+
+/**
+ * Converte posições de uma grade para outra mantendo o lugar na tela: a linha vezes a altura
+ * antiga dividida pela nova (e as colunas na mesma proporção). Ícones (1×1) mantêm o tamanho;
+ * widgets e componentes mantêm a altura e a largura na tela.
+ */
+fun rescalePlacements(
+    placements: Map<String, Placement>,
+    oldCell: Int,
+    newCell: Int,
+    oldColumns: Int,
+    newColumns: Int,
+    free: Boolean,
+): Map<String, Placement> {
+    if (oldCell <= 0 || newCell <= 0 || oldColumns <= 0 || newColumns <= 0) return placements
+    val fy = oldCell.toFloat() / newCell
+    val fx = newColumns.toFloat() / oldColumns
+    fun r(v: Float) = if (free) v else kotlin.math.round(v)
+    return placements.mapValues { (_, p) ->
+        val icon = p.w <= 1f && p.h <= 1f
+        val w = if (icon) p.w else r(p.w * fx).coerceIn(1f, newColumns.toFloat())
+        val h = if (icon) p.h else r(p.h * fy).coerceAtLeast(if (free) 0.5f else 1f)
+        p.copy(
+            // Coluna pelo centro do item (fica na coluna mais próxima de onde estava); linha pela borda de cima.
+            x = r((p.x + p.w / 2f) * fx - w / 2f).coerceIn(0f, (newColumns - w).coerceAtLeast(0f)),
+            y = r(p.y * fy).coerceAtLeast(0f),
+            w = w,
+            h = h,
+        )
+    }
+}
+

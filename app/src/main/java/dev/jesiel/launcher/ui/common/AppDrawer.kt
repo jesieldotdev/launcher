@@ -40,6 +40,7 @@ import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.Wallpaper
 import androidx.compose.material.icons.filled.Widgets
 import androidx.compose.material3.Icon
@@ -206,11 +207,35 @@ private fun DrawerContent(
                         )
                     }
                 }
-                item(span = { GridItemSpan(maxLineSpan) }) {
+                if (apps.isEmpty()) {
+                    item(span = { GridItemSpan(maxLineSpan) }) {
+                        Text(
+                            "Nenhum app com \"$query\" no aparelho.",
+                            color = palette.panelTextSecondary,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                        )
+                    }
+                }
+                // Sem o app? Procura na Play Store (primeiro, quando nada foi achado).
+                val store: @Composable () -> Unit = {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier
-                            .padding(8.dp)
+                            .padding(horizontal = 8.dp, vertical = 2.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .clickable { controller.searchPlayStore(query); close() }
+                            .padding(12.dp),
+                    ) {
+                        Icon(Icons.Default.ShoppingCart, null, tint = palette.accent)
+                        Spacer(Modifier.width(12.dp))
+                        Text("Procurar \"$query\" na Play Store", color = palette.panelText)
+                    }
+                }
+                val web: @Composable () -> Unit = {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .padding(horizontal = 8.dp, vertical = 2.dp)
                             .clip(RoundedCornerShape(12.dp))
                             .clickable { controller.webSearch(query); close() }
                             .padding(12.dp),
@@ -220,6 +245,8 @@ private fun DrawerContent(
                         Text("Pesquisar \"$query\" na Web", color = palette.panelText)
                     }
                 }
+                item(span = { GridItemSpan(maxLineSpan) }) { if (apps.isEmpty()) store() else web() }
+                item(span = { GridItemSpan(maxLineSpan) }) { if (apps.isEmpty()) web() else store() }
             }
             if (style.alphabetIndex && state.layout.showLetters && query.isBlank() && category == null && state.appsView != AppsView.CATEGORY) {
                 val letters = remember(apps) { letterPositions(apps) }

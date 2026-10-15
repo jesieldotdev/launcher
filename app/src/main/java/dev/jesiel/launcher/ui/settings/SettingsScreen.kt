@@ -257,7 +257,7 @@ fun SettingsScreen(state: LauncherUiState, controller: LauncherController, onClo
                         Card {
                             SwitchRow("Altura das linhas automática", layout.cellHeightDp == 0) { on ->
                                 // Ao desligar, começa da altura que já estava sendo usada.
-                                val auto = layout.iconSizeDp + if (layout.showLabels) (24 + layout.labelSizeSp * 1.35f * layout.labelLines).roundToInt() else 16
+                                val auto = layout.copy(cellHeightDp = 0).cellHeight()
                                 vm.updateLayout { it.copy(cellHeightDp = if (on) 0 else auto) }
                             }
                             Text(

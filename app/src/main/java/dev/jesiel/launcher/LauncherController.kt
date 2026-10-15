@@ -132,6 +132,13 @@ class LauncherController(
         articleUrl = url
     }
 
+    /** Procura na Play Store (como o HyperOS faz quando a busca não acha o app). */
+    fun searchPlayStore(query: String) {
+        val q = Uri.encode(query.trim())
+        val market = Intent(Intent.ACTION_VIEW, Uri.parse("market://search?q=$q&c=apps"))
+        if (!start(market, silent = true)) start(Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/search?q=$q&c=apps")))
+    }
+
     fun openUrl(url: String) {
         start(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
     }

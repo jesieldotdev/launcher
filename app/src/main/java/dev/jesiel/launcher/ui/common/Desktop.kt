@@ -200,8 +200,7 @@ fun DesktopCanvas(
         val indicatorSpace = 20.dp
         val cellW = maxWidth / columns
         // Altura da linha: a escolhida, ou ícone + nome (que cresce com o tamanho e as linhas do texto).
-        val autoCell = layout.iconSizeDp + if (layout.showLabels) (24 + layout.labelSizeSp * 1.35f * layout.labelLines).roundToInt() else 16
-        val cellH = (if (layout.cellHeightDp > 0) layout.cellHeightDp else autoCell).dp
+        val cellH = layout.cellHeight().dp
         val cellWpx = with(density) { cellW.toPx() }
         val cellHpx = with(density) { cellH.toPx() }
         val rows = DesktopGrid.rowsFor(with(density) { (maxHeight - indicatorSpace).toPx() }, cellHpx)
